@@ -92,7 +92,7 @@ class _SignInScreenState extends State<SignInScreen> {
                       controller: _passwordCtrl,
                       textInputAction: TextInputAction.done,
                       validator: (v) =>
-                          (v == null || v.length < 6) ? 'Password must be at least 6 characters' : null,
+                          (v == null || v.length < 8) ? 'Password must be at least 8 characters' : null,
                     ),
                     const SizedBox(height: 8),
 
