@@ -7,6 +7,7 @@ import 'dashboard/advisor/screens/advisor_dashboard_screen.dart';
 import 'dashboard/advisor/screens/attendance_screen.dart';
 import 'dashboard/advisor/screens/leave_management_screen.dart';
 import 'dashboard/hod/screens/hod_dashboard_screen.dart';
+import 'dashboard/student/screens/student_dashboard_screen.dart';
 import 'dashboard/timetable/screens/timetable_screen.dart';
 
 void main() {
@@ -38,6 +39,7 @@ class MyApp extends StatelessWidget {
         '/forgot-password': (_) => const ForgotPasswordScreen(),
         '/advisor-dashboard': (_) => const AdvisorDashboardScreen(),
         '/hod-dashboard': (_) => const HodDashboardScreen(),
+        '/student-dashboard': (_) => const StudentDashboardScreen(),
         '/attendance': (_) => const AttendanceScreen(),
         '/leave-management': (_) => const LeaveManagementScreen(),
         '/timetable': (_) => const TimetableScreen(),

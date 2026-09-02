@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_styles.dart';
 import '../../../core/models/user_model.dart';
+import '../../../core/models/leave_model.dart';
 import '../../../core/services/auth_service.dart';
+import '../../../core/services/mock_data_service.dart';
 import '../../../chatbot/widgets/jarvis_fab.dart';
+import '../../shared/widgets/letter_attachment_viewer_dialog.dart';
 
 class HodDashboardScreen extends StatefulWidget {
   const HodDashboardScreen({super.key});
@@ -15,7 +18,12 @@ class HodDashboardScreen extends StatefulWidget {
 class _HodDashboardScreenState extends State<HodDashboardScreen> {
   int _selectedYear = 2;
   String _selectedSection = 'B';
-  int _awaitingCount = 9;
+
+  int get _awaitingCount => MockDataService.leaveRequests
+      .where((l) =>
+          l.letterStatus == LetterStatus.forwarded ||
+          l.letterStatus == LetterStatus.submitted)
+      .length;
 
   String get _currentHodName {
     final user = AuthService().currentUser;
@@ -64,71 +72,43 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
     },
   ];
 
-  final List<Map<String, dynamic>> _pendingSlips = [
-    {
-      'id': 'p1',
-      'name': 'Lithesh Hari R',
-      'roll': '25243100',
-      'section': 'II AI&DS - Sec B',
-      'reason': 'Fees not paid (Family Discussion)',
-      'advisor': 'Dr. M. Rajendiran',
-      'date': '22 Aug 2026',
-      'approved': null,
-    },
-    {
-      'id': 'p2',
-      'name': 'Deepika S',
-      'roll': '25243044',
-      'section': 'II AI&DS - Sec A',
-      'reason': 'Viral fever / Hospital OPD',
-      'advisor': 'Dr. D. Anandan',
-      'date': '23 Aug 2026',
-      'approved': null,
-    },
-    {
-      'id': 'p3',
-      'name': 'Kavya S',
-      'roll': '25243072',
-      'section': 'III AI&DS - Sec A',
-      'reason': 'Paper Presentation at NIT',
-      'advisor': 'Mrs. P. Kavitha',
-      'date': '24 Aug 2026',
-      'approved': null,
-    },
-  ];
-
   List<String> get _currentSections {
     if (_selectedYear == 4) return ['A', 'B'];
     return ['A', 'B', 'C', 'D'];
   }
 
   Map<String, dynamic> get _sectionStats {
-    final key = '$_selectedYear-$_selectedSection';
-    final map = {
-      '1-A': {'strength': 60, 'present': 56, 'pct': 93.3, 'advisor': 'Dr. A. Saravanan'},
-      '1-B': {'strength': 59, 'present': 55, 'pct': 93.2, 'advisor': 'Mrs. M. Revathi'},
-      '1-C': {'strength': 60, 'present': 54, 'pct': 90.0, 'advisor': 'Mr. P. Vijay'},
-      '1-D': {'strength': 59, 'present': 56, 'pct': 94.9, 'advisor': 'Mrs. T. Nandhini'},
-      '2-A': {'strength': 62, 'present': 58, 'pct': 93.5, 'advisor': 'Dr. D. Anandan'},
-      '2-B': {'strength': 63, 'present': 59, 'pct': 93.65, 'advisor': 'Dr. M. Rajendiran'},
-      '2-C': {'strength': 61, 'present': 55, 'pct': 90.1, 'advisor': 'Mr. A. Bharathidasan'},
-      '2-D': {'strength': 61, 'present': 57, 'pct': 93.4, 'advisor': 'Mr. R. Palraj'},
-      '3-A': {'strength': 60, 'present': 58, 'pct': 96.6, 'advisor': 'Mrs. P. Kavitha'},
-      '3-B': {'strength': 58, 'present': 53, 'pct': 91.3, 'advisor': 'Mr. S. Dinesh'},
-      '3-C': {'strength': 59, 'present': 54, 'pct': 91.5, 'advisor': 'Mrs. N. Geetha'},
-      '3-D': {'strength': 58, 'present': 55, 'pct': 94.8, 'advisor': 'Mr. G. Anand'},
-      '4-A': {'strength': 56, 'present': 54, 'pct': 96.4, 'advisor': 'Dr. V. Sathish'},
-      '4-B': {'strength': 56, 'present': 53, 'pct': 94.6, 'advisor': 'Mrs. K. Malathi'},
+    final students = MockDataService.getStudentsBySection(_selectedYear, _selectedSection);
+    final count = students.isNotEmpty ? students.length : 63;
+    final present = (count * 0.94).round();
+
+    String advisor = 'Department Advisor';
+    for (final adv in AuthService.sectionAdvisors) {
+      if (adv.year == _selectedYear && adv.section == _selectedSection) {
+        advisor = adv.name;
+        break;
+      }
+    }
+
+    String boyCr = 'Boy CR';
+    String girlCr = 'Girl CR';
+    for (final cr in AuthService.classRepresentatives) {
+      if (cr.year == _selectedYear && cr.section == _selectedSection) {
+        if (cr.gender == 'Boy') boyCr = cr.name;
+        if (cr.gender == 'Girl') girlCr = cr.name;
+      }
+    }
+
+    return {
+      'strength': count,
+      'present': present,
+      'pct': double.parse(((present / count) * 100).toStringAsFixed(1)),
+      'advisor': advisor,
+      'boyCr': boyCr,
+      'girlCr': girlCr,
     };
-    return map[key] ?? {'strength': 60, 'present': 56, 'pct': 93.3, 'advisor': 'Staff Advisor'};
   }
 
-  void _approveSlip(int index, bool approve) {
-    setState(() {
-      _pendingSlips[index]['approved'] = approve;
-      if (_awaitingCount > 0) _awaitingCount--;
-    });
-  }
 
   void _showAddInstructionDialog() {
     final titleCtrl = TextEditingController();
@@ -149,7 +129,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                 const Text('Target Scope:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
-                  value: scope,
+                  initialValue: scope,
                   decoration: AppStyles.inputDecoration(hintText: 'Scope', prefixIcon: Icons.campaign_rounded),
                   items: const [
                     DropdownMenuItem(value: 'Overall Department', child: Text('Overall Department')),
@@ -452,6 +432,27 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                 Text('${(stats['strength'] as int) - (stats['present'] as int)} Absent Today', style: const TextStyle(fontSize: 12, color: AppColors.absentRed, fontWeight: FontWeight.w600)),
               ],
             ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.people_alt_outlined, size: 16, color: AppColors.primaryPurple),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Section CRs: ♂ ${stats["boyCr"]} • ♀ ${stats["girlCr"]}',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
@@ -576,19 +577,36 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
   }
 
   Widget _buildApprovalHeader() {
+    final pendingCount = MockDataService.leaveRequests
+        .where((l) =>
+            l.letterStatus == LetterStatus.forwarded ||
+            l.letterStatus == LetterStatus.submitted)
+        .length;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text('Needs Your Final Approval', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+          Text('Needs Your Final Approval ($pendingCount)',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
           TextButton(
             onPressed: () {
-              for (int i = 0; i < _pendingSlips.length; i++) {
-                _approveSlip(i, true);
-              }
+              setState(() {
+                for (final l in MockDataService.leaveRequests) {
+                  if (l.letterStatus == LetterStatus.forwarded ||
+                      l.letterStatus == LetterStatus.submitted) {
+                    MockDataService.approveByHod(l.id);
+                  }
+                }
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('All pending requests approved by HOD.')),
+              );
             },
-            child: const Text('Approve All', style: TextStyle(color: AppColors.primaryPurple, fontWeight: FontWeight.bold)),
+            child: const Text('Approve All',
+                style: TextStyle(
+                    color: AppColors.primaryPurple, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -596,60 +614,190 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
   }
 
   Widget _buildApprovalQueue() {
+    final leaves = MockDataService.leaveRequests;
+
+    if (leaves.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(20),
+        child: Center(
+          child: Text('No leave or OD applications in queue',
+              style: TextStyle(color: Colors.grey)),
+        ),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
-        children: _pendingSlips.asMap().entries.map((entry) {
-          final idx = entry.key;
-          final slip = entry.value;
-          final isResolved = slip['approved'] != null;
+        children: leaves.map((leave) {
+          final isPending = leave.letterStatus == LetterStatus.forwarded ||
+              leave.letterStatus == LetterStatus.submitted;
 
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
+            decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE2E8F0))),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    CircleAvatar(
-                      radius: 18,
-                      backgroundColor: const Color(0xFFFEF3C7),
-                      child: const Icon(Icons.hourglass_top_rounded, color: Color(0xFFD97706), size: 18),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(slip['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                          Text('${slip['roll']} • ${slip['section']}', style: const TextStyle(color: Colors.grey, fontSize: 11)),
-                        ],
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: leave.isOnDuty
+                            ? const Color(0xFFEFF6FF)
+                            : const Color(0xFFFDF2F8),
+                        borderRadius: BorderRadius.circular(6),
                       ),
+                      child: Text(
+                        leave.categoryDisplay.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: leave.isOnDuty
+                              ? const Color(0xFF2563EB)
+                              : const Color(0xFFDB2777),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: leave.letterStatus == LetterStatus.approved
+                            ? const Color(0xFFD1FAE5)
+                            : leave.letterStatus == LetterStatus.rejected
+                                ? const Color(0xFFFEE2E2)
+                                : const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        leave.letterStatusDisplay,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: leave.letterStatus == LetterStatus.approved
+                              ? const Color(0xFF047857)
+                              : leave.letterStatus == LetterStatus.rejected
+                                  ? const Color(0xFFDC2626)
+                                  : const Color(0xFFD97706),
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '${leave.leaveDate.day}/${leave.leaveDate.month}/${leave.leaveDate.year}',
+                      style: const TextStyle(color: Colors.grey, fontSize: 11),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Text('Reason: ${slip['reason']}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-                Text('Forwarded by: ${slip['advisor']} on ${slip['date']}', style: const TextStyle(fontSize: 11, color: Colors.black54)),
+                const SizedBox(height: 10),
+                Text(leave.studentName,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                Text(
+                    'Roll: ${leave.studentRollNumber} • Class: Year ${leave.year ?? 2} - Sec ${leave.section ?? "B"}',
+                    style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                const SizedBox(height: 6),
+                Text('Reason: ${leave.reason}',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                if (leave.advisorRemarks != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text('Advisor Endorsement: ${leave.advisorRemarks}',
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF475569))),
+                  ),
+                if (leave.hodRemarks != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text('HOD Remarks: ${leave.hodRemarks}',
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF047857))),
+                  ),
+
+                // File Attachment Preview Box
+                if (leave.hasAttachment) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.picture_as_pdf_rounded, color: Colors.red, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '${leave.attachmentFileName} (${leave.attachmentFileSize ?? "Proof"})',
+                            style: const TextStyle(
+                                fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        InkWell(
+                          onTap: () {
+                            showDialog(
+                              context: context,
+                              builder: (ctx) => LetterAttachmentViewerDialog(
+                                leave: leave,
+                                onApproveByHod: (remarks) {
+                                  setState(() {
+                                    MockDataService.approveByHod(leave.id, remarks: remarks);
+                                  });
+                                },
+                                onRejectByHod: (remarks) {
+                                  setState(() {
+                                    MockDataService.rejectByHod(leave.id, remarks: remarks);
+                                  });
+                                },
+                              ),
+                            );
+                          },
+                          child: const Text('Inspect Proof',
+                              style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primaryPurple)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
                 const SizedBox(height: 12),
-                if (!isResolved)
+                if (isPending)
                   Row(
                     children: [
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: () => _approveSlip(idx, false),
-                          style: OutlinedButton.styleFrom(foregroundColor: AppColors.absentRed, side: const BorderSide(color: Color(0xFFFCA5A5))),
+                          onPressed: () {
+                            setState(() {
+                              MockDataService.rejectByHod(leave.id);
+                            });
+                          },
+                          style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.absentRed,
+                              side: const BorderSide(color: Color(0xFFFCA5A5))),
                           child: const Text('✕ Reject'),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () => _approveSlip(idx, true),
-                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981)),
-                          child: const Text('✓ Approve', style: TextStyle(color: Colors.white)),
+                          onPressed: () {
+                            setState(() {
+                              MockDataService.approveByHod(leave.id);
+                            });
+                          },
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF10B981)),
+                          child: const Text('✓ Check & Approve',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                         ),
                       ),
                     ],
@@ -659,13 +807,22 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     decoration: BoxDecoration(
-                      color: slip['approved'] == true ? const Color(0xFFD1FAE5) : const Color(0xFFFEE2E2),
+                      color: leave.letterStatus == LetterStatus.approved
+                          ? const Color(0xFFD1FAE5)
+                          : const Color(0xFFFEE2E2),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Center(
                       child: Text(
-                        slip['approved'] == true ? '✓ Approved & Signed by HOD' : '✕ Rejected by HOD',
-                        style: TextStyle(color: slip['approved'] == true ? const Color(0xFF047857) : AppColors.absentRed, fontWeight: FontWeight.bold, fontSize: 12),
+                        leave.letterStatus == LetterStatus.approved
+                            ? '✓ Approved & Digitally Sealed by HOD'
+                            : '✕ Rejected by HOD',
+                        style: TextStyle(
+                            color: leave.letterStatus == LetterStatus.approved
+                                ? const Color(0xFF047857)
+                                : AppColors.absentRed,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12),
                       ),
                     ),
                   ),

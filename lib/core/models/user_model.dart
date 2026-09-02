@@ -10,8 +10,14 @@ class UserModel {
   final String department;
   final String college;
   final String? classSection; // e.g., "II AI&DS - Section B"
+  final String? batchYear; // e.g., "2025 BATCH"
   final String? hodScope; // e.g., "1st & 2nd Year" or "Overall & 3rd/4th Year"
   final String? avatarUrl;
+  final bool isClassRepresentative;
+  final String? rollNumber;
+  final String? gender; // 'Boy' or 'Girl'
+  final int? year; // 2, 3, 4
+  final String? section; // 'A', 'B', 'C', 'D'
 
   const UserModel({
     required this.id,
@@ -21,8 +27,14 @@ class UserModel {
     required this.department,
     this.college = 'V.S.B. Engineering College',
     this.classSection,
+    this.batchYear,
     this.hodScope,
     this.avatarUrl,
+    this.isClassRepresentative = false,
+    this.rollNumber,
+    this.gender,
+    this.year,
+    this.section,
   });
 
   String get roleDisplayName {
@@ -32,7 +44,9 @@ class UserModel {
       case UserRole.advisor:
         return 'Class Adviser';
       case UserRole.student:
-        return 'Student';
+        return isClassRepresentative
+            ? 'Class Representative ($gender CR - $classSection)'
+            : 'Student';
     }
   }
 
@@ -43,7 +57,9 @@ class UserModel {
       case UserRole.advisor:
         return 'Class Adviser';
       case UserRole.student:
-        return 'Student';
+        return isClassRepresentative
+            ? '${gender == "Girl" ? "♀" : "♂"} $gender CR'
+            : 'Student';
     }
   }
 }

@@ -205,8 +205,18 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                           alignment: WrapAlignment.center,
                           children: [
                             _roleChip('Dr. Manivannan (Overall HOD)', 'manivannan.hod@vsb.ac.in'),
-                            _roleChip('Mrs. Kavitha (1st & 2nd Yr HOD)', 'kavitha.hod@vsb.ac.in'),
-                            _roleChip('Advisor: Mrs. S. Muthulakshmi', 'muthulakshmi.aids@vsb.ac.in'),
+                            _roleChip('Mrs. Kavitha (I & II Yr HOD)', 'kavitha.hod@vsb.ac.in'),
+                            _roleChip('Advisor: Mrs. S. Muthulakshmi (II-B)', 'muthulakshmi.aids@vsb.ac.in'),
+                            _roleChip('♂ Lithesh Hari R (II-B Boy CR)', 'cr.boy.2b@vsb.ac.in'),
+                            _roleChip('♀ Janani Y (II-B Girl CR)', 'cr.girl.2b@vsb.ac.in'),
+                            _roleChip('♂ Adithyan S (II-A Boy CR)', 'cr.boy.2a@vsb.ac.in'),
+                            _roleChip('♀ S. Harini (IV-B Girl CR)', 'cr.girl.4b@vsb.ac.in'),
+                            ActionChip(
+                              label: const Text('📋 All 20 Section CRs...', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primaryPurple)),
+                              backgroundColor: const Color(0xFFF5F3FF),
+                              side: const BorderSide(color: Color(0xFFDDD6FE)),
+                              onPressed: _showAllClassRepsDialog,
+                            ),
                           ],
                         ),
                         const SizedBox(height: 32),
@@ -329,6 +339,75 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
         _emailCtrl.text = email;
         _passwordCtrl.text = 'password123';
       },
+    );
+  }
+
+  void _showAllClassRepsDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.people_alt_rounded, color: AppColors.primaryPurple),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text('All 20 Section Class Representatives',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
+                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                ],
+              ),
+              const Text('Select any Boy or Girl CR to test their student class access:',
+                  style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const Divider(height: 20),
+              Expanded(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: AuthService.classRepresentatives.length,
+                  itemBuilder: (context, i) {
+                    final cr = AuthService.classRepresentatives[i];
+                    return ListTile(
+                      dense: true,
+                      leading: CircleAvatar(
+                        radius: 14,
+                        backgroundColor: cr.gender == 'Girl'
+                            ? const Color(0xFFFDF2F8)
+                            : const Color(0xFFEFF6FF),
+                        child: Text(
+                          cr.gender == 'Girl' ? '♀' : '♂',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: cr.gender == 'Girl' ? Colors.pink : Colors.blue,
+                          ),
+                        ),
+                      ),
+                      title: Text('${cr.name} (${cr.gender} CR)',
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      subtitle: Text('${cr.rollNumber} • ${cr.classSection} (${cr.batchYear})',
+                          style: const TextStyle(fontSize: 11)),
+                      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _emailCtrl.text = cr.email;
+                        _passwordCtrl.text = 'password123';
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

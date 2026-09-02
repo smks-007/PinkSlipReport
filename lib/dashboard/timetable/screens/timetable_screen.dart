@@ -291,7 +291,7 @@ class _TimetableScreenState extends State<TimetableScreen>
         padding: const EdgeInsets.symmetric(horizontal: 20),
         scrollDirection: Axis.horizontal,
         itemCount: _days.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        separatorBuilder: (_, index) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final day = _days[index];
           final isSelected = _selectedDay == day;
@@ -550,7 +550,7 @@ class _FacultySubjectSheet extends StatelessWidget {
           Expanded(
             child: ListView.separated(
               itemCount: timetable.subjects.length,
-              separatorBuilder: (_, __) => const Divider(height: 16),
+              separatorBuilder: (_, index) => const Divider(height: 16),
               itemBuilder: (context, index) {
                 final sub = timetable.subjects[index];
                 return Row(

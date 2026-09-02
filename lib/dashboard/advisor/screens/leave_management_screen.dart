@@ -4,6 +4,7 @@ import '../../../core/constants/app_styles.dart';
 import '../../../core/models/leave_model.dart';
 import '../../../core/services/mock_data_service.dart';
 import '../../../chatbot/widgets/jarvis_fab.dart';
+import '../../shared/widgets/letter_attachment_viewer_dialog.dart';
 
 /// Leave Management screen for Advisors.
 /// Shows leave requests with letter status, forward-to-HOD action.
@@ -219,6 +220,10 @@ class _LeaveCard extends StatelessWidget {
             spacing: 16,
             runSpacing: 8,
             children: [
+              _detailChip(
+                  leave.isOnDuty ? Icons.badge_outlined : Icons.event_busy,
+                  leave.categoryDisplay,
+                  leave.isOnDuty ? const Color(0xFF2563EB) : const Color(0xFFDB2777)),
               _detailChip(Icons.category_rounded,
                   'Type: ${leave.leaveTypeDisplay}',
                   leave.leaveType == LeaveType.informed
@@ -238,6 +243,47 @@ class _LeaveCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
+
+          // File Attachment Box (if present)
+          if (leave.hasAttachment) ...[
+            Container(
+              margin: const EdgeInsets.only(top: 6, bottom: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFCBD5E1)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.picture_as_pdf_rounded, color: Colors.red, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${leave.attachmentFileName} (${leave.attachmentFileSize ?? "Proof"})',
+                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => LetterAttachmentViewerDialog(
+                          leave: leave,
+                          onForwardToHod: onForward,
+                        ),
+                      );
+                    },
+                    child: const Text(
+                      'Inspect Proof',
+                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppColors.primaryPurple),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
 
           // Date info
           if (leave.dateSubmittedToAdvisor != null)
@@ -263,26 +309,49 @@ class _LeaveCard extends StatelessWidget {
             _remarkBox('HOD Remarks', leave.hodRemarks!),
           ],
 
-          // Forward Button
-          if (onForward != null) ...[
-            const SizedBox(height: 14),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: onForward,
-                icon: const Icon(Icons.send_rounded, size: 18),
-                label: const Text('Forward to HOD'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryPurple,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+          // Action Buttons: View Full Letter + Forward
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => LetterAttachmentViewerDialog(
+                        leave: leave,
+                        onForwardToHod: onForward,
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.description_outlined, size: 16),
+                  label: const Text('View Full Letter'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primaryPurple,
+                    side: const BorderSide(color: Color(0xFFDDD6FE)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                 ),
               ),
-            ),
-          ],
+              if (onForward != null) ...[
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: onForward,
+                    icon: const Icon(Icons.send_rounded, size: 16),
+                    label: const Text('Forward to HOD'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryPurple,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ],
       ),
     );

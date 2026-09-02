@@ -1,163 +1,314 @@
 import '../models/student_model.dart';
 import '../models/attendance_model.dart';
 import '../models/leave_model.dart';
+import '../data/student_directory_data.dart';
 
-/// Provides realistic mock data for Phase 1 (before backend integration).
+/// Provides realistic mock data and real-time state for the PinkSlipReport system.
 class MockDataService {
   MockDataService._();
 
-  // ──────────────────── Students ────────────────────
+  // ──────────────────── Complete Directory (622 Students) ────────────────────
 
-  static final List<StudentModel> students = [
-    const StudentModel(id: 's1', name: 'Lithesh Hari R', rollNumber: '25243100', department: 'AI&DS', section: 'B', year: 2, advisorId: 'adv-001', totalLeavesTaken: 3, dueLetters: 1, isPresentToday: true),
-    const StudentModel(id: 's2', name: 'Manikandan M', rollNumber: '25243113', department: 'AI&DS', section: 'B', year: 2, advisorId: 'adv-001', totalLeavesTaken: 2, dueLetters: 0, isPresentToday: true),
-    const StudentModel(id: 's3', name: 'Janani Y', rollNumber: '25243068', department: 'AI&DS', section: 'B', year: 2, advisorId: 'adv-001', totalLeavesTaken: 5, dueLetters: 2, isPresentToday: false),
-    const StudentModel(id: 's4', name: 'Rajavel S', rollNumber: '25243120', department: 'AI&DS', section: 'B', year: 2, advisorId: 'adv-001', totalLeavesTaken: 1, dueLetters: 0, isPresentToday: true),
-    const StudentModel(id: 's5', name: 'Priya K', rollNumber: '25243055', department: 'AI&DS', section: 'B', year: 2, advisorId: 'adv-001', totalLeavesTaken: 4, dueLetters: 1, isPresentToday: false),
-    const StudentModel(id: 's6', name: 'Arun Kumar V', rollNumber: '25243012', department: 'AI&DS', section: 'B', year: 2, advisorId: 'adv-001', totalLeavesTaken: 0, dueLetters: 0, isPresentToday: true),
-    const StudentModel(id: 's7', name: 'Deepa M', rollNumber: '25243033', department: 'AI&DS', section: 'B', year: 2, advisorId: 'adv-001', totalLeavesTaken: 2, dueLetters: 0, isPresentToday: true),
-    const StudentModel(id: 's8', name: 'Karthik R', rollNumber: '25243078', department: 'AI&DS', section: 'B', year: 2, advisorId: 'adv-001', totalLeavesTaken: 6, dueLetters: 3, isPresentToday: false),
-    const StudentModel(id: 's9', name: 'Lakshmi S', rollNumber: '25243090', department: 'AI&DS', section: 'B', year: 2, advisorId: 'adv-001', totalLeavesTaken: 1, dueLetters: 0, isPresentToday: true),
-    const StudentModel(id: 's10', name: 'Naveen P', rollNumber: '25243102', department: 'AI&DS', section: 'B', year: 2, advisorId: 'adv-001', totalLeavesTaken: 3, dueLetters: 1, isPresentToday: false),
-    // More students for a realistic 63-student class
-    const StudentModel(id: 's11', name: 'Surya T', rollNumber: '25243130', department: 'AI&DS', section: 'B', year: 2, advisorId: 'adv-001', totalLeavesTaken: 0, dueLetters: 0, isPresentToday: true),
-    const StudentModel(id: 's12', name: 'Vignesh K', rollNumber: '25243140', department: 'AI&DS', section: 'B', year: 2, advisorId: 'adv-001', totalLeavesTaken: 1, dueLetters: 0, isPresentToday: true),
-    const StudentModel(id: 's13', name: 'Anitha R', rollNumber: '25243008', department: 'AI&DS', section: 'B', year: 2, advisorId: 'adv-001', totalLeavesTaken: 2, dueLetters: 1, isPresentToday: true),
-    const StudentModel(id: 's14', name: 'Bala Murugan S', rollNumber: '25243015', department: 'AI&DS', section: 'B', year: 2, advisorId: 'adv-001', totalLeavesTaken: 0, dueLetters: 0, isPresentToday: true),
-    const StudentModel(id: 's15', name: 'Dhivya G', rollNumber: '25243028', department: 'AI&DS', section: 'B', year: 2, advisorId: 'adv-001', totalLeavesTaken: 3, dueLetters: 0, isPresentToday: true),
-  ];
+  /// All 622 students across all 10 sections
+  static List<StudentModel> get allStudents => StudentDirectoryData.allStudents;
 
-  static int get totalStrength => 63;
-  static int get presentToday => 59;
+  /// Default section students (II AI&DS Sec B) for backwards compatibility
+  static List<StudentModel> get students =>
+      StudentDirectoryData.bySection['2-B'] ?? StudentDirectoryData.allStudents.take(63).toList();
+
+  static List<StudentModel> getStudentsBySection(int year, String section) {
+    return StudentDirectoryData.bySection['$year-$section'] ?? [];
+  }
+
+  static int get totalStrength => allStudents.length; // 622
+  static int get presentToday => 589;
   static int get absentToday => totalStrength - presentToday;
   static double get attendancePercentage => (presentToday / totalStrength) * 100;
 
-  // ──────────────────── Leave Requests ────────────────────
+  // ──────────────────── Leave & On-Duty (OD) Requests ────────────────────
 
-  static final List<LeaveModel> leaveRequests = [
+  static final List<LeaveModel> _leaveRequests = [
+    // 1. II AIDS B: Lithesh Hari R (Leave with Parent Letter)
     LeaveModel(
-      id: 'l1',
-      studentId: 's1',
-      studentName: 'Lithesh Hari R',
+      id: 'l-001',
+      studentId: 'stu_098',
+      studentName: 'LITHEH HARI R',
       studentRollNumber: '25243100',
+      category: LeaveCategory.leave,
+      section: 'B',
+      year: 2,
+      batchYear: '2025 BATCH',
       leaveDate: DateTime.now().subtract(const Duration(days: 2)),
       leaveType: LeaveType.informed,
-      reason: 'Fees not Paid',
+      reason: 'Fees not paid (Family financial settlement discussion)',
       letterSubmitted: true,
       letterStatus: LetterStatus.submitted,
+      attachmentFileName: 'guardian_explanation_letter.pdf',
+      attachmentFileType: 'Parent Signed Letter',
+      attachmentFileSize: '1.4 MB',
       dateSubmittedToAdvisor: DateTime.now().subtract(const Duration(days: 2)),
+      advisorRemarks: 'Parent met advisor in person. Genuine delay requested.',
       dueDays: 2,
       totalLeavesTaken: 3,
     ),
+
+    // 2. II AIDS B: Manikandan M (Medical Leave with Hospital Certificate - Approved)
     LeaveModel(
-      id: 'l2',
-      studentId: 's2',
-      studentName: 'Manikandan M',
+      id: 'l-002',
+      studentId: 'stu_111',
+      studentName: 'MANIKANDAN M',
       studentRollNumber: '25243113',
+      category: LeaveCategory.leave,
+      section: 'B',
+      year: 2,
+      batchYear: '2025 BATCH',
       leaveDate: DateTime.now().subtract(const Duration(days: 3)),
       leaveType: LeaveType.informed,
-      reason: 'Chicken Pox',
+      reason: 'Severe viral fever & throat infection',
       letterSubmitted: true,
       letterStatus: LetterStatus.approved,
+      attachmentFileName: 'medical_fitness_certificate.pdf',
+      attachmentFileType: 'Medical Certificate (GH)',
+      attachmentFileSize: '2.1 MB',
       dateSubmittedToAdvisor: DateTime.now().subtract(const Duration(days: 3)),
       dateReceivedByHod: DateTime.now().subtract(const Duration(days: 2)),
       dateApprovedRejected: DateTime.now().subtract(const Duration(days: 1)),
+      advisorRemarks: 'Medical certificate verified from registered medical officer.',
+      hodRemarks: 'Approved by HOD. Medical condonation granted.',
       dueDays: 0,
       totalLeavesTaken: 2,
-      hodRemarks: 'Medical leave approved. Get well soon.',
     ),
+
+    // 3. II AIDS B: Janani Y (On-Duty OD - Symposium at IIT Madras)
     LeaveModel(
-      id: 'l3',
-      studentId: 's3',
-      studentName: 'Janani Y',
+      id: 'l-003',
+      studentId: 'stu_067',
+      studentName: 'JANANI Y',
       studentRollNumber: '25243068',
+      category: LeaveCategory.onDuty,
+      section: 'B',
+      year: 2,
+      batchYear: '2025 BATCH',
       leaveDate: DateTime.now().subtract(const Duration(days: 1)),
       leaveType: LeaveType.informed,
-      reason: 'Stomach Pain',
-      letterSubmitted: true,
-      letterStatus: LetterStatus.submitted,
-      dateSubmittedToAdvisor: DateTime.now().subtract(const Duration(days: 1)),
-      dueDays: 1,
-      totalLeavesTaken: 5,
-    ),
-    LeaveModel(
-      id: 'l4',
-      studentId: 's5',
-      studentName: 'Priya K',
-      studentRollNumber: '25243055',
-      leaveDate: DateTime.now(),
-      leaveType: LeaveType.uninformed,
-      reason: 'Family Emergency',
-      letterSubmitted: false,
-      letterStatus: LetterStatus.notSubmitted,
-      dueDays: 0,
-      totalLeavesTaken: 4,
-    ),
-    LeaveModel(
-      id: 'l5',
-      studentId: 's8',
-      studentName: 'Karthik R',
-      studentRollNumber: '25243078',
-      leaveDate: DateTime.now().subtract(const Duration(days: 5)),
-      leaveType: LeaveType.informed,
-      reason: 'Sports Tournament',
+      reason: 'National Level Technical Symposium & AI Paper Presentation at IIT Madras',
       letterSubmitted: true,
       letterStatus: LetterStatus.forwarded,
-      dateSubmittedToAdvisor: DateTime.now().subtract(const Duration(days: 5)),
-      dateReceivedByHod: DateTime.now().subtract(const Duration(days: 3)),
-      advisorRemarks: 'Genuine reason. Representing college in state-level cricket.',
-      dueDays: 3,
-      totalLeavesTaken: 6,
+      attachmentFileName: 'iit_madras_symposium_invitation.pdf',
+      attachmentFileType: 'Official OD Invitation Letter',
+      attachmentFileSize: '1.8 MB',
+      dateSubmittedToAdvisor: DateTime.now().subtract(const Duration(days: 1)),
+      dateReceivedByHod: DateTime.now(),
+      advisorRemarks: 'Selected for final round paper presentation. Highly recommended for OD.',
+      dueDays: 1,
+      totalLeavesTaken: 1,
     ),
+
+    // 4. II AIDS A: Adithyan S (On-Duty OD - State Level Cricket Tournament)
     LeaveModel(
-      id: 'l6',
-      studentId: 's10',
-      studentName: 'Naveen P',
-      studentRollNumber: '25243102',
+      id: 'l-004',
+      studentId: 'stu_002',
+      studentName: 'ADITHYAN S',
+      studentRollNumber: '25243002',
+      category: LeaveCategory.onDuty,
+      section: 'A',
+      year: 2,
+      batchYear: '2025 BATCH',
       leaveDate: DateTime.now().subtract(const Duration(days: 4)),
-      leaveType: LeaveType.uninformed,
-      reason: 'Personal Reasons',
+      leaveType: LeaveType.informed,
+      reason: 'Anna University Zonal Cricket Tournament Championship match',
       letterSubmitted: true,
-      letterStatus: LetterStatus.rejected,
+      letterStatus: LetterStatus.forwarded,
+      attachmentFileName: 'sports_board_od_letter.pdf',
+      attachmentFileType: 'Physical Education OD Proof',
+      attachmentFileSize: '920 KB',
+      dateSubmittedToAdvisor: DateTime.now().subtract(const Duration(days: 4)),
+      dateReceivedByHod: DateTime.now().subtract(const Duration(days: 1)),
+      advisorRemarks: 'Endorsed by College Physical Director. Regularize under sports quota.',
+      dueDays: 0,
+      totalLeavesTaken: 2,
+    ),
+
+    // 5. III AIDS A: Akash I (On-Duty OD - Smart India Hackathon)
+    LeaveModel(
+      id: 'l-005',
+      studentId: 'stu_256',
+      studentName: 'AKASH I',
+      studentRollNumber: '24243007',
+      category: LeaveCategory.onDuty,
+      section: 'A',
+      year: 3,
+      batchYear: '2024 BATCH',
+      leaveDate: DateTime.now(),
+      leaveType: LeaveType.informed,
+      reason: 'Smart India Hackathon (SIH) 2026 Grand Finale at Bengaluru Nodal Center',
+      letterSubmitted: true,
+      letterStatus: LetterStatus.submitted,
+      attachmentFileName: 'sih_team_selection_letter.pdf',
+      attachmentFileType: 'Govt. OD Endorsement Letter',
+      attachmentFileSize: '3.4 MB',
+      dateSubmittedToAdvisor: DateTime.now(),
+      advisorRemarks: 'Lead shortlisted finalist for SIH hardware-software category.',
+      dueDays: 0,
+      totalLeavesTaken: 1,
+    ),
+
+    // 6. IV AIDS B: S. Harini (Placement Drive On-Duty OD)
+    LeaveModel(
+      id: 'l-006',
+      studentId: 'stu_558',
+      studentName: 'S. HARINI',
+      studentRollNumber: '23243034',
+      category: LeaveCategory.onDuty,
+      section: 'B',
+      year: 4,
+      batchYear: '2023 BATCH',
+      leaveDate: DateTime.now().subtract(const Duration(days: 1)),
+      leaveType: LeaveType.informed,
+      reason: 'Off-campus recruitment final technical round at Zoho Corporation, Chennai',
+      letterSubmitted: true,
+      letterStatus: LetterStatus.forwarded,
+      attachmentFileName: 'zoho_interview_call_letter.pdf',
+      attachmentFileType: 'Placement Office Call Letter',
+      attachmentFileSize: '1.1 MB',
+      dateSubmittedToAdvisor: DateTime.now().subtract(const Duration(days: 1)),
+      dateReceivedByHod: DateTime.now(),
+      advisorRemarks: 'Placement cell verified the call letter. OD recommended.',
+      dueDays: 1,
+      totalLeavesTaken: 2,
+    ),
+
+    // 7. II AIDS C: Muhil Raja A (Uninformed Leave Regularization with Medical Proof)
+    LeaveModel(
+      id: 'l-007',
+      studentId: 'stu_127',
+      studentName: 'MUHIL RAJA A',
+      studentRollNumber: '25243129',
+      category: LeaveCategory.leave,
+      section: 'C',
+      year: 2,
+      batchYear: '2025 BATCH',
+      leaveDate: DateTime.now().subtract(const Duration(days: 5)),
+      leaveType: LeaveType.uninformed,
+      reason: 'Acute Gastroenteritis OPD treatment',
+      letterSubmitted: true,
+      letterStatus: LetterStatus.approved,
+      attachmentFileName: 'clinic_prescription_bill.pdf',
+      attachmentFileType: 'Medical Prescription & Bill',
+      attachmentFileSize: '850 KB',
       dateSubmittedToAdvisor: DateTime.now().subtract(const Duration(days: 4)),
       dateReceivedByHod: DateTime.now().subtract(const Duration(days: 3)),
       dateApprovedRejected: DateTime.now().subtract(const Duration(days: 2)),
-      hodRemarks: 'Insufficient reason. Too many uninformed leaves.',
+      advisorRemarks: 'Student submitted medical certificate upon returning.',
+      hodRemarks: 'Absence regularized. Advised to inform prior next time.',
       dueDays: 0,
-      totalLeavesTaken: 3,
-    ),
-    LeaveModel(
-      id: 'l7',
-      studentId: 's13',
-      studentName: 'Anitha R',
-      studentRollNumber: '25243008',
-      leaveDate: DateTime.now().subtract(const Duration(days: 1)),
-      leaveType: LeaveType.informed,
-      reason: 'Medical Checkup',
-      letterSubmitted: true,
-      letterStatus: LetterStatus.forwarded,
-      dateSubmittedToAdvisor: DateTime.now().subtract(const Duration(days: 1)),
-      dateReceivedByHod: DateTime.now(),
-      advisorRemarks: 'Regular medical appointment.',
-      dueDays: 1,
       totalLeavesTaken: 2,
+    ),
+
+    // 8. III AIDS B: Kabeesh L (Leave without letter - Pending)
+    LeaveModel(
+      id: 'l-008',
+      studentId: 'stu_315',
+      studentName: 'KABEESH L',
+      studentRollNumber: '24243064',
+      category: LeaveCategory.leave,
+      section: 'B',
+      year: 3,
+      batchYear: '2024 BATCH',
+      leaveDate: DateTime.now().subtract(const Duration(days: 2)),
+      leaveType: LeaveType.uninformed,
+      reason: 'Native town temple festival function',
+      letterSubmitted: false,
+      letterStatus: LetterStatus.notSubmitted,
+      dueDays: 2,
+      totalLeavesTaken: 3,
     ),
   ];
 
+  static List<LeaveModel> get leaveRequests => List.unmodifiable(_leaveRequests);
+
+  /// Filter leaves by section and year
+  static List<LeaveModel> getLeavesForSection(int year, String section) {
+    return _leaveRequests.where((l) => l.year == year && l.section == section).toList();
+  }
+
+  /// Get pending slips awaiting HOD action
+  static List<LeaveModel> getPendingForHod({int? year}) {
+    return _leaveRequests.where((l) {
+      final isPending = l.letterStatus == LetterStatus.forwarded || l.letterStatus == LetterStatus.submitted;
+      if (year == null) return isPending;
+      return isPending && l.year == year;
+    }).toList();
+  }
+
+  /// Submit a new Leave or On-Duty Request (used by Students & Class Representatives)
+  static void submitLeaveRequest(LeaveModel newLeave) {
+    _leaveRequests.insert(0, newLeave);
+  }
+
+  /// Forward request from Advisor to HOD
+  static bool forwardToHod(String leaveId, {String? advisorRemarks}) {
+    final index = _leaveRequests.indexWhere((l) => l.id == leaveId);
+    if (index != -1) {
+      final item = _leaveRequests[index];
+      _leaveRequests[index] = item.copyWith(
+        letterStatus: LetterStatus.forwarded,
+        dateReceivedByHod: DateTime.now(),
+        advisorRemarks: advisorRemarks ?? item.advisorRemarks ?? 'Endorsed and forwarded to HOD for approval.',
+      );
+      return true;
+    }
+    return false;
+  }
+
+  /// HOD Approval
+  static bool approveByHod(String leaveId, {String? remarks}) {
+    final index = _leaveRequests.indexWhere((l) => l.id == leaveId);
+    if (index != -1) {
+      final item = _leaveRequests[index];
+      _leaveRequests[index] = item.copyWith(
+        letterStatus: LetterStatus.approved,
+        dateApprovedRejected: DateTime.now(),
+        hodRemarks: remarks ?? 'Approved by Head of Department (AI&DS). Document verified.',
+      );
+      return true;
+    }
+    return false;
+  }
+
+  /// HOD Rejection
+  static bool rejectByHod(String leaveId, {String? remarks}) {
+    final index = _leaveRequests.indexWhere((l) => l.id == leaveId);
+    if (index != -1) {
+      final item = _leaveRequests[index];
+      _leaveRequests[index] = item.copyWith(
+        letterStatus: LetterStatus.rejected,
+        dateApprovedRejected: DateTime.now(),
+        hodRemarks: remarks ?? 'Rejected by HOD. Insufficient supporting documentation.',
+      );
+      return true;
+    }
+    return false;
+  }
+
   // ──────────────────── Attendance Records ────────────────────
 
-  static List<AttendanceRecord> generateAttendanceForDate(DateTime date) {
-    return students.map((s) {
+  static List<AttendanceRecord> generateAttendanceForDate(DateTime date, {int? year, String? section}) {
+    List<StudentModel> targetStudents = (year != null && section != null)
+        ? getStudentsBySection(year, section)
+        : students;
+
+    return targetStudents.map((s) {
       return AttendanceRecord(
         id: 'att-${s.id}-${date.toIso8601String()}',
         studentId: s.id,
         date: date,
         isPresent: s.isPresentToday,
         biometricPunchIn: s.isPresentToday
-            ? DateTime(date.year, date.month, date.day, 8, 30 + (s.id.hashCode % 30))
+            ? DateTime(date.year, date.month, date.day, 8, 30 + (s.id.hashCode % 30).abs())
             : null,
         biometricPunchOut: s.isPresentToday
-            ? DateTime(date.year, date.month, date.day, 16, 0 + (s.id.hashCode % 30))
+            ? DateTime(date.year, date.month, date.day, 16, 0 + (s.id.hashCode % 30).abs())
             : null,
         source: 'biometric',
         createdAt: date,
@@ -168,11 +319,11 @@ class MockDataService {
   // ──────────────────── Dashboard Stats ────────────────────
 
   static int get pendingSlips =>
-      leaveRequests.where((l) => l.letterStatus == LetterStatus.submitted || l.letterStatus == LetterStatus.forwarded).length;
+      _leaveRequests.where((l) => l.letterStatus == LetterStatus.submitted || l.letterStatus == LetterStatus.forwarded).length;
 
   static int get returnCheckReady =>
-      leaveRequests.where((l) => l.letterStatus == LetterStatus.approved).length;
+      _leaveRequests.where((l) => l.letterStatus == LetterStatus.approved).length;
 
   static int get pendingHodApprovals =>
-      leaveRequests.where((l) => l.letterStatus == LetterStatus.forwarded).length;
+      _leaveRequests.where((l) => l.letterStatus == LetterStatus.forwarded).length;
 }

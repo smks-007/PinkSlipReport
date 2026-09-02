@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/constants/app_styles.dart';
 import '../../core/services/auth_service.dart';
 
 /// Two-Factor Authentication & Biometric Security Screen
