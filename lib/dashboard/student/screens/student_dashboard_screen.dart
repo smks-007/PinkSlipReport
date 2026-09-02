@@ -119,11 +119,11 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                 tabs: [
                   Tab(
                     icon: const Icon(Icons.people_alt_outlined, size: 19),
-                    text: 'Class Roster ()',
+                    text: 'Class Roster ($totalCount)',
                   ),
                   Tab(
                     icon: const Icon(Icons.attach_file_rounded, size: 19),
-                    text: 'Leaves & OD ()',
+                    text: 'Leaves & OD (${sectionLeaves.length})',
                   ),
                   const Tab(
                     icon: Icon(Icons.schedule_rounded, size: 19),
@@ -352,11 +352,11 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           child: Row(
             children: [
-              _filterChip('All ()', 'All'),
+              _filterChip('All ($total)', 'All'),
               const SizedBox(width: 8),
-              _filterChip('Present ()', 'Present', activeColor: const Color(0xFF059669)),
+              _filterChip('Present ($present)', 'Present', activeColor: const Color(0xFF059669)),
               const SizedBox(width: 8),
-              _filterChip('Absent ()', 'Absent', activeColor: const Color(0xFFDC2626)),
+              _filterChip('Absent ($absent)', 'Absent', activeColor: const Color(0xFFDC2626)),
             ],
           ),
         ),
@@ -397,7 +397,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                             ),
                             child: Center(
                               child: Text(
-                                '',
+                                '${i + 1}',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
@@ -420,7 +420,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                                   ),
                                 ),
                                 Text(
-                                  'E. Code:  • ',
+                                  'E. Code: ${s.rollNumber} • ${s.gender}',
                                   style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                                 ),
                               ],
