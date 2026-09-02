@@ -1,0 +1,406 @@
+import 'package:flutter/material.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_styles.dart';
+import '../../../core/models/leave_model.dart';
+import '../../../core/services/mock_data_service.dart';
+import '../../../chatbot/widgets/jarvis_fab.dart';
+
+/// Leave Management screen for Advisors.
+/// Shows leave requests with letter status, forward-to-HOD action.
+/// Tracks: leave type, letter submission, dates, due days, total leaves.
+class LeaveManagementScreen extends StatefulWidget {
+  const LeaveManagementScreen({super.key});
+
+  @override
+  State<LeaveManagementScreen> createState() => _LeaveManagementScreenState();
+}
+
+class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
+  String _filter = 'All';
+  late List<LeaveModel> _leaves;
+
+  @override
+  void initState() {
+    super.initState();
+    _leaves = List.from(MockDataService.leaveRequests);
+  }
+
+  List<LeaveModel> get _filteredLeaves {
+    if (_filter == 'All') return _leaves;
+    return _leaves.where((l) {
+      switch (_filter) {
+        case 'Pending':
+          return l.letterStatus == LetterStatus.submitted ||
+              l.letterStatus == LetterStatus.notSubmitted;
+        case 'Forwarded':
+          return l.letterStatus == LetterStatus.forwarded;
+        case 'Approved':
+          return l.letterStatus == LetterStatus.approved;
+        case 'Rejected':
+          return l.letterStatus == LetterStatus.rejected;
+        default:
+          return true;
+      }
+    }).toList();
+  }
+
+  void _forwardToHod(int index) {
+    setState(() {
+      final leave = _leaves[index];
+      _leaves[index] = leave.copyWith(
+        letterStatus: LetterStatus.forwarded,
+        dateReceivedByHod: DateTime.now(),
+        advisorRemarks: 'Forwarded by advisor for HOD review.',
+      );
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Leave forwarded to HOD for approval')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.pageBackground,
+      floatingActionButton: const JarvisFAB(),
+      appBar: AppBar(
+        backgroundColor: AppColors.pageBackground,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_rounded, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text('Leave Management',
+            style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary)),
+      ),
+      body: Column(
+        children: [
+          // Filter chips
+          _buildFilterChips(),
+          const SizedBox(height: 12),
+
+          // Leave list
+          Expanded(
+            child: _filteredLeaves.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.inbox_rounded,
+                            size: 64, color: AppColors.textMuted),
+                        const SizedBox(height: 12),
+                        Text('No leave requests found',
+                            style: AppStyles.bodyMedium),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: _filteredLeaves.length,
+                    itemBuilder: (context, index) {
+                      final leave = _filteredLeaves[index];
+                      return _LeaveCard(
+                        leave: leave,
+                        onForward: leave.letterStatus == LetterStatus.submitted
+                            ? () {
+                                final originalIndex =
+                                    _leaves.indexWhere((l) => l.id == leave.id);
+                                if (originalIndex != -1) {
+                                  _forwardToHod(originalIndex);
+                                }
+                              }
+                            : null,
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChips() {
+    final filters = ['All', 'Pending', 'Forwarded', 'Approved', 'Rejected'];
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        children: filters.map((f) {
+          final isSelected = _filter == f;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              label: Text(f),
+              selected: isSelected,
+              onSelected: (_) => setState(() => _filter = f),
+              selectedColor: AppColors.primaryPurple,
+              labelStyle: TextStyle(
+                color: isSelected ? Colors.white : AppColors.textSecondary,
+                fontWeight: FontWeight.w500,
+                fontSize: 13,
+              ),
+              backgroundColor: AppColors.cardBackground,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: BorderSide(
+                  color: isSelected
+                      ? AppColors.primaryPurple
+                      : AppColors.inputBorder,
+                ),
+              ),
+              showCheckmark: false,
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _LeaveCard extends StatelessWidget {
+  final LeaveModel leave;
+  final VoidCallback? onForward;
+
+  const _LeaveCard({required this.leave, this.onForward});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.inputBorder),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.shadow.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header: Name + Status
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: _statusBgColor,
+                child: Icon(_statusIcon, size: 20, color: _statusColor),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(leave.studentName,
+                        style: AppStyles.bodyLarge
+                            .copyWith(fontWeight: FontWeight.w700, fontSize: 15)),
+                    Text('${leave.studentRollNumber} • ${leave.reason}',
+                        style: AppStyles.bodySmall),
+                  ],
+                ),
+              ),
+              _statusBadge(),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const Divider(height: 1, color: AppColors.divider),
+          const SizedBox(height: 12),
+
+          // Details Grid
+          Wrap(
+            spacing: 16,
+            runSpacing: 8,
+            children: [
+              _detailChip(Icons.category_rounded,
+                  'Type: ${leave.leaveTypeDisplay}',
+                  leave.leaveType == LeaveType.informed
+                      ? AppColors.statusApproved
+                      : AppColors.statusPending),
+              _detailChip(
+                  Icons.mail_outline,
+                  'Letter: ${leave.letterSubmitted ? "Yes" : "No"}',
+                  leave.letterSubmitted
+                      ? AppColors.statusApproved
+                      : AppColors.statusRejected),
+              _detailChip(Icons.hourglass_bottom,
+                  'Due: ${leave.dueDays} days', AppColors.statusPending),
+              _detailChip(Icons.event_repeat,
+                  'Total Leaves: ${leave.totalLeavesTaken}',
+                  AppColors.attendanceBlue),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Date info
+          if (leave.dateSubmittedToAdvisor != null)
+            _dateRow('Submitted to Advisor',
+                _formatDate(leave.dateSubmittedToAdvisor!)),
+          if (leave.dateReceivedByHod != null)
+            _dateRow('Received by HOD',
+                _formatDate(leave.dateReceivedByHod!)),
+          if (leave.dateApprovedRejected != null)
+            _dateRow(
+                leave.letterStatus == LetterStatus.approved
+                    ? 'Approved on'
+                    : 'Rejected on',
+                _formatDate(leave.dateApprovedRejected!)),
+
+          // Remarks
+          if (leave.advisorRemarks != null) ...[
+            const SizedBox(height: 8),
+            _remarkBox('Advisor Remarks', leave.advisorRemarks!),
+          ],
+          if (leave.hodRemarks != null) ...[
+            const SizedBox(height: 8),
+            _remarkBox('HOD Remarks', leave.hodRemarks!),
+          ],
+
+          // Forward Button
+          if (onForward != null) ...[
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: onForward,
+                icon: const Icon(Icons.send_rounded, size: 18),
+                label: const Text('Forward to HOD'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryPurple,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _statusBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: _statusBgColor,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        leave.letterStatusDisplay,
+        style: AppStyles.chipText.copyWith(color: _statusColor),
+      ),
+    );
+  }
+
+  Widget _detailChip(IconData icon, String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(text,
+              style: AppStyles.bodySmall
+                  .copyWith(color: color, fontWeight: FontWeight.w500, fontSize: 11)),
+        ],
+      ),
+    );
+  }
+
+  Widget _dateRow(String label, String date) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          Icon(Icons.schedule, size: 14, color: AppColors.textMuted),
+          const SizedBox(width: 6),
+          Text('$label: ', style: AppStyles.bodySmall.copyWith(fontSize: 11)),
+          Text(date,
+              style: AppStyles.bodySmall
+                  .copyWith(fontWeight: FontWeight.w600, fontSize: 11)),
+        ],
+      ),
+    );
+  }
+
+  Widget _remarkBox(String title, String remark) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppColors.purpleSurface,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title,
+              style: AppStyles.bodySmall.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryPurple,
+                  fontSize: 11)),
+          const SizedBox(height: 2),
+          Text(remark, style: AppStyles.bodySmall.copyWith(fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
+  }
+
+  Color get _statusColor {
+    switch (leave.letterStatus) {
+      case LetterStatus.approved:
+        return AppColors.statusApproved;
+      case LetterStatus.rejected:
+        return AppColors.statusRejected;
+      case LetterStatus.forwarded:
+        return AppColors.statusForwarded;
+      default:
+        return AppColors.statusPending;
+    }
+  }
+
+  Color get _statusBgColor {
+    switch (leave.letterStatus) {
+      case LetterStatus.approved:
+        return AppColors.statusApprovedBg;
+      case LetterStatus.rejected:
+        return AppColors.statusRejectedBg;
+      case LetterStatus.forwarded:
+        return AppColors.statusForwardedBg;
+      default:
+        return AppColors.statusPendingBg;
+    }
+  }
+
+  IconData get _statusIcon {
+    switch (leave.letterStatus) {
+      case LetterStatus.approved:
+        return Icons.check_circle_rounded;
+      case LetterStatus.rejected:
+        return Icons.cancel_rounded;
+      case LetterStatus.forwarded:
+        return Icons.send_rounded;
+      default:
+        return Icons.pending_rounded;
+    }
+  }
+}
