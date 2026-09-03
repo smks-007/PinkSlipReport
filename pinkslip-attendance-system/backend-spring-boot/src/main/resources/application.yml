@@ -1,0 +1,34 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api/v1
+
+spring:
+  application:
+    name: pinkslip-attendance-system
+  datasource:
+    url: jdbc:postgresql://localhost:5432/pinkslip_db
+    username: postgres
+    password: postgres_password
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+jwt:
+  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+  expirationMs: 86400000 # 24 hours
+
+department:
+  name: Artificial Intelligence and Data Science
+  college: V.S.B Engineering College
+  sections:
+    year1: [A, B, C, D]
+    year2: [A, B, C, D]
+    year3: [A, B, C, D]
+    year4: [A, B]

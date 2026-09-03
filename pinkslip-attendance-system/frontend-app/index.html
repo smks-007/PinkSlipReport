@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PinkSlipReport — Sky Blue Theme & Thunder Login</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Fira+Code:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sky-900: #0C4A6E;
+    --sky-800: #075985;
+    --sky-700: #0369A1;
+    --sky-600: #0284C7;
+    --sky-500: #0EA5E9;
+    --sky-400: #38BDF8;
+    --sky-200: #BAE6FD;
+    --sky-100: #E0F2FE;
+    --sky-50: #F0F9FF;
+    --page-bg: #EBF5FA;
+    --pink-500: #EF4444;
+    --pink-100: #FEE2E2;
+    --amber-500: #F59E0B;
+    --amber-100: #FEF3C7;
+    --green-600: #10B981;
+    --green-100: #D1FAE5;
+    --ink-900: #0F172A;
+    --ink-600: #475569;
+    --ink-400: #94A3B8;
+    --line: #E2E8F0;
+    --white: #FFFFFF;
+    --cyan-glow: #67E8F9;
+    --lightning: #FDE047;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--page-bg); font-family: 'Inter', sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 24px 16px 60px; color: var(--ink-900); }
+  
+  /* Top Global Navigation Bar */
+  .global-nav { width: 100%; max-width: 1200px; background: var(--white); padding: 14px 24px; border-radius: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 10px 25px rgba(2, 132, 199, 0.08); margin-bottom: 24px; border: 1px solid var(--line); }
+  .global-brand { display: flex; align-items: center; gap: 10px; font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 18px; color: var(--ink-900); }
+  .global-brand span { color: var(--sky-600); }
+  .nav-tabs { display: flex; gap: 6px; background: var(--sky-50); padding: 4px; border-radius: 12px; }
+  .nav-btn { padding: 8px 14px; border-radius: 8px; border: none; background: transparent; font-size: 12.5px; font-weight: 600; cursor: pointer; color: var(--ink-600); transition: all 0.2s; }
+  .nav-btn.active { background: var(--sky-600); color: var(--white); box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25); }
+  .role-badge { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+  .role-hod { background: var(--green-100); color: #047857; }
+  .role-advisor { background: var(--amber-100); color: #B45309; }
+  
+  .simulator-container { display: flex; gap: 28px; flex-wrap: wrap; justify-content: center; max-width: 1200px; }
+  .phone-frame { width: 395px; min-height: 840px; background: var(--sky-50); border-radius: 44px; border: 10px solid var(--ink-900); overflow: hidden; position: relative; box-shadow: 0 30px 60px rgba(15, 23, 42, 0.22); display: flex; flex-direction: column; }
+  .notch { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 150px; height: 26px; background: var(--ink-900); border-radius: 0 0 18px 18px; z-index: 50; }
+  .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px 6px; font-size: 12px; font-weight: 700; color: var(--ink-900); z-index: 10; }
+  .screen-content { flex: 1; overflow-y: auto; padding-bottom: 30px; }
+  
+  .appbar { display: flex; align-items: center; justify-content: space-between; padding: 6px 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 8px; }
+  .brand-icon { width: 28px; height: 28px; border-radius: 8px; background: linear-gradient(135deg, var(--sky-600), var(--sky-400)); display: flex; align-items: center; justify-content: center; color: white; }
+  .brand-name { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 16px; color: var(--ink-900); }
+  .brand-name span { color: var(--sky-600); }
+  .appbar-icons { display: flex; gap: 10px; align-items: center; }
+  .icon-btn { width: 34px; height: 34px; border-radius: 10px; background: var(--white); display: flex; align-items: center; justify-content: center; color: var(--ink-600); border: 1px solid var(--line); cursor: pointer; font-size: 14px; transition: transform 0.1s; }
+  .icon-btn:hover { transform: scale(1.05); }
+  
+  /* Sky Blue Banners */
+  .banner { margin: 4px 20px 18px; border-radius: 20px; padding: 20px 22px; background: linear-gradient(135deg, var(--sky-700) 0%, var(--sky-600) 55%, var(--sky-400) 100%); color: var(--white); position: relative; overflow: hidden; box-shadow: 0 10px 20px rgba(2, 132, 199, 0.25); }
+  .banner-ring { position: absolute; width: 180px; height: 180px; border-radius: 50%; border: 22px solid rgba(255, 255, 255, 0.15); right: -60px; top: -60px; }
+  .role-pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 4px 12px; background: rgba(255, 255, 255, 0.25); border-radius: 20px; backdrop-filter: blur(4px); }
+  .section-pill { position: absolute; top: 20px; right: 20px; font-size: 11px; font-weight: 700; background: rgba(255, 255, 255, 0.2); padding: 4px 10px; border-radius: 20px; }
+  .banner-sub { font-size: 12px; opacity: 0.9; margin-top: 10px; }
+  .banner-name { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 19px; margin-top: 2px; }
+  .banner-org { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+  
+  .section-title { font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 14.5px; color: var(--ink-900); margin: 20px 20px 12px; }
+  .section-title.row { display: flex; justify-content: space-between; align-items: center; }
+  .view-all { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 12px; color: var(--sky-600); cursor: pointer; }
+  
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 0 20px; }
+  .stat-grid.three { grid-template-columns: 1fr 1fr 1fr; }
+  .stat-card { background: var(--white); border-radius: 16px; padding: 14px 14px; border: 1px solid var(--line); cursor: pointer; transition: transform 0.15s; }
+  .stat-card:hover { transform: translateY(-2px); border-color: var(--sky-400); }
+  .stat-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+  .stat-label { font-size: 11.5px; color: var(--ink-600); font-weight: 500; }
+  .stat-badge { width: 26px; height: 26px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+  .stat-value { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 20px; color: var(--ink-900); }
+  .stat-sub { font-size: 11px; color: var(--ink-400); margin-top: 2px; }
+  .b-sky { background: var(--sky-100); color: var(--sky-700); }
+  .b-pink { background: var(--pink-100); color: var(--pink-500); }
+  .b-amber { background: var(--amber-100); color: var(--amber-500); }
+  .b-green { background: var(--green-100); color: var(--green-600); }
+  
+  .qa-grid { display: flex; gap: 10px; padding: 0 20px; }
+  .qa-card { flex: 1; background: var(--white); border: 1px solid var(--line); border-radius: 16px; padding: 14px 6px; text-align: center; cursor: pointer; transition: transform 0.15s, border-color 0.15s; }
+  .qa-card:hover { transform: translateY(-2px); border-color: var(--sky-400); }
+  .qa-icon { width: 36px; height: 36px; border-radius: 12px; background: var(--sky-100); color: var(--sky-600); display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; font-size: 16px; }
+  .qa-label { font-size: 11px; font-weight: 600; color: var(--ink-900); }
+  
+  .slip-card { display: flex; align-items: center; gap: 12px; background: var(--white); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; margin: 0 20px 10px; cursor: pointer; transition: all 0.2s; }
+  .slip-card:hover { border-color: var(--sky-400); box-shadow: 0 6px 16px rgba(2, 132, 199, 0.08); }
+  .slip-icon { width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+  .slip-info { flex: 1; min-width: 0; }
+  .slip-name { font-size: 13.5px; font-weight: 700; color: var(--ink-900); }
+  .slip-meta { font-size: 11px; color: var(--ink-600); margin-top: 1px; }
+  .status-tag { font-size: 10.5px; font-weight: 700; padding: 4px 10px; border-radius: 20px; white-space: nowrap; }
+  .tag-pending { background: var(--pink-100); color: var(--pink-500); }
+  .tag-approved { background: var(--green-100); color: var(--green-600); }
+  .tag-hod { background: var(--amber-100); color: var(--amber-500); }
+  
+  .pipeline { display: flex; align-items: center; gap: 4px; margin-top: 6px; }
+  .pip-dot { width: 7px; height: 7px; border-radius: 50%; }
+  .pip-line { flex: 1; height: 2px; background: var(--line); }
+  .pip-line.done { background: var(--green-600); }
+  .pip-dot.done { background: var(--green-600); }
+  .pip-dot.current { background: var(--amber-500); }
+  .pip-dot.todo { background: var(--line); }
+  
+  .nav-scroll { display: flex; gap: 8px; padding: 0 20px; overflow-x: auto; margin-bottom: 10px; }
+  .year-chip { flex-shrink: 0; font-size: 12px; font-weight: 600; padding: 7px 14px; border-radius: 20px; background: var(--white); color: var(--ink-600); border: 1px solid var(--line); cursor: pointer; transition: all 0.15s; }
+  .year-chip:hover { border-color: var(--sky-400); }
+  .year-chip.active { background: var(--sky-600); color: var(--white); border-color: var(--sky-600); }
+  .sec-scroll { display: flex; gap: 8px; padding: 0 20px; overflow-x: auto; margin-bottom: 16px; }
+  .sec-chip { flex-shrink: 0; width: 36px; height: 36px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; background: var(--sky-100); color: var(--sky-700); border: 1px solid var(--sky-200); cursor: pointer; transition: all 0.15s; }
+  .sec-chip:hover { border-color: var(--sky-400); }
+  .sec-chip.active { background: var(--sky-600); color: var(--white); border-color: var(--sky-600); }
+  
+  .authority-banner { margin: 0 20px 14px; display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; font-size: 11.5px; font-weight: 600; }
+  .authority-hod { background: var(--green-100); border: 1px solid #A7F3D0; color: #047857; }
+  .authority-adv { background: var(--amber-100); border: 1px solid #FDE7B0; color: #92400E; }
+  
+  .dept-card { background: var(--white); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; margin: 0 20px 10px; }
+  .dept-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .dept-name { font-size: 13px; font-weight: 700; color: var(--ink-900); }
+  .dept-adv { font-size: 11px; color: var(--ink-600); }
+  .dept-pct { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 15px; color: var(--sky-700); }
+  .bar-track { height: 6px; background: var(--sky-100); border-radius: 6px; overflow: hidden; margin-bottom: 6px; }
+  .bar-fill { height: 100%; background: linear-gradient(90deg, var(--sky-600), var(--sky-400)); border-radius: 6px; }
+  .dept-foot { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink-600); }
+  
+  .approve-row { display: flex; gap: 8px; padding: 0 20px 4px; margin-top: 4px; margin-bottom: 12px; }
+  .btn-reject, .btn-approve { flex: 1; text-align: center; font-size: 12px; font-weight: 700; padding: 9px 0; border-radius: 10px; cursor: pointer; }
+  .btn-reject { background: var(--pink-100); color: var(--pink-500); border: 1px solid #FBCFDA; }
+  .btn-approve { background: var(--green-100); color: var(--green-600); border: 1px solid #A7F3D0; }
+  
+  .inst-card { background: var(--white); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; margin: 0 20px 10px; transition: all 0.15s; }
+  .inst-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .inst-badge { font-size: 9.5px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: var(--sky-100); color: var(--sky-700); }
+  .inst-badge.dept { background: #FEF3C7; color: #B45309; }
+  .inst-date { font-size: 11px; color: var(--ink-400); }
+  .inst-title { font-size: 13.5px; font-weight: 700; color: var(--ink-900); }
+  .inst-body { font-size: 12px; color: var(--ink-600); margin-top: 4px; line-height: 1.45; }
+  
+  .filter-scroll { display: flex; gap: 8px; padding: 0 20px; overflow-x: auto; margin-bottom: 14px; }
+  .filter-chip { flex-shrink: 0; font-size: 11px; font-weight: 600; padding: 6px 12px; border-radius: 20px; background: var(--white); color: var(--ink-600); border: 1px solid var(--line); cursor: pointer; }
+  .filter-chip.active { background: var(--sky-100); color: var(--sky-700); border-color: var(--sky-200); }
+  
+  .reg-card { background: var(--white); border: 1px solid var(--line); border-radius: 16px; padding: 13px 14px; margin: 0 20px 10px; }
+  .reg-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .reg-avatar { width: 36px; height: 36px; border-radius: 10px; background: var(--sky-100); color: var(--sky-700); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; }
+  .reg-name { font-size: 13px; font-weight: 700; color: var(--ink-900); }
+  .reg-roll { font-size: 11px; color: var(--ink-600); }
+  .reg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 8px; }
+  .reg-item { background: var(--sky-50); border-radius: 8px; padding: 6px 8px; }
+  .reg-item-label { font-size: 9px; color: var(--ink-400); font-weight: 600; text-transform: uppercase; }
+  .reg-item-value { font-size: 11px; font-weight: 600; color: var(--ink-900); margin-top: 1px; }
+  .reg-item-value.warn { color: var(--pink-500); }
+  .reg-item-value.ok { color: var(--green-600); }
+  
+  .bio-row { display: flex; align-items: center; gap: 10px; background: var(--white); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; margin: 0 20px 8px; }
+  .bio-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .bio-info { flex: 1; }
+  .bio-name { font-size: 12px; font-weight: 700; color: var(--ink-900); }
+  .bio-meta { font-size: 10.5px; color: var(--ink-600); margin-top: 1px; }
+  .bio-actions { display: flex; gap: 6px; }
+  .bio-act { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; border: 1px solid var(--line); background: var(--white); color: var(--ink-600); cursor: pointer; }
+  .bio-act.del { color: var(--pink-500); border-color: #FBCFDA; background: var(--pink-100); }
+
+  /* Animated Clouds & Thunder Storm Login Header */
+  .sky-cloud-header {
+    width: 100%;
+    height: 310px;
+    background: linear-gradient(180deg, var(--sky-700) 0%, var(--sky-400) 100%);
+    border-radius: 0 0 44px 44px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--white);
+    box-shadow: 0 12px 30px rgba(2, 132, 199, 0.35);
+    transition: background 0.4s ease;
+  }
+  .sky-cloud-header.storm-mode {
+    background: linear-gradient(180deg, #0F172A 0%, #1E293B 60%, #0284C7 100%);
+    animation: thunderRumble 0.3s infinite alternate;
+  }
+  @keyframes thunderRumble {
+    0% { transform: translateY(0px) rotate(0deg); }
+    100% { transform: translateY(-2px) rotate(-0.5deg); }
+  }
+
+  .cloud {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.32);
+    border-radius: 50px;
+    box-shadow: 0 8px 25px rgba(255, 255, 255, 0.2);
+    animation: driftCloud linear infinite;
+  }
+  .cloud::before, .cloud::after {
+    content: '';
+    position: absolute;
+    background: inherit;
+    border-radius: 50%;
+  }
+  .cloud-1 { width: 140px; height: 44px; top: 30px; left: -150px; animation-duration: 14s; }
+  .cloud-1::before { width: 50px; height: 50px; top: -24px; left: 24px; }
+  .cloud-1::after { width: 70px; height: 70px; top: -36px; right: 24px; }
+
+  .cloud-2 { width: 180px; height: 52px; top: 110px; right: -200px; animation: driftCloudReverse 18s linear infinite; opacity: 0.25; }
+  .cloud-2::before { width: 60px; height: 60px; top: -30px; left: 30px; }
+  .cloud-2::after { width: 80px; height: 80px; top: -40px; right: 30px; }
+
+  .cloud-3 { width: 100px; height: 34px; bottom: 40px; left: -120px; animation-duration: 10s; opacity: 0.4; }
+  .cloud-3::before { width: 36px; height: 36px; top: -18px; left: 16px; }
+
+  @keyframes driftCloud {
+    from { transform: translateX(0); }
+    to { transform: translateX(580px); }
+  }
+  @keyframes driftCloudReverse {
+    from { transform: translateX(0); }
+    to { transform: translateX(-600px); }
+  }
+
+  .lightning-bolt {
+    display: none;
+    position: absolute;
+    top: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 80px;
+    color: var(--lightning);
+    filter: drop-shadow(0 0 20px #FDE047) drop-shadow(0 0 40px #67E8F9);
+    z-index: 20;
+    animation: boltStrike 0.4s ease-out;
+  }
+  @keyframes boltStrike {
+    0% { opacity: 0; transform: translateX(-50%) scale(0.6); }
+    20%, 60% { opacity: 1; transform: translateX(-50%) scale(1.1); }
+    40%, 80% { opacity: 0.2; }
+    100% { opacity: 1; transform: translateX(-50%) scale(1); }
+  }
+
+  .screen-flash {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.85);
+    z-index: 40;
+    pointer-events: none;
+    animation: flashPulse 0.5s ease-out;
+  }
+  @keyframes flashPulse {
+    0%, 30%, 70% { opacity: 0.9; }
+    15%, 50%, 100% { opacity: 0; }
+  }
+
+  .login-wrap { padding: 30px 24px 20px; text-align: center; }
+  .login-sub { font-size: 12.5px; color: var(--ink-600); margin-top: 4px; margin-bottom: 24px; }
+  .field-label { text-align: left; font-size: 12px; font-weight: 600; color: var(--ink-900); margin: 0 0 6px; }
+  .field-box { display: flex; align-items: center; gap: 10px; background: var(--white); border: 1.5px solid var(--sky-200); border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; }
+  .field-input { border: none; outline: none; background: transparent; font-size: 13px; color: var(--ink-900); flex: 1; }
+  .forgot-link { text-align: right; font-size: 11.5px; font-weight: 600; color: var(--sky-600); margin-bottom: 18px; cursor: pointer; }
+  
+  .login-btn { background: linear-gradient(135deg, var(--sky-600), var(--sky-400)); color: var(--white); font-weight: 700; font-size: 14px; padding: 14px 0; border-radius: 14px; margin-bottom: 16px; cursor: pointer; box-shadow: 0 6px 18px rgba(2, 132, 199, 0.35); display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; }
+  .login-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(2, 132, 199, 0.45); }
+  
+  .quick-creds { display: flex; gap: 6px; margin-top: 10px; justify-content: center; }
+  .cred-btn { font-size: 10.5px; padding: 6px 10px; background: var(--sky-100); border: 1px solid var(--sky-200); border-radius: 8px; color: var(--sky-700); font-weight: 600; cursor: pointer; }
+
+  /* Floating Jarvis Arc-Reactor Button */
+  .jarvis-fab { position: fixed; right: 32px; bottom: 32px; width: 66px; height: 66px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #0369A1, #082F49 75%); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 100; box-shadow: 0 12px 28px rgba(3, 105, 161, 0.45), 0 0 0 4px rgba(56, 189, 248, 0.3); animation: jarvisPulse 3s infinite ease-in-out; }
+  @keyframes jarvisPulse { 0%, 100% { box-shadow: 0 12px 28px rgba(3, 105, 161, 0.45), 0 0 0 4px rgba(103, 232, 249, 0.35); } 50% { box-shadow: 0 16px 36px rgba(3, 105, 161, 0.6), 0 0 24px rgba(103, 232, 249, 0.85); } }
+  .jarvis-ring { width: 36px; height: 36px; border-radius: 50%; border: 2.5px solid var(--cyan-glow); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 14px rgba(103, 232, 249, 0.85); }
+  .jarvis-core { width: 14px; height: 14px; border-radius: 50%; background: var(--cyan-glow); box-shadow: 0 0 12px var(--cyan-glow); }
+  
+  .jarvis-drawer { display: none; position: fixed; right: 32px; bottom: 110px; width: 440px; height: 600px; max-height: 85vh; background: var(--white); border-radius: 28px; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28); z-index: 100; flex-direction: column; overflow: hidden; border: 1.5px solid var(--line); }
+  .jarvis-drawer.open { display: flex; }
+  .jarvis-top { background: radial-gradient(circle at 20% 0%, #0369A1, #082F49 80%); padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; color: var(--white); }
+  .jarvis-bot-info { display: flex; align-items: center; gap: 12px; }
+  .jarvis-avatar { width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--cyan-glow); display: flex; align-items: center; justify-content: center; }
+  .jarvis-avatar-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--cyan-glow); }
+  .jarvis-top-title { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 16px; }
+  .jarvis-top-sub { font-size: 11px; color: #BAE6FD; display: flex; align-items: center; gap: 5px; margin-top: 2px; }
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #34D399; }
+  .jarvis-close { background: rgba(255,255,255,0.15); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  
+  .jarvis-topic-bar { background: var(--sky-50); padding: 8px 14px; border-bottom: 1px solid var(--line); display: flex; gap: 6px; overflow-x: auto; white-space: nowrap; }
+  .topic-chip { font-size: 10.5px; font-weight: 600; color: var(--sky-700); background: var(--white); border: 1px solid var(--sky-200); padding: 5px 11px; border-radius: 12px; cursor: pointer; }
+  .topic-chip:hover { background: var(--sky-600); color: white; }
+  
+  .chat-box { flex: 1; padding: 16px 18px; overflow-y: auto; background: var(--sky-50); }
+  .bubble-j { background: var(--white); border: 1px solid var(--line); border-radius: 4px 18px 18px 18px; padding: 14px 16px; font-size: 12.5px; color: var(--ink-900); line-height: 1.6; max-width: 94%; margin-bottom: 14px; }
+  .bubble-j h3 { font-family: 'Poppins', sans-serif; font-size: 13.5px; color: var(--sky-700); margin-bottom: 8px; }
+  .bubble-j table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 11px; }
+  .bubble-j th { background: var(--sky-100); color: var(--sky-700); text-align: left; padding: 6px 8px; border: 1px solid var(--line); font-weight: 700; }
+  .bubble-j td { padding: 6px 8px; border: 1px solid var(--line); font-size: 11px; }
+  .bubble-u { background: linear-gradient(135deg, var(--sky-600), var(--sky-500)); color: var(--white); border-radius: 18px 18px 4px 18px; padding: 12px 16px; font-size: 12.5px; max-width: 84%; margin: 0 0 14px auto; }
+  
+  .chat-bottom { padding: 12px 16px; background: var(--white); border-top: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+  .chat-input { flex: 1; border: 1.5px solid var(--sky-200); border-radius: 24px; padding: 10px 16px; font-size: 12.5px; outline: none; }
+  .chat-input:focus { border-color: var(--sky-600); }
+  .send-btn { width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, var(--sky-600), var(--sky-400)); color: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+</style>
+</head>
+<body>
+
+  <!-- Top Global Navigation Bar -->
+  <div class="global-nav">
+    <div class="global-brand">
+      <div class="brand-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 2h9l5 5v15H6V2z" stroke="white" stroke-width="2"/></svg></div>
+      <div>PinkSlip<span>Report</span> <span style="font-size:12px; font-weight:400; color:var(--ink-600); margin-left:8px;">AI & DS Department • Sky Theme</span></div>
+    </div>
+    <div class="nav-tabs">
+      <button class="nav-btn" onclick="switchView('advisor')">Advisor Dashboard</button>
+      <button class="nav-btn" onclick="switchView('hod')">HOD Dashboard</button>
+      <button class="nav-btn" onclick="switchView('register')">Class Register</button>
+      <button class="nav-btn" onclick="switchView('instructions')">📢 Instructions Panel</button>
+      <button class="nav-btn" onclick="switchView('biometric')">Biometric Log</button>
+      <button class="nav-btn active" onclick="switchView('login')">⚡ Thunder Login</button>
+    </div>
+    <div id="roleDisplayBadge" class="role-badge role-advisor"><span>●</span> Sky Blue Mode</div>
+  </div>
+
+  <!-- Simulator Frame -->
+  <div class="simulator-container">
+    <div class="phone-frame">
+      <div class="notch"></div>
+      
+      <!-- SCREEN 1: LOGIN WITH ANIMATED CLOUDS & THUNDER STORM -->
+      <div id="screen-login" class="screen-content">
+        <div class="status-bar"><span>9:41</span><span>●●● 5G 🔋</span></div>
+        
+        <div class="sky-cloud-header" id="skyCloudHeader">
+          <div class="cloud cloud-1"></div>
+          <div class="cloud cloud-2"></div>
+          <div class="cloud cloud-3"></div>
+          <div class="lightning-bolt" id="lightningBolt">⚡</div>
+          <div class="screen-flash" id="screenFlash"></div>
+
+          <div style="z-index: 10; text-align: center;">
+            <div style="width: 60px; height: 60px; border-radius: 18px; background: rgba(255,255,255,0.25); display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; border: 1.5px solid rgba(255,255,255,0.4); font-size: 28px;">
+              ☁️
+            </div>
+            <div style="font-family:'Poppins',sans-serif; font-weight:700; font-size:22px;">PinkSlip<span>Report</span></div>
+            <div style="font-size:12px; opacity:0.85; margin-top:2px;">AI & DS Department • Sky Cloud Portal</div>
+            <div style="font-size:18px; font-weight:700; margin-top:8px;" id="loginHeadingText">Welcome Back!</div>
+          </div>
+        </div>
+
+        <div class="login-wrap">
+          <div class="login-sub">Log in to enter the attendance system</div>
+          <div class="field-label">Email Address</div>
+          <div class="field-box">
+            <span style="color:var(--sky-600);">✉</span>
+            <input type="email" id="loginEmail" class="field-input" value="muthulakshmi.aids@vsb.ac.in">
+          </div>
+          <div class="field-label">Password</div>
+          <div class="field-box">
+            <span style="color:var(--sky-600);">🔒</span>
+            <input type="password" id="loginPassword" class="field-input" value="••••••••">
+          </div>
+          <div class="forgot-link" onclick="alert('Password reset link sent to your college webmail.')">Forgot Password?</div>
+          
+          <div class="login-btn" id="loginBtn" onclick="performThunderLogin()">
+            <span>Login with Thunder</span> <span>⚡</span>
+          </div>
+
+          <div class="quick-creds">
+            <div class="cred-btn" onclick="quickFill('hod')">HOD Login (Full Authority)</div>
+            <div class="cred-btn" onclick="quickFill('advisor')">Advisor Login (Sec B)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SCREEN 2: ADVISOR DASHBOARD -->
+      <div id="screen-advisor" class="screen-content" style="display:none;">
+        <div class="status-bar"><span>9:41</span><span>●●● 5G 🔋</span></div>
+        <div class="appbar">
+          <div class="brand">
+            <div class="brand-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 2h9l5 5v15H6V2z" stroke="white" stroke-width="2"/></svg></div>
+            <div class="brand-name">PinkSlip<span>Report</span></div>
+          </div>
+          <div class="appbar-icons">
+            <div class="icon-btn" onclick="alert('Notification: 1 New leave letter submitted by Janani Y')">🔔</div>
+            <div class="icon-btn" onclick="switchView('login')">↩</div>
+          </div>
+        </div>
+
+        <div class="banner">
+          <div class="banner-ring"></div>
+          <span class="role-pill">Class Adviser</span>
+          <span class="section-pill">II AI&DS · Section B</span>
+          <div class="banner-sub">Welcome back,</div>
+          <div class="banner-name">Mrs. S. Muthulakshmi</div>
+          <div class="banner-org">V.S.B. Engineering College</div>
+        </div>
+
+        <div class="section-title">Today's attendance overview</div>
+        <div class="stat-grid">
+          <div class="stat-card" onclick="switchView('register')">
+            <div class="stat-top"><span class="stat-label">Attendance</span><span class="stat-badge b-sky">◔</span></div>
+            <div class="stat-value">93.65%</div>
+            <div class="stat-sub">59/63 Present</div>
+          </div>
+          <div class="stat-card" onclick="switchView('register'); filterReg('absent', document.querySelectorAll('.filter-chip')[1]);">
+            <div class="stat-top"><span class="stat-label">Absentees</span><span class="stat-badge b-pink">⚑</span></div>
+            <div class="stat-value">4</div>
+            <div class="stat-sub">Students</div>
+          </div>
+          <div class="stat-card" onclick="switchView('register'); filterReg('uninformed', document.querySelectorAll('.filter-chip')[2]);">
+            <div class="stat-top"><span class="stat-label">Pending slips</span><span class="stat-badge b-amber">⏳</span></div>
+            <div class="stat-value" id="advPendingCount">3</div>
+            <div class="stat-sub">Needs HOD</div>
+          </div>
+          <div class="stat-card" onclick="switchView('instructions')">
+            <div class="stat-top"><span class="stat-label">Notice Board</span><span class="stat-badge b-green">📢</span></div>
+            <div class="stat-value">4</div>
+            <div class="stat-sub">Active circulars</div>
+          </div>
+        </div>
+
+        <div class="section-title">Quick actions</div>
+        <div class="qa-grid">
+          <div class="qa-card" onclick="switchView('register')"><div class="qa-icon">☑</div><div class="qa-label">Attendance</div></div>
+          <div class="qa-card" onclick="switchView('register')"><div class="qa-icon">📝</div><div class="qa-label">Pink slip</div></div>
+          <div class="qa-card" onclick="switchView('instructions')"><div class="qa-icon">📢</div><div class="qa-label">Notices</div></div>
+        </div>
+
+        <div class="section-title row"><span>Recent pink slips</span><span class="view-all" onclick="switchView('register')">View all</span></div>
+        <div class="slip-card" onclick="openJarvisWithPrompt('Tell me about Lithesh Hari R leave letter')">
+          <div class="slip-icon" style="background:var(--pink-100);color:var(--pink-500)">⏳</div>
+          <div class="slip-info">
+            <div class="slip-name">Lithesh Hari R</div>
+            <div class="slip-meta">25243100 · Fees not paid</div>
+            <div class="pipeline">
+              <div class="pip-dot done"></div><div class="pip-line done"></div>
+              <div class="pip-dot current"></div><div class="pip-line"></div>
+              <div class="pip-dot todo"></div>
+            </div>
+          </div>
+          <span class="status-tag tag-pending">Pending</span>
+        </div>
+      </div>
+
+      <!-- SCREEN 3: HOD DASHBOARD -->
+      <div id="screen-hod" class="screen-content" style="display:none;">
+        <div class="status-bar"><span>9:41</span><span>●●● 5G 🔋</span></div>
+        <div class="appbar">
+          <div class="brand">
+            <div class="brand-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 2h9l5 5v15H6V2z" stroke="white" stroke-width="2"/></svg></div>
+            <div class="brand-name">PinkSlip<span>Report</span></div>
+          </div>
+          <div class="appbar-icons">
+            <div class="icon-btn" onclick="alert('9 Slips awaiting your signature')">🔔</div>
+            <div class="icon-btn" onclick="switchView('login')">↩</div>
+          </div>
+        </div>
+
+        <div class="authority-banner authority-hod"><span>⛨</span> HOD Full Authority — Full CRUD, Delete & Broadcasts Enabled</div>
+        <div class="banner" style="background: linear-gradient(135deg, #0369A1 0%, #0284C7 100%);">
+          <div class="banner-ring"></div>
+          <span class="role-pill">Head of Department</span>
+          <span class="section-pill">AI & DS</span>
+          <div class="banner-sub">Welcome back,</div>
+          <div class="banner-name">Dr. R. Balamurugan</div>
+          <div class="banner-org">V.S.B. Engineering College</div>
+        </div>
+
+        <div class="section-title">Browse All 14 Sections Matrix</div>
+        <div class="nav-scroll">
+          <div class="year-chip" onclick="selectYear(1, this)">1st year</div>
+          <div class="year-chip" onclick="selectYear(2, this)">2nd year</div>
+          <div class="year-chip active" onclick="selectYear(3, this)">3rd year</div>
+          <div class="year-chip" onclick="selectYear(4, this)">4th year</div>
+        </div>
+        <div class="sec-scroll" id="hodSectionChips">
+          <div class="sec-chip active" onclick="selectSection('A', this)">A</div>
+          <div class="sec-chip" onclick="selectSection('B', this)">B</div>
+          <div class="sec-chip" onclick="selectSection('C', this)">C</div>
+          <div class="sec-chip" onclick="selectSection('D', this)">D</div>
+        </div>
+
+        <div class="dept-card" style="margin-bottom:14px;" id="activeSectionSummary">
+          <div class="dept-top">
+            <div>
+              <div class="dept-name" id="activeSecTitle">III AI&DS · Section A</div>
+              <div class="dept-adv" id="activeSecAdv">Advisor: Mrs. P. Kavitha</div>
+            </div>
+            <div class="dept-pct" id="activeSecPct">96.6%</div>
+          </div>
+          <div class="bar-track"><div class="bar-fill" id="activeSecBar" style="width:96.6%"></div></div>
+          <div class="dept-foot"><span id="activeSecStrength">60 Students (58 Present)</span><span id="activeSecPending"><b>2</b> Pending HOD</span></div>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="stat-top"><span class="stat-label">Dept. attendance</span><span class="stat-badge b-sky">◔</span></div>
+            <div class="stat-value">91.8%</div>
+            <div class="stat-sub">418/455 Present</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-top"><span class="stat-label">Total sections</span><span class="stat-badge b-sky">👥</span></div>
+            <div class="stat-value">14</div>
+            <div class="stat-sub">1st-4th Years</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-top"><span class="stat-label">Awaiting HOD</span><span class="stat-badge b-amber">⏳</span></div>
+            <div class="stat-value" id="hodAwaitingCount">9</div>
+            <div class="stat-sub">Final approval</div>
+          </div>
+          <div class="stat-card" onclick="switchView('instructions')">
+            <div class="stat-top"><span class="stat-label">Post Circular</span><span class="stat-badge b-green">📢</span></div>
+            <div class="stat-value">Post</div>
+            <div class="stat-sub">Targeted notice</div>
+          </div>
+        </div>
+
+        <div class="section-title row"><span>Needs your approval</span><span class="view-all" onclick="approveAll()">Approve All</span></div>
+        <div id="hodApprovalQueue">
+          <div class="slip-card" id="slip-lithesh">
+            <div class="slip-icon" style="background:var(--amber-100);color:var(--amber-500)">⏳</div>
+            <div class="slip-info">
+              <div class="slip-name">Lithesh Hari R</div>
+              <div class="slip-meta">25243100 · Sec B · Fees not paid</div>
+              <div class="pipeline">
+                <div class="pip-dot done"></div><div class="pip-line done"></div>
+                <div class="pip-dot done"></div><div class="pip-line done"></div>
+                <div class="pip-dot current"></div>
+              </div>
+            </div>
+            <span class="status-tag tag-hod">HOD Review</span>
+          </div>
+          <div class="approve-row" id="slip-lithesh-act">
+            <div class="btn-reject" onclick="rejectSlip('slip-lithesh')">✕ Reject</div>
+            <div class="btn-approve" onclick="approveSlip('slip-lithesh')">✓ Approve</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SCREEN 4: CLASS REGISTER -->
+      <div id="screen-register" class="screen-content" style="display:none;">
+        <div class="status-bar"><span>9:41</span><span>●●● 5G 🔋</span></div>
+        <div class="appbar">
+          <div class="appbar-icons"><div class="icon-btn" onclick="switchView('advisor')">←</div></div>
+          <div class="brand-name" style="font-size:14px;">Class register · Sec B</div>
+          <div class="appbar-icons"><div class="icon-btn" onclick="alert('Exporting Register CSV for Sec B...')">⋮</div></div>
+        </div>
+
+        <div class="authority-banner authority-adv"><span>✎</span> Adviser Access — View & Edit, Cannot Delete Records</div>
+
+        <div class="stat-grid three" style="margin-bottom:12px;">
+          <div class="stat-card"><div class="stat-label">Class strength</div><div class="stat-value" style="font-size:18px;">63</div></div>
+          <div class="stat-card"><div class="stat-label">Present</div><div class="stat-value" style="font-size:18px; color:var(--green-600);">59</div></div>
+          <div class="stat-card"><div class="stat-label">Absent</div><div class="stat-value" style="font-size:18px; color:var(--pink-500);">4</div></div>
+        </div>
+
+        <div class="filter-scroll">
+          <div class="filter-chip active" onclick="filterReg('all', this)">All</div>
+          <div class="filter-chip" onclick="filterReg('absent', this)">Absent today</div>
+          <div class="filter-chip" onclick="filterReg('uninformed', this)">Uninformed</div>
+        </div>
+
+        <div id="registerList">
+          <div class="reg-card student-card absent uninformed">
+            <div class="reg-top">
+              <div class="reg-avatar">LH</div>
+              <div><div class="reg-name">Lithesh Hari R</div><div class="reg-roll">25243100</div></div>
+              <span class="reg-status status-tag" style="background:var(--pink-100); color:var(--pink-500);">Absent</span>
+            </div>
+            <div class="reg-grid">
+              <div class="reg-item"><div class="reg-item-label">Leave type</div><div class="reg-item-value warn">Uninformed</div></div>
+              <div class="reg-item"><div class="reg-item-label">Letter submitted</div><div class="reg-item-value warn">No</div></div>
+              <div class="reg-item"><div class="reg-item-label">Submitted to adviser</div><div class="reg-item-value">—</div></div>
+              <div class="reg-item"><div class="reg-item-label">Forwarded to HOD</div><div class="reg-item-value">—</div></div>
+              <div class="reg-item"><div class="reg-item-label">Due date</div><div class="reg-item-value warn">25 Aug 2026</div></div>
+              <div class="reg-item"><div class="reg-item-label">Leaves taken (YTD)</div><div class="reg-item-value">6</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SCREEN 5: INSTRUCTIONS PANEL -->
+      <div id="screen-instructions" class="screen-content" style="display:none;">
+        <div class="status-bar"><span>9:41</span><span>●●● 5G 🔋</span></div>
+        <div class="appbar">
+          <div class="appbar-icons"><div class="icon-btn" onclick="switchView('advisor')">←</div></div>
+          <div class="brand-name" style="font-size:14px;">Department Instructions</div>
+          <div class="appbar-icons"><div class="icon-btn" onclick="openPostNoticeModal()">＋</div></div>
+        </div>
+
+        <div class="filter-scroll">
+          <div class="filter-chip active" onclick="filterNotices('all', this)">All Notices</div>
+          <div class="filter-chip" onclick="filterNotices('dept', this)">Overall Dept</div>
+          <div class="filter-chip" onclick="filterNotices('year', this)">Target Years</div>
+          <div class="filter-chip" onclick="filterNotices('sec', this)">Specific Section</div>
+        </div>
+
+        <div id="instructionsFeed">
+          <div class="inst-card notice-item dept">
+            <div class="inst-top">
+              <span class="inst-badge dept">ALL SECTIONS • OVERALL DEPT</span>
+              <span class="inst-date">Today, 8:30 AM</span>
+            </div>
+            <div class="inst-title">Biometric Cut-off & 75% Examination Eligibility</div>
+            <div class="inst-body">Gate in-time cutoff is 8:45 AM. All students must maintain a minimum of 75% overall attendance to be eligible for End Semester Examinations.</div>
+          </div>
+
+          <div class="inst-card notice-item year">
+            <div class="inst-top">
+              <span class="inst-badge">III YEAR • ALL SECTIONS</span>
+              <span class="inst-date">Yesterday, 3:15 PM</span>
+            </div>
+            <div class="inst-title">Mini-Project Phase-I Review Attendance</div>
+            <div class="inst-body">Attendance for the upcoming Mini-Project review on Friday is strictly mandatory. No On-Duty (OD) will be sanctioned.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SCREEN 6: BIOMETRIC LOG -->
+      <div id="screen-biometric" class="screen-content" style="display:none;">
+        <div class="status-bar"><span>9:41</span><span>●●● 5G 🔋</span></div>
+        <div class="appbar">
+          <div class="appbar-icons"><div class="icon-btn" onclick="switchView('advisor')">←</div></div>
+          <div class="brand-name" style="font-size:14px;">Biometric log · Sec B</div>
+          <div class="appbar-icons"><div class="icon-btn" onclick="simulateNewPunch()">⟳</div></div>
+        </div>
+
+        <div id="bioAuthorityTag" class="authority-banner authority-hod"><span>⛨</span> HOD: You can Edit or Delete any Biometric Record</div>
+        <div class="bio-row" id="bio-row-1">
+          <div class="bio-dot" style="background:var(--green-600);"></div>
+          <div class="bio-info"><div class="bio-name">Janani Y · 25243068</div><div class="bio-meta">In 9:02 AM · Gate Bio Device 01 · 99.4%</div></div>
+          <div class="bio-actions"><div class="bio-act" onclick="alert('Edit punch modal')">✎</div><div class="bio-act del" onclick="deletePunch('bio-row-1')">🗑</div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Floating Jarvis Arc-Reactor Button -->
+  <div class="jarvis-fab" onclick="toggleJarvis()" title="Open Jarvis AI Assistant">
+    <div class="jarvis-ring"><div class="jarvis-core"></div></div>
+  </div>
+
+  <!-- Upgraded Detailed Jarvis Assistant Drawer -->
+  <div class="jarvis-drawer" id="jarvisDrawer">
+    <div class="jarvis-top">
+      <div class="jarvis-bot-info">
+        <div class="jarvis-avatar"><div class="jarvis-avatar-dot"></div></div>
+        <div>
+          <div class="jarvis-top-title">Jarvis AI</div>
+          <div class="jarvis-top-sub"><span class="live-dot"></span> Online · AI&DS Sky Blue Intelligence</div>
+        </div>
+      </div>
+      <div class="jarvis-actions-head">
+        <button class="jarvis-close" onclick="clearJarvisChat()" title="Clear Chat">↺</button>
+        <button class="jarvis-close" onclick="toggleJarvis()" title="Close Assistant">✕</button>
+      </div>
+    </div>
+
+    <!-- Quick Preset Topics Bar -->
+    <div class="jarvis-topic-bar">
+      <div class="topic-chip" onclick="askPreset('uninformed')">🔴 Uninformed Leaves</div>
+      <div class="topic-chip" onclick="askPreset('instructions')">📢 Dept Instructions</div>
+      <div class="topic-chip" onclick="askPreset('pending')">🖋️ HOD Approval Queue</div>
+      <div class="topic-chip" onclick="askPreset('structure')">🏛️ 14 Sections Matrix</div>
+    </div>
+
+    <div class="chat-box" id="chatMessages">
+      <div class="bubble-j">
+        <h3>🤖 Welcome! I am Jarvis, your Sky Blue AI Attendance Co-pilot</h3>
+        I am connected directly to the <b>AI & DS Department Database</b> (14 sections), department circulars, and biometric hardware.<br><br>
+        Ask me any question in plain English, or select a topic above.
+      </div>
+    </div>
+
+    <div class="chat-bottom">
+      <input type="text" id="chatInput" class="chat-input" placeholder="Ask Jarvis anything..." onkeydown="if(event.key==='Enter') sendChat()">
+      <button class="send-btn" onclick="sendChat()">➤</button>
+    </div>
+  </div>
+
+<script>
+  let currentRole = 'ADVISOR';
+  let activeYear = 3;
+  let activeSection = 'A';
+
+  const sectionDatabase = {
+    '1-A': { strength: 60, present: 56, pct: 93.3, advisor: 'Dr. A. Saravanan' },
+    '1-B': { strength: 59, present: 55, pct: 93.2, advisor: 'Mrs. M. Revathi' },
+    '1-C': { strength: 60, present: 54, pct: 90.0, advisor: 'Mr. P. Vijay' },
+    '1-D': { strength: 59, present: 56, pct: 94.9, advisor: 'Mrs. T. Nandhini' },
+    '2-A': { strength: 62, present: 58, pct: 93.5, advisor: 'Mr. K. Elango' },
+    '2-B': { strength: 63, present: 59, pct: 93.65, advisor: 'Mrs. S. Muthulakshmi' },
+    '2-C': { strength: 61, present: 55, pct: 90.1, advisor: 'Mr. R. Karthikeyan' },
+    '2-D': { strength: 61, present: 57, pct: 93.4, advisor: 'Mrs. V. Bhuvaneswari' },
+    '3-A': { strength: 60, present: 58, pct: 96.6, advisor: 'Mrs. P. Kavitha' },
+    '3-B': { strength: 58, present: 53, pct: 91.3, advisor: 'Mr. S. Dinesh' },
+    '3-C': { strength: 59, present: 54, pct: 91.5, advisor: 'Mrs. N. Geetha' },
+    '3-D': { strength: 58, present: 55, pct: 94.8, advisor: 'Mr. G. Anand' },
+    '4-A': { strength: 56, present: 54, pct: 96.4, advisor: 'Dr. V. Sathish' },
+    '4-B': { strength: 56, present: 53, pct: 94.6, advisor: 'Mrs. K. Malathi' }
+  };
+
+  /* ⚡ Thunder Storm Login Transition ⚡ */
+  function performThunderLogin() {
+    const email = document.getElementById('loginEmail').value;
+    const header = document.getElementById('skyCloudHeader');
+    const bolt = document.getElementById('lightningBolt');
+    const flash = document.getElementById('screenFlash');
+    const heading = document.getElementById('loginHeadingText');
+    const btn = document.getElementById('loginBtn');
+
+    header.classList.add('storm-mode');
+    bolt.style.display = 'block';
+    flash.style.display = 'block';
+    heading.innerText = '⚡ Thunder Storm Logging In...';
+    btn.innerHTML = '<span>⚡ Entering with Lightning...</span>';
+
+    setTimeout(() => {
+      flash.style.display = 'none';
+    }, 400);
+
+    setTimeout(() => {
+      header.classList.remove('storm-mode');
+      bolt.style.display = 'none';
+      heading.innerText = 'Welcome Back!';
+      btn.innerHTML = '<span>Login with Thunder</span> <span>⚡</span>';
+
+      if (email.includes('hod')) {
+        switchView('hod');
+      } else {
+        switchView('advisor');
+      }
+    }, 1400);
+  }
+
+  function switchView(viewName) {
+    ['advisor', 'hod', 'register', 'instructions', 'biometric', 'login'].forEach(s => {
+      const el = document.getElementById('screen-' + s);
+      if (el) el.style.display = 'none';
+    });
+    const target = document.getElementById('screen-' + viewName);
+    if (target) target.style.display = 'block';
+
+    document.querySelectorAll('.nav-btn').forEach((b, idx) => {
+      b.classList.toggle('active', ['advisor', 'hod', 'register', 'instructions', 'biometric', 'login'][idx] === viewName);
+    });
+
+    const badge = document.getElementById('roleDisplayBadge');
+    if (viewName === 'hod') {
+      currentRole = 'HOD';
+      badge.className = 'role-badge role-hod';
+      badge.innerHTML = '<span>●</span> HOD Full Authority';
+      document.querySelectorAll('.bio-act.del').forEach(el => el.style.display = 'flex');
+      document.getElementById('bioAuthorityTag').className = 'authority-banner authority-hod';
+      document.getElementById('bioAuthorityTag').innerHTML = '<span>⛨</span> HOD: You can Edit or Delete any Biometric Record';
+    } else {
+      currentRole = 'ADVISOR';
+      badge.className = 'role-badge role-advisor';
+      badge.innerHTML = '<span>●</span> Adviser Sky Mode (Sec B)';
+      document.querySelectorAll('.bio-act.del').forEach(el => el.style.display = 'none');
+      document.getElementById('bioAuthorityTag').className = 'authority-banner authority-adv';
+      document.getElementById('bioAuthorityTag').innerHTML = '<span>✎</span> Adviser Access: View & Edit Only (Delete is disabled)';
+    }
+  }
+
+  function selectYear(year, el) {
+    document.querySelectorAll('.year-chip').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    activeYear = year;
+
+    const container = document.getElementById('hodSectionChips');
+    if (year === 4) {
+      container.innerHTML = '<div class="sec-chip active" onclick="selectSection(\'A\', this)">A</div><div class="sec-chip" onclick="selectSection(\'B\', this)">B</div>';
+      activeSection = 'A';
+    } else {
+      container.innerHTML = '<div class="sec-chip active" onclick="selectSection(\'A\', this)">A</div><div class="sec-chip" onclick="selectSection(\'B\', this)">B</div><div class="sec-chip" onclick="selectSection(\'C\', this)">C</div><div class="sec-chip" onclick="selectSection(\'D\', this)">D</div>';
+      activeSection = 'A';
+    }
+    updateSectionDisplay();
+  }
+
+  function selectSection(sec, el) {
+    document.querySelectorAll('.sec-chip').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    activeSection = sec;
+    updateSectionDisplay();
+  }
+
+  function updateSectionDisplay() {
+    const key = `${activeYear}-${activeSection}`;
+    const data = sectionDatabase[key] || { strength: 60, present: 56, pct: 93.3, advisor: 'Staff Advisor' };
+    
+    document.getElementById('activeSecTitle').innerText = `${activeYear === 1 ? 'I' : activeYear === 2 ? 'II' : activeYear === 3 ? 'III' : 'IV'} AI&DS · Section ${activeSection}`;
+    document.getElementById('activeSecAdv').innerText = `Advisor: ${data.advisor}`;
+    document.getElementById('activeSecPct').innerText = `${data.pct}%`;
+    document.getElementById('activeSecBar').style.width = `${data.pct}%`;
+    document.getElementById('activeSecStrength').innerText = `${data.strength} Students (${data.present} Present)`;
+  }
+
+  function filterNotices(type, el) {
+    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    document.querySelectorAll('.notice-item').forEach(item => {
+      item.style.display = (type === 'all' || item.classList.contains(type)) ? 'block' : 'none';
+    });
+  }
+
+  function openPostNoticeModal() {
+    const title = prompt('Enter Notice Subject / Title:');
+    if (!title) return;
+    const body = prompt('Enter Notice Instructions:');
+    if (!body) return;
+
+    const feed = document.getElementById('instructionsFeed');
+    const card = document.createElement('div');
+    card.className = 'inst-card notice-item dept';
+    card.innerHTML = `
+      <div class="inst-top">
+        <span class="inst-badge dept">HOD BROADCAST • NEW</span>
+        <span class="inst-date">Just Now</span>
+      </div>
+      <div class="inst-title">${title}</div>
+      <div class="inst-body">${body}</div>
+    `;
+    feed.prepend(card);
+    alert('📢 Instruction broadcasted to staff & students across the department!');
+  }
+
+  function approveSlip(cardId) {
+    const el = document.getElementById(cardId);
+    if (el) el.style.opacity = '0.5';
+    const act = document.getElementById(cardId + '-act');
+    if (act) act.innerHTML = '<span style="color:var(--green-600); font-size:12px; font-weight:700;">✓ Approved & Signed by HOD</span>';
+    const awaitingEl = document.getElementById('hodAwaitingCount');
+    if (awaitingEl) {
+      let count = parseInt(awaitingEl.innerText) - 1;
+      if (count < 0) count = 0;
+      awaitingEl.innerText = count;
+    }
+  }
+
+  function rejectSlip(cardId) {
+    const el = document.getElementById(cardId);
+    if (el) el.style.opacity = '0.5';
+    const act = document.getElementById(cardId + '-act');
+    if (act) act.innerHTML = '<span style="color:var(--pink-500); font-size:12px; font-weight:700;">✕ Rejected by HOD</span>';
+    const awaitingEl = document.getElementById('hodAwaitingCount');
+    if (awaitingEl) {
+      let count = parseInt(awaitingEl.innerText) - 1;
+      if (count < 0) count = 0;
+      awaitingEl.innerText = count;
+    }
+  }
+
+  function approveAll() {
+    approveSlip('slip-lithesh');
+    alert('All pending pink slips have been approved and signed by HOD.');
+  }
+
+  function filterReg(type, el) {
+    if (el) {
+      document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+      el.classList.add('active');
+    }
+    document.querySelectorAll('.student-card').forEach(card => {
+      card.style.display = (type === 'all' || card.classList.contains(type)) ? 'block' : 'none';
+    });
+  }
+
+  function deletePunch(rowId) {
+    if (currentRole !== 'HOD') {
+      alert('Access Denied: Only HOD possesses authority to delete biometric punches.');
+      return;
+    }
+    if (confirm('Are you sure you want to permanently delete this biometric record? An audit entry will be created.')) {
+      document.getElementById(rowId).remove();
+      alert('Biometric record deleted. Audit log recorded for Dr. R. Balamurugan.');
+    }
+  }
+
+  function simulateNewPunch() {
+    alert('Simulating face recognition punch from Entry Cam A: Verified Janani Y (Confidence: 99.1%)');
+  }
+
+  function quickFill(role) {
+    const email = document.getElementById('loginEmail');
+    if (role === 'hod') email.value = 'hod.aids@vsb.ac.in';
+    else email.value = 'muthulakshmi.aids@vsb.ac.in';
+  }
+
+  /* Jarvis AI Engine */
+  function toggleJarvis() { document.getElementById('jarvisDrawer').classList.toggle('open'); }
+  function openJarvisWithPrompt(promptText) {
+    document.getElementById('jarvisDrawer').classList.add('open');
+    sendUserMessage(promptText);
+    setTimeout(() => { processJarvisAI(promptText); }, 400);
+  }
+
+  function clearJarvisChat() {
+    const box = document.getElementById('chatMessages');
+    box.innerHTML = `<div class="bubble-j"><h3>🤖 Chat Cleared</h3>I am ready for your next query regarding students, attendance, instructions, or department statistics.</div>`;
+  }
+
+  function askPreset(type) {
+    if (type === 'uninformed') {
+      sendUserMessage('Show uninformed absences, letter status, and due dates in Section B');
+      setTimeout(() => {
+        const html = `
+          <h3>📊 Daily Absentee Analysis — Section B</h3>
+          <table>
+            <tr><th>Student</th><th>Roll No</th><th>Leave Type</th><th>Letter</th><th>Due Date</th></tr>
+            <tr><td><b>Lithesh Hari R</b></td><td>25243100</td><td><span style="color:var(--pink-500);font-weight:700;">🔴 Uninformed</span></td><td>❌ No</td><td><b style="color:var(--pink-500);">25 Aug</b> (Overdue)</td></tr>
+            <tr><td><b>Manikandan M</b></td><td>25243113</td><td><span style="color:var(--green-600);font-weight:700;">🟡 Informed</span></td><td>✅ Approved</td><td>Cleared</td></tr>
+          </table>
+        `;
+        addJarvisReply(html);
+      }, 400);
+    } else if (type === 'instructions') {
+      sendUserMessage('Show latest department instructions & notices');
+      setTimeout(() => {
+        const html = `
+          <h3>📢 Department Instructions & Broadcasts</h3>
+          <ul>
+            <li><b>Overall Dept</b>: Biometric cutoff is 8:45 AM. 75% exam eligibility strictly enforced.</li>
+            <li><b>3rd Year</b>: Mini-Project Phase-1 review attendance mandatory on Friday.</li>
+          </ul>
+        `;
+        addJarvisReply(html);
+      }, 400);
+    } else if (type === 'pending') {
+      sendUserMessage('What slips are awaiting HOD approval?');
+      setTimeout(() => {
+        const html = `
+          <h3>🖋️ HOD Pending Signature Queue</h3>
+          There are <b>2 Pink Slips</b> awaiting final clearance from <b>Dr. R. Balamurugan (HOD)</b>:
+          <ul>
+            <li><b>Lithesh Hari R (25243100)</b> — II AI&DS Sec B (Fees not paid)</li>
+            <li><b>Deepika S (25243044)</b> — II AI&DS Sec A (Viral fever medical leave)</li>
+          </ul>
+        `;
+        addJarvisReply(html);
+      }, 400);
+    } else if (type === 'structure') {
+      sendUserMessage('Explain the 14-section department structure');
+      setTimeout(() => {
+        const html = `
+          <h3>🏛️ AI & DS Department Topology (14 Sections)</h3>
+          <table>
+            <tr><th>Year</th><th>Sections</th><th>Students</th></tr>
+            <tr><td>1st Year</td><td>4 (A, B, C, D)</td><td>238</td></tr>
+            <tr><td>2nd Year</td><td>4 (A, B, C, D)</td><td>247</td></tr>
+            <tr><td>3rd Year</td><td>4 (A, B, C, D)</td><td>235</td></tr>
+            <tr><td>4th Year</td><td>2 (A, B)</td><td>112</td></tr>
+          </table>
+        `;
+        addJarvisReply(html);
+      }, 400);
+    }
+  }
+
+  function sendChat() {
+    const input = document.getElementById('chatInput');
+    const txt = input.value.trim();
+    if (!txt) return;
+    sendUserMessage(txt);
+    input.value = '';
+    setTimeout(() => { processJarvisAI(txt); }, 450);
+  }
+
+  function processJarvisAI(query) {
+    const q = query.toLowerCase();
+    if (q.includes('instruction') || q.includes('notice') || q.includes('circular')) {
+      askPreset('instructions');
+    } else if (q.includes('uninformed') || q.includes('absent')) {
+      askPreset('uninformed');
+    } else if (q.includes('pending') || q.includes('hod') || q.includes('approve')) {
+      askPreset('pending');
+    } else if (q.includes('structure') || q.includes('sections') || q.includes('year')) {
+      askPreset('structure');
+    } else {
+      addJarvisReply(`<h3>💡 Sky Query Result</h3>Regarding "${query}": All 14 AI&DS sections are live and monitored.`);
+    }
+  }
+
+  function sendUserMessage(msg) {
+    const box = document.getElementById('chatMessages');
+    const div = document.createElement('div');
+    div.className = 'bubble-u';
+    div.innerText = msg;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function addJarvisReply(html) {
+    const box = document.getElementById('chatMessages');
+    const div = document.createElement('div');
+    div.className = 'bubble-j';
+    div.innerHTML = html;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+  }
+</script>
+</body>
+</html>
