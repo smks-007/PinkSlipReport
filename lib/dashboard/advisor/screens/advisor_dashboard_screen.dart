@@ -3,10 +3,11 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_styles.dart';
 import '../../../core/models/user_model.dart';
 import '../../../core/models/leave_model.dart';
+import '../../../core/services/auth_service.dart';
 import '../../../core/services/mock_data_service.dart';
-import '../../../chatbot/widgets/jarvis_fab.dart';
+import '../../shared/widgets/storage_management_dialog.dart';
 
-/// Advisor Dashboard — matches the provided screenshot design.
+/// Advisor Dashboard — matches the provided design.
 /// Shows attendance overview, quick actions, recent pink slips.
 class AdvisorDashboardScreen extends StatefulWidget {
   const AdvisorDashboardScreen({super.key});
@@ -16,20 +17,12 @@ class AdvisorDashboardScreen extends StatefulWidget {
 }
 
 class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
-  final UserModel _advisor = const UserModel(
-    id: 'adv-001',
-    name: 'Mrs. S. Muthulakshmi',
-    email: 'advisor@vsb.edu',
-    role: UserRole.advisor,
-    department: 'AI&DS',
-    classSection: 'II AI&DS - Section B',
-  );
+  UserModel get _advisor => AuthService().currentUser ?? AuthService.advisor;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.pageBackground,
-      floatingActionButton: const JarvisFAB(),
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
@@ -103,6 +96,14 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
             ]),
           ),
           const Spacer(),
+          IconButton(
+            icon: const Icon(Icons.dns_rounded, size: 22, color: Color(0xFF0284C7)),
+            tooltip: 'Storage & Data Center',
+            onPressed: () => showDialog(
+              context: context,
+              builder: (ctx) => const StorageManagementDialog(),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.notifications_none_rounded, size: 26),
             color: AppColors.textPrimary,

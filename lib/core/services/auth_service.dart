@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
+import '../data/student_directory_data.dart';
 
 /// Manages authentication state, role-based access, and two-factor security verification.
 class AuthService extends ChangeNotifier {
@@ -32,7 +33,7 @@ class AuthService extends ChangeNotifier {
   /// Registered Official Accounts: HODs
   static const UserModel overallHod = UserModel(
     id: 'hod-001',
-    name: 'Dr. Manivannan',
+    name: 'DR. MANIVANNAN (Ph.D.)',
     email: 'manivannan.hod@vsb.ac.in',
     role: UserRole.hod,
     department: 'AI&DS',
@@ -50,11 +51,11 @@ class AuthService extends ChangeNotifier {
     hodScope: 'I & II Year',
   );
 
-  /// Default Advisor (II-B)
+  /// Default Advisor (II-B Dr. M. Rajendiran)
   static const UserModel advisor = UserModel(
-    id: 'adv-001',
-    name: 'Mrs. S. Muthulakshmi',
-    email: 'muthulakshmi.aids@vsb.ac.in',
+    id: 'adv-2b',
+    name: 'Dr. M. Rajendiran',
+    email: 'advisor.2b@vsb.ac.in',
     role: UserRole.advisor,
     department: 'AI&DS',
     college: 'V.S.B. Engineering College',
@@ -64,11 +65,11 @@ class AuthService extends ChangeNotifier {
     section: 'B',
   );
 
-  /// 10 Section Class Advisors
+  /// 10 Section Class Advisors (Academic Year 2026-2027)
   static const List<UserModel> sectionAdvisors = [
     UserModel(
       id: 'adv-2a',
-      name: 'Dr. D. Anandan',
+      name: 'Dr. D. Anandhan',
       email: 'advisor.2a@vsb.ac.in',
       role: UserRole.advisor,
       department: 'AI&DS',
@@ -77,10 +78,20 @@ class AuthService extends ChangeNotifier {
       year: 2,
       section: 'A',
     ),
-    advisor, // II-B
+    UserModel(
+      id: 'adv-2b',
+      name: 'Dr. M. Rajendiran',
+      email: 'advisor.2b@vsb.ac.in',
+      role: UserRole.advisor,
+      department: 'AI&DS',
+      classSection: 'II AI&DS - Section B',
+      batchYear: '2025 BATCH',
+      year: 2,
+      section: 'B',
+    ),
     UserModel(
       id: 'adv-2c',
-      name: 'Mr. R. Rajesh',
+      name: 'Mr. A. Bharathidasan',
       email: 'advisor.2c@vsb.ac.in',
       role: UserRole.advisor,
       department: 'AI&DS',
@@ -91,7 +102,7 @@ class AuthService extends ChangeNotifier {
     ),
     UserModel(
       id: 'adv-2d',
-      name: 'Mrs. M. Preethi',
+      name: 'Mr. R. Palraj',
       email: 'advisor.2d@vsb.ac.in',
       role: UserRole.advisor,
       department: 'AI&DS',
@@ -102,7 +113,7 @@ class AuthService extends ChangeNotifier {
     ),
     UserModel(
       id: 'adv-3a',
-      name: 'Dr. K. Saravanan',
+      name: 'Ms. C. Vishnupriya',
       email: 'advisor.3a@vsb.ac.in',
       role: UserRole.advisor,
       department: 'AI&DS',
@@ -113,7 +124,7 @@ class AuthService extends ChangeNotifier {
     ),
     UserModel(
       id: 'adv-3b',
-      name: 'Mrs. P. Kavitha',
+      name: 'Dr. R. Murugesan',
       email: 'advisor.3b@vsb.ac.in',
       role: UserRole.advisor,
       department: 'AI&DS',
@@ -124,7 +135,7 @@ class AuthService extends ChangeNotifier {
     ),
     UserModel(
       id: 'adv-3c',
-      name: 'Mr. S. Gokul',
+      name: 'Mrs. B. Bharathi',
       email: 'advisor.3c@vsb.ac.in',
       role: UserRole.advisor,
       department: 'AI&DS',
@@ -135,7 +146,7 @@ class AuthService extends ChangeNotifier {
     ),
     UserModel(
       id: 'adv-3d',
-      name: 'Mrs. V. Renuka',
+      name: 'Ms. S. Muthulakshmi',
       email: 'advisor.3d@vsb.ac.in',
       role: UserRole.advisor,
       department: 'AI&DS',
@@ -146,7 +157,7 @@ class AuthService extends ChangeNotifier {
     ),
     UserModel(
       id: 'adv-4a',
-      name: 'Dr. M. Rajendiran',
+      name: 'Mr. Muthuselvan',
       email: 'advisor.4a@vsb.ac.in',
       role: UserRole.advisor,
       department: 'AI&DS',
@@ -157,7 +168,7 @@ class AuthService extends ChangeNotifier {
     ),
     UserModel(
       id: 'adv-4b',
-      name: 'Dr. S. Boopathi',
+      name: 'Mrs. Nandhinidevi',
       email: 'advisor.4b@vsb.ac.in',
       role: UserRole.advisor,
       department: 'AI&DS',
@@ -493,31 +504,82 @@ class AuthService extends ChangeNotifier {
         emailLower.contains('dr.')) {
       _pendingUser = overallHod;
     } else {
-      // Check if matches a Class Representative
-      UserModel? matchedCr;
-      for (final cr in classRepresentatives) {
-        if (emailLower == cr.email.toLowerCase() ||
-            emailLower.contains(cr.rollNumber ?? '___') ||
-            emailLower == 'cr.${cr.gender?.toLowerCase()}.${cr.year}${cr.section?.toLowerCase()}@vsb.ac.in' ||
-            emailLower == '${cr.rollNumber}@vsb.ac.in') {
-          matchedCr = cr;
+      // 1. Check Section Advisors (e.g. muthuselvan, nandhinidevi, vishnupriya, murugesan, bharathi, muthulakshmi, anandhan, rajendiran, bharathidasan, palraj, advisor.4a, etc.)
+      UserModel? matchedAdv;
+      for (final adv in sectionAdvisors) {
+        final advNameLower = adv.name.toLowerCase();
+        final advCode = '${adv.year}${adv.section?.toLowerCase()}';
+        if (emailLower == adv.email.toLowerCase() ||
+            emailLower.contains('advisor.$advCode') ||
+            emailLower == advCode ||
+            advNameLower.split(' ').any((part) => part.length > 3 && emailLower.contains(part))) {
+          matchedAdv = adv;
           break;
         }
       }
 
-      if (matchedCr != null) {
-        _pendingUser = matchedCr;
+      if (matchedAdv != null) {
+        _pendingUser = matchedAdv;
       } else {
-        // Check section advisors
-        UserModel? matchedAdv;
-        for (final adv in sectionAdvisors) {
-          if (emailLower == adv.email.toLowerCase() ||
-              emailLower.contains('advisor.${adv.year}${adv.section?.toLowerCase()}')) {
-            matchedAdv = adv;
+        // 2. Check if matches a Class Representative
+        UserModel? matchedCr;
+        for (final cr in classRepresentatives) {
+          if (emailLower == cr.email.toLowerCase() ||
+              emailLower.contains(cr.rollNumber ?? '___') ||
+              emailLower == 'cr.${cr.gender?.toLowerCase()}.${cr.year}${cr.section?.toLowerCase()}@vsb.ac.in' ||
+              emailLower == '${cr.rollNumber}@vsb.ac.in') {
+            matchedCr = cr;
             break;
           }
         }
-        _pendingUser = matchedAdv ?? advisor;
+
+        if (matchedCr != null) {
+          _pendingUser = matchedCr;
+        } else {
+          // 3. Check any student by Roll Number or Name in the 622-student directory
+          final rollMatch = RegExp(r'\b(2[345]243\d{3})\b').firstMatch(emailLower);
+          final rollKey = rollMatch?.group(1) ?? emailLower.replaceAll('@vsb.ac.in', '').trim();
+          final student = StudentDirectoryData.byRollNumber[rollKey];
+
+          if (student != null) {
+            _pendingUser = UserModel(
+              id: student.id,
+              name: student.name,
+              rollNumber: student.rollNumber,
+              email: '${student.rollNumber}@vsb.ac.in',
+              role: UserRole.student,
+              isClassRepresentative: false,
+              gender: student.gender,
+              department: 'AI&DS',
+              classSection: '${student.romanYear} AI&DS - Section ${student.section}',
+              batchYear: student.batchYear,
+              year: student.year,
+              section: student.section,
+            );
+          } else {
+            // Search student by name
+            final candidates = StudentDirectoryData.search(emailLower);
+            if (candidates.isNotEmpty) {
+              final s = candidates.first;
+              _pendingUser = UserModel(
+                id: s.id,
+                name: s.name,
+                rollNumber: s.rollNumber,
+                email: '${s.rollNumber}@vsb.ac.in',
+                role: UserRole.student,
+                isClassRepresentative: false,
+                gender: s.gender,
+                department: 'AI&DS',
+                classSection: '${s.romanYear} AI&DS - Section ${s.section}',
+                batchYear: s.batchYear,
+                year: s.year,
+                section: s.section,
+              );
+            } else {
+              _pendingUser = advisor;
+            }
+          }
+        }
       }
     }
 
@@ -525,6 +587,46 @@ class AuthService extends ChangeNotifier {
     _isLoading = false;
     notifyListeners();
     return true;
+  }
+
+  /// Get official assigned password for any user
+  static String getExpectedPassword(UserModel user) {
+    if (user.id == 'hod-001') return 'Hod@Mani2026';
+    if (user.id == 'hod-002') return 'Hod@Kavi2026';
+    if (user.id == 'adv-4a') return 'Adv@Muthu4A';
+    if (user.id == 'adv-4b') return 'Adv@Nandhini4B';
+    if (user.id == 'adv-3a') return 'Adv@Vishnu3A';
+    if (user.id == 'adv-3b') return 'Adv@Murugesan3B';
+    if (user.id == 'adv-3c') return 'Adv@Bharathi3C';
+    if (user.id == 'adv-3d') return 'Adv@Muthu3D';
+    if (user.id == 'adv-2a') return 'Adv@Anandh2A';
+    if (user.id == 'adv-2b') return 'Adv@Rajen2B';
+    if (user.id == 'adv-2c') return 'Adv@Bharathi2C';
+    if (user.id == 'adv-2d') return 'Adv@Palraj2D';
+    if (user.role == UserRole.student && user.rollNumber != null) {
+      return 'Stu@${user.rollNumber}';
+    }
+    return 'password123';
+  }
+
+  /// Get official standard username for any user
+  static String getOfficialUsername(UserModel user) {
+    if (user.id == 'hod-001') return 'hod.manivannan';
+    if (user.id == 'hod-002') return 'hod.kavitha';
+    if (user.id == 'adv-4a') return 'advisor.muthuselvan';
+    if (user.id == 'adv-4b') return 'advisor.nandhinidevi';
+    if (user.id == 'adv-3a') return 'advisor.vishnupriya';
+    if (user.id == 'adv-3b') return 'advisor.murugesan';
+    if (user.id == 'adv-3c') return 'advisor.bharathi';
+    if (user.id == 'adv-3d') return 'advisor.muthulakshmi';
+    if (user.id == 'adv-2a') return 'advisor.anandhan';
+    if (user.id == 'adv-2b') return 'advisor.rajendiran';
+    if (user.id == 'adv-2c') return 'advisor.bharathidasan';
+    if (user.id == 'adv-2d') return 'advisor.palraj';
+    if (user.role == UserRole.student && user.rollNumber != null) {
+      return user.rollNumber!;
+    }
+    return user.email;
   }
 
   /// Step 2: Two-Factor Security Verification (OTP Code)

@@ -3,7 +3,6 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_styles.dart';
 import '../../../core/models/leave_model.dart';
 import '../../../core/services/mock_data_service.dart';
-import '../../../chatbot/widgets/jarvis_fab.dart';
 import '../../shared/widgets/letter_attachment_viewer_dialog.dart';
 
 /// Leave Management screen for Advisors.
@@ -63,7 +62,6 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.pageBackground,
-      floatingActionButton: const JarvisFAB(),
       appBar: AppBar(
         backgroundColor: AppColors.pageBackground,
         leading: IconButton(

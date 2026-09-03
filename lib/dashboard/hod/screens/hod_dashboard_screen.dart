@@ -7,6 +7,7 @@ import '../../../core/services/auth_service.dart';
 import '../../../core/services/mock_data_service.dart';
 import '../../../chatbot/widgets/jarvis_fab.dart';
 import '../../shared/widgets/letter_attachment_viewer_dialog.dart';
+import '../../shared/widgets/storage_management_dialog.dart';
 
 class HodDashboardScreen extends StatefulWidget {
   const HodDashboardScreen({super.key});
@@ -32,7 +33,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
     }
     return (_selectedYear == 1 || _selectedYear == 2)
         ? 'Mrs. Kavitha'
-        : 'Dr. Manivannan';
+        : 'DR. MANIVANNAN (Ph.D.)';
   }
 
   String get _currentHodTitle {
@@ -241,6 +242,14 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
             ]),
           ),
           const Spacer(),
+          IconButton(
+            icon: const Icon(Icons.dns_rounded, size: 22, color: Color(0xFF0284C7)),
+            tooltip: 'Storage & System Health',
+            onPressed: () => showDialog(
+              context: context,
+              builder: (ctx) => const StorageManagementDialog(),
+            ),
+          ),
           IconButton(icon: const Icon(Icons.notifications_none_rounded, size: 26), onPressed: () {}),
           IconButton(icon: const Icon(Icons.logout_rounded, size: 24), onPressed: () => Navigator.pushReplacementNamed(context, '/sign-in')),
         ],

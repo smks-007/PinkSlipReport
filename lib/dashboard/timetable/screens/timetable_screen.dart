@@ -3,7 +3,6 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_styles.dart';
 import '../../../core/models/timetable_model.dart';
 import '../../../core/services/timetable_data_service.dart';
-import '../../../chatbot/widgets/jarvis_fab.dart';
 
 /// Interactive Timetable Screen for 2nd Year B.Tech AI&DS (Sections A, B, C, D).
 class TimetableScreen extends StatefulWidget {
@@ -70,7 +69,6 @@ class _TimetableScreenState extends State<TimetableScreen>
 
     return Scaffold(
       backgroundColor: AppColors.pageBackground,
-      floatingActionButton: const JarvisFAB(),
       appBar: AppBar(
         backgroundColor: AppColors.pageBackground,
         elevation: 0,

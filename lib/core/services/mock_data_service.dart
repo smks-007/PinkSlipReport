@@ -291,29 +291,105 @@ class MockDataService {
     return false;
   }
 
-  // ──────────────────── Attendance Records ────────────────────
+  // ──────────────────── Multi-Day Persistent Attendance Storage ────────────────────
 
-  static List<AttendanceRecord> generateAttendanceForDate(DateTime date, {int? year, String? section}) {
-    List<StudentModel> targetStudents = (year != null && section != null)
-        ? getStudentsBySection(year, section)
-        : students;
+  static final Map<String, List<AttendanceRecord>> _attendanceCache = {};
 
-    return targetStudents.map((s) {
+  static String _formatDateKey(DateTime date, int year, String section) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}_${year}_$section';
+  }
+
+  static List<AttendanceRecord> getAttendanceForDate(DateTime date, {int year = 2, String section = 'B'}) {
+    final key = _formatDateKey(date, year, section);
+    if (_attendanceCache.containsKey(key)) {
+      return _attendanceCache[key]!;
+    }
+
+    // Generate initial records for this section and date
+    final targetStudents = getStudentsBySection(year, section);
+    final isPastDate = date.isBefore(DateTime.now().subtract(const Duration(hours: 12)));
+
+    final records = targetStudents.asMap().entries.map((entry) {
+      final idx = entry.key;
+      final s = entry.value;
+      // Realistic attendance: 92-96% presence
+      final isAbsent = (idx % 18 == 4 || idx % 27 == 11);
+      final isPresent = !isAbsent;
+
       return AttendanceRecord(
-        id: 'att-${s.id}-${date.toIso8601String()}',
+        id: 'att-${s.id}-${date.year}${date.month}${date.day}',
         studentId: s.id,
         date: date,
-        isPresent: s.isPresentToday,
-        biometricPunchIn: s.isPresentToday
-            ? DateTime(date.year, date.month, date.day, 8, 30 + (s.id.hashCode % 30).abs())
+        isPresent: isPresent,
+        biometricPunchIn: isPresent
+            ? DateTime(date.year, date.month, date.day, 8, 30 + (s.id.hashCode % 20).abs())
             : null,
-        biometricPunchOut: s.isPresentToday
+        biometricPunchOut: isPresent
             ? DateTime(date.year, date.month, date.day, 16, 0 + (s.id.hashCode % 30).abs())
             : null,
-        source: 'biometric',
+        source: isPastDate ? 'manual_verified' : 'biometric',
+        recordedBy: 'Dr. M. Rajendiran',
         createdAt: date,
       );
     }).toList();
+
+    _attendanceCache[key] = records;
+    return records;
+  }
+
+  static void updateAttendanceRecord(AttendanceRecord updated, {int year = 2, String section = 'B'}) {
+    final key = _formatDateKey(updated.date, year, section);
+    final list = getAttendanceForDate(updated.date, year: year, section: section);
+    final idx = list.indexWhere((r) => r.id == updated.id || r.studentId == updated.studentId);
+    if (idx != -1) {
+      list[idx] = updated;
+      _attendanceCache[key] = list;
+    }
+  }
+
+  static void markAllPresentForDate(DateTime date, {int year = 2, String section = 'B', String recordedBy = 'Class Advisor'}) {
+    final key = _formatDateKey(date, year, section);
+    final list = getAttendanceForDate(date, year: year, section: section);
+    final updatedList = list.map((r) {
+      return r.copyWith(
+        isPresent: true,
+        source: 'manual',
+        recordedBy: recordedBy,
+        updatedAt: DateTime.now(),
+      );
+    }).toList();
+    _attendanceCache[key] = updatedList;
+  }
+
+  static List<AttendanceRecord> generateAttendanceForDate(DateTime date, {int? year, String? section}) {
+    return getAttendanceForDate(date, year: year ?? 2, section: section ?? 'B');
+  }
+
+  // ──────────────────── Storage & System Metrics ────────────────────
+
+  static Map<String, dynamic> getStorageMetrics() {
+    return {
+      'totalStudents': allStudents.length, // 622
+      'totalAdvisors': 10,
+      'totalHods': 2,
+      'totalClassReps': 20,
+      'totalSections': 10,
+      'totalLeaveSlips': _leaveRequests.length,
+      'totalAttendanceRecords': 622 * 14, // 14 days of loaded attendance
+      'storageAllocatedMB': 100.0,
+      'storageUsedMB': 31.45,
+      'breakdown': [
+        {'category': '622 Student Profiles & Bio Data', 'size': '2.45 MB', 'records': '622 rows'},
+        {'category': '10 Faculty Advisor & HOD Portals', 'size': '320 KB', 'records': '12 accounts'},
+        {'category': 'Multi-Day Attendance & Punch Logs', 'size': '5.80 MB', 'records': '8,708 logs'},
+        {'category': 'OD & Medical Proof PDF Attachments', 'size': '18.60 MB', 'records': '8 documents'},
+        {'category': 'Odd Sem 2026 Timetable Indices', 'size': '1.15 MB', 'records': '10 sections'},
+        {'category': 'HOD Jarvis AI Intelligence Engine', 'size': '3.13 MB', 'records': 'Full Index'},
+      ],
+      'systemHealth': '100% Operational',
+      'syncStatus': 'Local Storage Synced with Dept Cloud Server',
+      'lastSyncTime': '03-09-2026 10:25 AM',
+    };
   }
 
   // ──────────────────── Dashboard Stats ────────────────────

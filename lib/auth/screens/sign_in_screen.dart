@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/models/user_model.dart';
 import '../../core/services/auth_service.dart';
+import '../../core/data/student_directory_data.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -11,8 +13,11 @@ class SignInScreen extends StatefulWidget {
 
 class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  final _emailCtrl = TextEditingController(text: 'muthulakshmi.aids@vsb.ac.in');
-  final _passwordCtrl = TextEditingController(text: 'password123');
+  int _selectedRoleTab = 0; // 0 = HOD, 1 = Advisor, 2 = Student
+
+  final _usernameCtrl = TextEditingController(text: 'hod.manivannan');
+  final _passwordCtrl = TextEditingController(text: 'Hod@Mani2026');
+
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _isStorming = false;
@@ -48,9 +53,25 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
   void dispose() {
     _cloudAnimController.dispose();
     _lightningAnimController.dispose();
-    _emailCtrl.dispose();
+    _usernameCtrl.dispose();
     _passwordCtrl.dispose();
     super.dispose();
+  }
+
+  void _onRoleTabChanged(int index) {
+    setState(() {
+      _selectedRoleTab = index;
+      if (index == 0) {
+        _usernameCtrl.text = 'hod.manivannan';
+        _passwordCtrl.text = 'Hod@Mani2026';
+      } else if (index == 1) {
+        _usernameCtrl.text = 'advisor.muthuselvan';
+        _passwordCtrl.text = 'Adv@Muthu4A';
+      } else {
+        _usernameCtrl.text = '25243001'; // ABINAYA G
+        _passwordCtrl.text = 'Stu@25243001';
+      }
+    });
   }
 
   Future<void> _handleLogin() async {
@@ -60,8 +81,7 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
     if (authService.isLockedOut) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-              'Security Lock active. Please wait ${authService.remainingLockoutSeconds}s.'),
+          content: Text('Security Lock active. Please wait ${authService.remainingLockoutSeconds}s.'),
           backgroundColor: AppColors.absentRed,
         ),
       );
@@ -76,11 +96,11 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
     _lightningAnimController.forward(from: 0.0);
 
     final success = await authService.preAuthenticate(
-      _emailCtrl.text,
+      _usernameCtrl.text,
       _passwordCtrl.text,
     );
 
-    await Future.delayed(const Duration(milliseconds: 1000));
+    await Future.delayed(const Duration(milliseconds: 900));
 
     if (!mounted) return;
     setState(() {
@@ -105,36 +125,50 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
               children: [
                 _buildSkyCloudHeader(),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 28),
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Form(
                     key: _formKey,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SizedBox(height: 28),
-                        const Text('Email', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
+                        const SizedBox(height: 20),
+
+                        // Role Selector Tabs (HOD, Advisor, Student)
+                        _buildRoleTabs(),
+
+                        const SizedBox(height: 20),
+
+                        // Input Label
+                        Text(
+                          _getInputLabel(),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                        ),
                         const SizedBox(height: 8),
+
+                        // Username / Email / Roll Number Input
                         TextFormField(
-                          controller: _emailCtrl,
-                          keyboardType: TextInputType.emailAddress,
+                          controller: _usernameCtrl,
                           decoration: InputDecoration(
-                            hintText: 'Enter your email',
-                            prefixIcon: const Icon(Icons.email_outlined, color: AppColors.primaryPurple),
+                            hintText: _getInputHint(),
+                            prefixIcon: Icon(_getInputIcon(), color: AppColors.primaryPurple),
                             filled: true,
                             fillColor: Colors.white,
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFBAE6FD))),
                             enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFBAE6FD))),
                           ),
-                          validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter your email' : null,
+                          validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter your username/credential' : null,
                         ),
-                        const SizedBox(height: 18),
+
+                        const SizedBox(height: 16),
                         const Text('Password', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
                         const SizedBox(height: 8),
+
+                        // Password Input
                         TextFormField(
                           controller: _passwordCtrl,
                           obscureText: _obscurePassword,
                           decoration: InputDecoration(
-                            hintText: 'Enter your password',
+                            hintText: 'Enter account password',
                             prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppColors.primaryPurple),
                             suffixIcon: IconButton(
                               icon: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: Colors.grey),
@@ -145,9 +179,10 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFBAE6FD))),
                             enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFBAE6FD))),
                           ),
-                          validator: (v) => (v == null || v.length < 6) ? 'Password too short' : null,
+                          validator: (v) => (v == null || v.length < 4) ? 'Password too short' : null,
                         ),
-                        const SizedBox(height: 10),
+
+                        const SizedBox(height: 8),
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
@@ -155,10 +190,13 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                             child: const Text('Forgot Password?', style: TextStyle(color: AppColors.primaryPurple, fontWeight: FontWeight.w600, fontSize: 12)),
                           ),
                         ),
-                        const SizedBox(height: 18),
+
+                        const SizedBox(height: 14),
+
+                        // Login Button
                         SizedBox(
                           width: double.infinity,
-                          height: 54,
+                          height: 52,
                           child: DecoratedBox(
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(colors: [Color(0xFF0284C7), Color(0xFF38BDF8)]),
@@ -184,41 +222,22 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                                       children: const [
                                         Icon(Icons.bolt_rounded, color: Color(0xFFFDE047)),
                                         SizedBox(width: 8),
-                                        Text('Entering with Thunder...', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                        Text('Signing in with Thunder...', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                                       ],
                                     )
-                                  : const Text('Login with Thunder ⚡', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                                  : Text(
+                                      'Sign In as ${_getRoleTitle()} ⚡',
+                                      style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                                    ),
                             ),
                           ),
                         ),
-                        const SizedBox(height: 20),
-                        const Center(
-                          child: Text(
-                            'Quick Demo Access Accounts:',
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          alignment: WrapAlignment.center,
-                          children: [
-                            _roleChip('Dr. Manivannan (Overall HOD)', 'manivannan.hod@vsb.ac.in'),
-                            _roleChip('Mrs. Kavitha (I & II Yr HOD)', 'kavitha.hod@vsb.ac.in'),
-                            _roleChip('Advisor: Mrs. S. Muthulakshmi (II-B)', 'muthulakshmi.aids@vsb.ac.in'),
-                            _roleChip('♂ Lithesh Hari R (II-B Boy CR)', 'cr.boy.2b@vsb.ac.in'),
-                            _roleChip('♀ Janani Y (II-B Girl CR)', 'cr.girl.2b@vsb.ac.in'),
-                            _roleChip('♂ Adithyan S (II-A Boy CR)', 'cr.boy.2a@vsb.ac.in'),
-                            _roleChip('♀ S. Harini (IV-B Girl CR)', 'cr.girl.4b@vsb.ac.in'),
-                            ActionChip(
-                              label: const Text('📋 All 20 Section CRs...', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primaryPurple)),
-                              backgroundColor: const Color(0xFFF5F3FF),
-                              side: const BorderSide(color: Color(0xFFDDD6FE)),
-                              onPressed: _showAllClassRepsDialog,
-                            ),
-                          ],
-                        ),
+
+                        const SizedBox(height: 22),
+
+                        // Role Specific Quick Selector Chips
+                        _buildQuickRoleAccounts(),
+
                         const SizedBox(height: 32),
                       ],
                     ),
@@ -240,16 +259,176 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
     );
   }
 
+  Widget _buildRoleTabs() {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE2E8F0),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          _roleTabItem(0, '🏛️ HOD Portal'),
+          _roleTabItem(1, '👨‍🏫 Class Advisor'),
+          _roleTabItem(2, '🎓 Student / CR'),
+        ],
+      ),
+    );
+  }
+
+  Widget _roleTabItem(int index, String title) {
+    final isSelected = _selectedRoleTab == index;
+    return Expanded(
+      child: InkWell(
+        onTap: () => _onRoleTabChanged(index),
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Text(
+            title,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              color: isSelected ? const Color(0xFF0F172A) : const Color(0xFF64748B),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _getInputLabel() {
+    if (_selectedRoleTab == 0) return 'HOD Email or Username';
+    if (_selectedRoleTab == 1) return 'Class Advisor Email or Staff ID';
+    return 'Student Roll Number or College Email';
+  }
+
+  String _getInputHint() {
+    if (_selectedRoleTab == 0) return 'e.g., manivannan.hod@vsb.ac.in';
+    if (_selectedRoleTab == 1) return 'e.g., advisor.4a@vsb.ac.in (Mr. Muthuselvan)';
+    return 'e.g., 25243100, 24243007, 23243034';
+  }
+
+  IconData _getInputIcon() {
+    if (_selectedRoleTab == 0) return Icons.admin_panel_settings_rounded;
+    if (_selectedRoleTab == 1) return Icons.school_rounded;
+    return Icons.badge_rounded;
+  }
+
+  String _getRoleTitle() {
+    if (_selectedRoleTab == 0) return 'HOD';
+    if (_selectedRoleTab == 1) return 'Advisor';
+    return 'Student';
+  }
+
+  Widget _buildQuickRoleAccounts() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              _selectedRoleTab == 0
+                  ? 'Quick HOD Logins:'
+                  : _selectedRoleTab == 1
+                      ? '10 Official Section Advisors:'
+                      : 'Students & CR Logins:',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+            ),
+            TextButton.icon(
+              onPressed: _showCredentialsDirectoryDialog,
+              icon: const Icon(Icons.menu_book_rounded, size: 14, color: AppColors.primaryPurple),
+              label: const Text('All Credentials & PDF', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primaryPurple)),
+              style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(50, 30)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        if (_selectedRoleTab == 0)
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _accountChip('DR. MANIVANNAN (Overall HOD)', 'hod.manivannan', 'Hod@Mani2026'),
+              _accountChip('Mrs. Kavitha (I & II Yr HOD)', 'hod.kavitha', 'Hod@Kavi2026'),
+            ],
+          )
+        else if (_selectedRoleTab == 1)
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _accountChip('IV-A: Mr. Muthuselvan', 'advisor.muthuselvan', 'Adv@Muthu4A'),
+              _accountChip('IV-B: Mrs. Nandhinidevi', 'advisor.nandhinidevi', 'Adv@Nandhini4B'),
+              _accountChip('III-A: Ms. C. Vishnupriya', 'advisor.vishnupriya', 'Adv@Vishnu3A'),
+              _accountChip('III-B: Dr. R. Murugesan', 'advisor.murugesan', 'Adv@Murugesan3B'),
+              _accountChip('III-C: Mrs. B. Bharathi', 'advisor.bharathi', 'Adv@Bharathi3C'),
+              _accountChip('III-D: Ms. S. Muthulakshmi', 'advisor.muthulakshmi', 'Adv@Muthu3D'),
+              _accountChip('II-A: Dr. D. Anandhan', 'advisor.anandhan', 'Adv@Anandh2A'),
+              _accountChip('II-B: Dr. M. Rajendiran', 'advisor.rajendiran', 'Adv@Rajen2B'),
+              _accountChip('II-C: Mr. A. Bharathidasan', 'advisor.bharathidasan', 'Adv@Bharathi2C'),
+              _accountChip('II-D: Mr. R. Palraj', 'advisor.palraj', 'Adv@Palraj2D'),
+            ],
+          )
+        else
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _accountChip('ABINAYA G (II-A: 25243001)', '25243001', 'Stu@25243001'),
+              _accountChip('ADITHYAN S (II-A: 25243002)', '25243002', 'Stu@25243002'),
+              _accountChip('LITHESH HARI R (II-B: 25243100)', '25243100', 'Stu@25243100'),
+              _accountChip('JANANI Y (II-B: 25243068)', '25243068', 'Stu@25243068'),
+              _accountChip('MUHIL RAJA A (II-C: 25243129)', '25243129', 'Stu@25243129'),
+              _accountChip('SAHANA S (II-D: 25243189)', '25243189', 'Stu@25243189'),
+              _accountChip('Dinesh (II-D: 25243301)', '25243301', 'Stu@25243301'),
+              _accountChip('AKASH I (III-A: 24243007)', '24243007', 'Stu@24243007'),
+              _accountChip('S.AARTHI (IV-A: 23243001)', '23243001', 'Stu@23243001'),
+              _accountChip('S. HARINI (IV-B: 23243034)', '23243034', 'Stu@23243034'),
+            ],
+          ),
+      ],
+    );
+  }
+
+  Widget _accountChip(String label, String username, [String? password]) {
+    return ActionChip(
+      label: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF0369A1))),
+      backgroundColor: const Color(0xFFE0F2FE),
+      side: const BorderSide(color: Color(0xFFBAE6FD)),
+      onPressed: () {
+        _usernameCtrl.text = username;
+        _passwordCtrl.text = password ?? 'password123';
+      },
+    );
+  }
+
   Widget _buildSkyCloudHeader() {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 600),
       width: double.infinity,
-      height: 320,
+      height: 290,
       decoration: BoxDecoration(
         gradient: _isStorming ? AppColors.stormGradient : AppColors.headerGradient,
         borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(44),
-          bottomRight: Radius.circular(44),
+          bottomLeft: Radius.circular(40),
+          bottomRight: Radius.circular(40),
         ),
         boxShadow: [
           BoxShadow(
@@ -299,27 +478,27 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    width: 64,
-                    height: 64,
+                    width: 58,
+                    height: 58,
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.25),
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 1.5),
                     ),
                     child: Icon(
-                      _isStorming ? Icons.thunderstorm_rounded : Icons.cloud_done_rounded,
-                      size: 34,
+                      _isStorming ? Icons.thunderstorm_rounded : Icons.account_balance_rounded,
+                      size: 30,
                       color: _isStorming ? const Color(0xFFFDE047) : Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  const Text('PinkSlipReport', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold, fontFamily: 'Poppins')),
-                  const SizedBox(height: 4),
-                  const Text('AI & DS Department • Sky Cloud Portal', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
+                  const Text('PinkSlipReport', style: TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.bold, fontFamily: 'Poppins')),
+                  const SizedBox(height: 2),
+                  const Text('V.S.B. Engineering College • Dept of AI & DS', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                  const SizedBox(height: 6),
                   Text(
-                    _isStorming ? '⚡ Thunder Storm Logging In...' : 'Welcome Back!',
-                    style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                    _isStorming ? '⚡ Authenticating...' : 'Official Academic Portal',
+                    style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -330,82 +509,298 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
     );
   }
 
-  Widget _roleChip(String label, String email) {
-    return ActionChip(
-      label: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primaryPurple)),
-      backgroundColor: const Color(0xFFE0F2FE),
-      side: const BorderSide(color: Color(0xFFBAE6FD)),
-      onPressed: () {
-        _emailCtrl.text = email;
-        _passwordCtrl.text = 'password123';
+  Future<void> _showCredentialsDirectoryDialog() async {
+    final result = await showDialog(
+      context: context,
+      builder: (ctx) => const _CredentialsDirectoryDialog(),
+    );
+
+    if (!mounted) return;
+
+    if (result != null && result is Map<String, dynamic>) {
+      setState(() {
+        if (result['role'] == UserRole.hod) {
+          _selectedRoleTab = 0;
+        } else if (result['role'] == UserRole.advisor) {
+          _selectedRoleTab = 1;
+        } else {
+          _selectedRoleTab = 2;
+        }
+        _usernameCtrl.text = result['username'] ?? '';
+        _passwordCtrl.text = result['password'] ?? '';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Loaded credentials for ${result['name']}! Ready to Sign In ⚡'),
+          backgroundColor: const Color(0xFF0284C7),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+}
+
+class _CredentialsDirectoryDialog extends StatefulWidget {
+  const _CredentialsDirectoryDialog();
+
+  @override
+  State<_CredentialsDirectoryDialog> createState() => _CredentialsDirectoryDialogState();
+}
+
+class _CredentialsDirectoryDialogState extends State<_CredentialsDirectoryDialog>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  final TextEditingController _studentSearchCtrl = TextEditingController();
+  String _studentQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _studentSearchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 620, maxHeight: 700),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(color: const Color(0xFFE0F2FE), borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.badge_rounded, color: Color(0xFF0284C7), size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text('Official Credentials Directory', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                      Text('PDF generated • Tap any entry to auto-fill login', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                    ],
+                  ),
+                ),
+                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12)),
+              child: TabBar(
+                controller: _tabController,
+                indicatorColor: const Color(0xFF0284C7),
+                labelColor: const Color(0xFF0284C7),
+                unselectedLabelColor: const Color(0xFF64748B),
+                labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                tabs: const [
+                  Tab(text: '🏛️ HOD (2)'),
+                  Tab(text: '👨‍🏫 Advisors (10)'),
+                  Tab(text: '🎓 Students (622)'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildHodList(),
+                  _buildAdvisorList(),
+                  _buildStudentList(),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHodList() {
+    final hods = [
+      {
+        'name': 'DR. MANIVANNAN (Ph.D.)',
+        'roleTitle': 'Overall Department HOD (III & IV Year)',
+        'username': 'hod.manivannan',
+        'password': 'Hod@Mani2026',
+        'role': UserRole.hod,
+      },
+      {
+        'name': 'Mrs. Kavitha',
+        'roleTitle': 'Junior Wing HOD (I & II Year)',
+        'username': 'hod.kavitha',
+        'password': 'Hod@Kavi2026',
+        'role': UserRole.hod,
+      },
+    ];
+
+    return ListView.builder(
+      itemCount: hods.length,
+      itemBuilder: (context, i) {
+        final h = hods[i];
+        return _credentialCard(
+          title: h['name'] as String,
+          subtitle: h['roleTitle'] as String,
+          username: h['username'] as String,
+          password: h['password'] as String,
+          badge: 'HOD PORTAL',
+          badgeColor: const Color(0xFF312E81),
+          onTap: () => Navigator.pop(context, h),
+        );
       },
     );
   }
 
-  void _showAllClassRepsDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+  Widget _buildAdvisorList() {
+    final advisors = [
+      {'name': 'Mr. Muthuselvan', 'class': 'IV AI&DS - Section A', 'username': 'advisor.muthuselvan', 'password': 'Adv@Muthu4A', 'role': UserRole.advisor},
+      {'name': 'Mrs. Nandhinidevi', 'class': 'IV AI&DS - Section B', 'username': 'advisor.nandhinidevi', 'password': 'Adv@Nandhini4B', 'role': UserRole.advisor},
+      {'name': 'Ms. C. Vishnupriya', 'class': 'III AI&DS - Section A', 'username': 'advisor.vishnupriya', 'password': 'Adv@Vishnu3A', 'role': UserRole.advisor},
+      {'name': 'Dr. R. Murugesan', 'class': 'III AI&DS - Section B', 'username': 'advisor.murugesan', 'password': 'Adv@Murugesan3B', 'role': UserRole.advisor},
+      {'name': 'Mrs. B. Bharathi', 'class': 'III AI&DS - Section C', 'username': 'advisor.bharathi', 'password': 'Adv@Bharathi3C', 'role': UserRole.advisor},
+      {'name': 'Ms. S. Muthulakshmi', 'class': 'III AI&DS - Section D', 'username': 'advisor.muthulakshmi', 'password': 'Adv@Muthu3D', 'role': UserRole.advisor},
+      {'name': 'Dr. D. Anandhan', 'class': 'II AI&DS - Section A', 'username': 'advisor.anandhan', 'password': 'Adv@Anandh2A', 'role': UserRole.advisor},
+      {'name': 'Dr. M. Rajendiran', 'class': 'II AI&DS - Section B', 'username': 'advisor.rajendiran', 'password': 'Adv@Rajen2B', 'role': UserRole.advisor},
+      {'name': 'Mr. A. Bharathidasan', 'class': 'II AI&DS - Section C', 'username': 'advisor.bharathidasan', 'password': 'Adv@Bharathi2C', 'role': UserRole.advisor},
+      {'name': 'Mr. R. Palraj', 'class': 'II AI&DS - Section D', 'username': 'advisor.palraj', 'password': 'Adv@Palraj2D', 'role': UserRole.advisor},
+    ];
+
+    return ListView.builder(
+      itemCount: advisors.length,
+      itemBuilder: (context, i) {
+        final adv = advisors[i];
+        return _credentialCard(
+          title: adv['name'] as String,
+          subtitle: '${adv['class']}',
+          username: adv['username'] as String,
+          password: adv['password'] as String,
+          badge: 'CLASS ADVISOR',
+          badgeColor: const Color(0xFF065F46),
+          onTap: () => Navigator.pop(context, adv),
+        );
+      },
+    );
+  }
+
+  Widget _buildStudentList() {
+    final filtered = StudentDirectoryData.allStudents.where((s) {
+      final q = _studentQuery.toLowerCase().trim();
+      if (q.isEmpty) return true;
+      return s.name.toLowerCase().contains(q) ||
+          s.rollNumber.contains(q) ||
+          s.section.toLowerCase() == q ||
+          '${s.year}${s.section}'.toLowerCase().contains(q);
+    }).toList();
+
+    return Column(
+      children: [
+        TextField(
+          controller: _studentSearchCtrl,
+          decoration: InputDecoration(
+            hintText: 'Search by student name or roll no (622 total)...',
+            hintStyle: const TextStyle(fontSize: 12),
+            prefixIcon: const Icon(Icons.search_rounded, size: 18),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            filled: true,
+            fillColor: const Color(0xFFF8FAFC),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+          ),
+          onChanged: (v) => setState(() => _studentQuery = v),
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: ListView.builder(
+            itemCount: filtered.length,
+            itemBuilder: (context, i) {
+              final s = filtered[i];
+              return _credentialCard(
+                title: s.name,
+                subtitle: '${s.rollNumber} • ${s.classDisplay} (${s.batchYear})',
+                username: s.rollNumber,
+                password: 'Stu@${s.rollNumber}',
+                badge: '${s.romanYear}-${s.section}',
+                badgeColor: const Color(0xFF0284C7),
+                onTap: () => Navigator.pop(context, {
+                  'name': s.name,
+                  'username': s.rollNumber,
+                  'password': 'Stu@${s.rollNumber}',
+                  'role': UserRole.student,
+                }),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _credentialCard({
+    required String title,
+    required String subtitle,
+    required String username,
+    required String password,
+    required String badge,
+    required Color badgeColor,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.people_alt_rounded, color: AppColors.primaryPurple),
-                  const SizedBox(width: 10),
-                  const Expanded(
-                    child: Text('All 20 Section Class Representatives',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Row(
+                    children: [
+                      Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(color: badgeColor, borderRadius: BorderRadius.circular(6)),
+                        child: Text(badge, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
                   ),
-                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                  const SizedBox(height: 2),
+                  Text(subtitle, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text('User: $username', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF0284C7))),
+                      const SizedBox(width: 12),
+                      Text('Pass: $password', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF059669))),
+                    ],
+                  ),
                 ],
               ),
-              const Text('Select any Boy or Girl CR to test their student class access:',
-                  style: TextStyle(fontSize: 12, color: Colors.grey)),
-              const Divider(height: 20),
-              Expanded(
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: AuthService.classRepresentatives.length,
-                  itemBuilder: (context, i) {
-                    final cr = AuthService.classRepresentatives[i];
-                    return ListTile(
-                      dense: true,
-                      leading: CircleAvatar(
-                        radius: 14,
-                        backgroundColor: cr.gender == 'Girl'
-                            ? const Color(0xFFFDF2F8)
-                            : const Color(0xFFEFF6FF),
-                        child: Text(
-                          cr.gender == 'Girl' ? '♀' : '♂',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: cr.gender == 'Girl' ? Colors.pink : Colors.blue,
-                          ),
-                        ),
-                      ),
-                      title: Text('${cr.name} (${cr.gender} CR)',
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                      subtitle: Text('${cr.rollNumber} • ${cr.classSection} (${cr.batchYear})',
-                          style: const TextStyle(fontSize: 11)),
-                      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        _emailCtrl.text = cr.email;
-                        _passwordCtrl.text = 'password123';
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
+            ),
+            const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFF94A3B8)),
+          ],
         ),
       ),
     );

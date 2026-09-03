@@ -110,11 +110,11 @@ void main() {
 
     // Verify SignIn screen elements
     expect(find.text('PinkSlipReport'), findsOneWidget);
-    expect(find.text('AI & DS Department • Sky Cloud Portal'), findsOneWidget);
-    expect(find.text('Dr. Manivannan (Overall HOD)'), findsOneWidget);
-    expect(find.text('Mrs. Kavitha (1st & 2nd Yr HOD)'), findsNothing); // Updated label
+    expect(find.text('V.S.B. Engineering College • Dept of AI & DS'), findsOneWidget);
+    expect(find.text('DR. MANIVANNAN (Overall HOD)'), findsOneWidget);
     expect(find.text('Mrs. Kavitha (I & II Yr HOD)'), findsOneWidget);
-    expect(find.text('♂ Lithesh Hari R (II-B Boy CR)'), findsOneWidget);
-    expect(find.text('♀ Janani Y (II-B Girl CR)'), findsOneWidget);
+    expect(find.text('🏛️ HOD Portal'), findsOneWidget);
+    expect(find.text('👨‍🏫 Class Advisor'), findsOneWidget);
+    expect(find.text('🎓 Student / CR'), findsOneWidget);
   });
 }
