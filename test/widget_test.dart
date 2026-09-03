@@ -150,9 +150,9 @@ void main() {
     expect(adv3c.password, 'Adv@Bharathi3C');
 
     final adv3d = advisors.firstWhere((a) => a.id == 'adv-3d');
-    expect(adv3d.name, 'Ms. S. Muthulakshmi');
-    expect(adv3d.username, 'advisor.muthulakshmi');
-    expect(adv3d.password, 'Adv@Muthu3D');
+    expect(adv3d.name, 'Mr. Veluswamy');
+    expect(adv3d.username, 'advisor.veluswamy');
+    expect(adv3d.password, 'Adv@Velu3D');
 
     // II Year
     final adv2a = advisors.firstWhere((a) => a.id == 'adv-2a');

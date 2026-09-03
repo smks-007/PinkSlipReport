@@ -32,6 +32,10 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
               _buildAppBar(),
               const SizedBox(height: 8),
               _buildWelcomeCard(),
+              const SizedBox(height: 20),
+              _buildSectionTitle("AI & DS Class Advisors Directory"),
+              const SizedBox(height: 10),
+              _buildAdvisorsDirectorySection(),
               const SizedBox(height: 24),
               _buildSectionTitle("Today's Attendance Overview"),
               const SizedBox(height: 12),
@@ -134,22 +138,29 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                   decoration: BoxDecoration(
                     color: AppColors.statusApproved,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     _advisor.roleBadge,
-                    style: AppStyles.chipText.copyWith(color: Colors.white),
+                    style: AppStyles.chipText.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
                   ),
                 ),
-                Text(
-                  _advisor.classSection ?? '',
-                  style: AppStyles.bodyOnPurple.copyWith(
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white.withValues(alpha: 0.9),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    _advisor.classSection ?? 'AI&DS Portal',
+                    style: AppStyles.bodyOnPurple.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ],
@@ -157,20 +168,122 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
             const SizedBox(height: 14),
             Text(
               'Welcome back,',
-              style: AppStyles.bodyOnPurple,
+              style: AppStyles.bodyOnPurple.copyWith(fontSize: 13, color: Colors.white70),
             ),
             const SizedBox(height: 2),
-            Text(
-              _advisor.name,
-              style: AppStyles.headingOnPurple.copyWith(fontSize: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _advisor.name,
+                    style: AppStyles.headingOnPurple.copyWith(fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF38BDF8),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '@${_advisor.username}',
+                    style: const TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.bold, fontSize: 11),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Text(
-              _advisor.college,
-              style: AppStyles.bodyOnPurple.copyWith(fontSize: 13),
+              '${_advisor.email} • ${_advisor.college}',
+              style: AppStyles.bodyOnPurple.copyWith(fontSize: 12, color: Colors.white.withValues(alpha: 0.85)),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildAdvisorsDirectorySection() {
+    final advisors = AuthService.sectionAdvisors;
+    return SizedBox(
+      height: 125,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: advisors.length,
+        itemBuilder: (context, index) {
+          final adv = advisors[index];
+          final isCurrent = adv.id == _advisor.id || adv.username == _advisor.username;
+          return Container(
+            width: 220,
+            margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isCurrent ? const Color(0xFFEEF2FF) : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isCurrent ? AppColors.primaryPurple : const Color(0xFFE2E8F0),
+                width: isCurrent ? 2 : 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isCurrent ? AppColors.primaryPurple : const Color(0xFF0284C7),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '${adv.year}-${adv.section}',
+                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    if (isCurrent)
+                      const Text('ACTIVE', style: TextStyle(color: AppColors.primaryPurple, fontSize: 9, fontWeight: FontWeight.bold))
+                    else
+                      Text(adv.batchYear ?? '', style: const TextStyle(color: Color(0xFF64748B), fontSize: 9)),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      adv.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'User: ${adv.username}',
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF0284C7), fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+                Text(
+                  adv.email,
+                  style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

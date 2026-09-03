@@ -166,7 +166,7 @@ class AuthService extends ChangeNotifier {
     ),
     UserModel(
       id: 'adv-3d',
-      name: 'Ms. S. Muthulakshmi',
+      name: 'Mr. Veluswamy',
       email: 'advisor.3d@vsb.ac.in',
       role: UserRole.advisor,
       department: 'AI&DS',
@@ -174,8 +174,8 @@ class AuthService extends ChangeNotifier {
       batchYear: '2024 BATCH',
       year: 3,
       section: 'D',
-      customUsername: 'advisor.muthulakshmi',
-      customPassword: 'Adv@Muthu3D',
+      customUsername: 'advisor.veluswamy',
+      customPassword: 'Adv@Velu3D',
     ),
     UserModel(
       id: 'adv-4a',
@@ -624,7 +624,7 @@ class AuthService extends ChangeNotifier {
     if (user.id == 'adv-3a') return 'Adv@Vishnu3A';
     if (user.id == 'adv-3b') return 'Adv@Murugesan3B';
     if (user.id == 'adv-3c') return 'Adv@Bharathi3C';
-    if (user.id == 'adv-3d') return 'Adv@Muthu3D';
+    if (user.id == 'adv-3d') return 'Adv@Velu3D';
     if (user.id == 'adv-2a') return 'Adv@Anandh2A';
     if (user.id == 'adv-2b') return 'Adv@Rajen2B';
     if (user.id == 'adv-2c') return 'Adv@Bharathi2C';
@@ -644,7 +644,7 @@ class AuthService extends ChangeNotifier {
     if (user.id == 'adv-3a') return 'advisor.vishnupriya';
     if (user.id == 'adv-3b') return 'advisor.murugesan';
     if (user.id == 'adv-3c') return 'advisor.bharathi';
-    if (user.id == 'adv-3d') return 'advisor.muthulakshmi';
+    if (user.id == 'adv-3d') return 'advisor.veluswamy';
     if (user.id == 'adv-2a') return 'advisor.anandhan';
     if (user.id == 'adv-2b') return 'advisor.rajendiran';
     if (user.id == 'adv-2c') return 'advisor.bharathidasan';
