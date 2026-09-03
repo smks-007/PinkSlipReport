@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_styles.dart';
 import '../../../core/models/timetable_model.dart';
+import '../../../core/models/user_model.dart';
+import '../../../core/services/auth_service.dart';
 import '../../../core/services/timetable_data_service.dart';
 
 /// Interactive Timetable Screen for 2nd Year B.Tech AI&DS (Sections A, B, C, D).
@@ -29,7 +31,12 @@ class _TimetableScreenState extends State<TimetableScreen>
   @override
   void initState() {
     super.initState();
-    _selectedSection = widget.initialSection;
+    final user = AuthService().currentUser;
+    if (user != null && user.role == UserRole.advisor && user.section != null) {
+      _selectedSection = user.section!;
+    } else {
+      _selectedSection = widget.initialSection;
+    }
     _currentTimetable = TimetableDataService.getSectionTimetable(_selectedSection);
 
     // Auto-select current day of the week, defaulting to Monday on Sunday
@@ -42,6 +49,11 @@ class _TimetableScreenState extends State<TimetableScreen>
   }
 
   void _onSectionChanged(String section) {
+    final user = AuthService().currentUser;
+    if (user != null && user.role == UserRole.advisor) {
+      // Advisors cannot switch to other sections
+      return;
+    }
     setState(() {
       _selectedSection = section;
       _currentTimetable = TimetableDataService.getSectionTimetable(section);
@@ -127,6 +139,35 @@ class _TimetableScreenState extends State<TimetableScreen>
   }
 
   Widget _buildSectionSelector() {
+    final user = AuthService().currentUser;
+    final isAdvisor = user != null && user.role == UserRole.advisor;
+
+    if (isAdvisor) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFCBD5E1)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.lock_person_rounded, size: 16, color: AppColors.primaryPurple),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Class Timetable: Locked to ${user.classSection ?? "Sec $_selectedSection"} (Advisor Scope)',
+                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       child: Row(

@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_styles.dart';
 import '../../../core/models/leave_model.dart';
+import '../../../core/models/user_model.dart';
+import '../../../core/services/auth_service.dart';
 import '../../../core/services/mock_data_service.dart';
 import '../../shared/widgets/letter_attachment_viewer_dialog.dart';
 
-/// Leave Management screen for Advisors.
-/// Shows leave requests with letter status, forward-to-HOD action.
-/// Tracks: leave type, letter submission, dates, due days, total leaves.
+/// Leave Management screen for Advisors & HODs.
+/// Advisors can only view and manage leaves for their own assigned class.
+/// HODs can view and approve leaves across all classes.
 class LeaveManagementScreen extends StatefulWidget {
   const LeaveManagementScreen({super.key});
 
@@ -22,7 +24,17 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
   @override
   void initState() {
     super.initState();
-    _leaves = List.from(MockDataService.leaveRequests);
+    _loadLeaves();
+  }
+
+  void _loadLeaves() {
+    final user = AuthService().currentUser;
+    final all = MockDataService.leaveRequests;
+    if (user != null && user.role == UserRole.advisor && user.year != null && user.section != null) {
+      _leaves = all.where((l) => l.year == user.year && l.section == user.section).toList();
+    } else {
+      _leaves = List.from(all);
+    }
   }
 
   List<LeaveModel> get _filteredLeaves {
@@ -45,8 +57,9 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
   }
 
   void _forwardToHod(int index) {
+    final leave = _leaves[index];
+    MockDataService.forwardToHod(leave.id);
     setState(() {
-      final leave = _leaves[index];
       _leaves[index] = leave.copyWith(
         letterStatus: LetterStatus.forwarded,
         dateReceivedByHod: DateTime.now(),
@@ -60,6 +73,9 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final user = AuthService().currentUser;
+    final isAdvisor = user?.role == UserRole.advisor;
+
     return Scaffold(
       backgroundColor: AppColors.pageBackground,
       appBar: AppBar(
@@ -68,11 +84,25 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
           icon: const Icon(Icons.arrow_back_ios_rounded, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Leave Management',
-            style: TextStyle(
-                fontSize: 20,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Leave Management',
+              style: TextStyle(
+                fontSize: 18,
                 fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary)),
+                color: AppColors.textPrimary,
+              ),
+            ),
+            Text(
+              isAdvisor
+                  ? '${user?.year ?? 2} Year AI&DS - Section ${user?.section ?? "B"} (Your Class)'
+                  : 'Overall Department (All Sections)',
+              style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+            ),
+          ],
+        ),
       ),
       body: Column(
         children: [

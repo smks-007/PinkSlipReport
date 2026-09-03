@@ -36,13 +36,6 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
     }
   }
 
-  void _selectAdvisor(UserModel advisor) {
-    setState(() {
-      _currentAdvisor = advisor;
-      _studentSearchQuery = '';
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final year = _currentAdvisor.year ?? 3;
@@ -63,8 +56,8 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildAppBar(),
-              const SizedBox(height: 6),
-              _buildSectionSelectorPills(),
+              const SizedBox(height: 4),
+              _buildAdvisorScopeBanner(),
               const SizedBox(height: 12),
               _buildWelcomeCard(),
               const SizedBox(height: 20),
@@ -162,63 +155,33 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
     );
   }
 
-  Widget _buildSectionSelectorPills() {
-    final advisors = AuthService.sectionAdvisors;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Switch Section Portal (10 Sections):',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
-              ),
-              Text(
-                '10 Advisors Registered',
-                style: TextStyle(fontSize: 11, color: Color(0xFF0284C7), fontWeight: FontWeight.w600),
-              ),
-            ],
-          ),
+  Widget _buildAdvisorScopeBanner() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFCBD5E1)),
         ),
-        const SizedBox(height: 6),
-        SizedBox(
-          height: 40,
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            itemCount: advisors.length,
-            itemBuilder: (context, index) {
-              final adv = advisors[index];
-              final isSelected = adv.id == _currentAdvisor.id;
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: FilterChip(
-                  selected: isSelected,
-                  label: Text('${adv.year}-${adv.section} • ${adv.name.split(' ').last}'),
-                  labelStyle: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                    color: isSelected ? Colors.white : const Color(0xFF1E293B),
-                  ),
-                  backgroundColor: Colors.white,
-                  selectedColor: AppColors.primaryPurple,
-                  checkmarkColor: Colors.white,
-                  side: BorderSide(
-                    color: isSelected ? AppColors.primaryPurple : const Color(0xFFCBD5E1),
-                  ),
-                  onSelected: (selected) {
-                    if (selected) _selectAdvisor(adv);
-                  },
+        child: Row(
+          children: [
+            const Icon(Icons.lock_person_rounded, size: 18, color: Color(0xFF475569)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Class Advisor Scope: Assigned exclusively to ${_currentAdvisor.classSection} • Department edits restricted to HOD',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF334155),
                 ),
-              );
-            },
-          ),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 

@@ -4,6 +4,7 @@ import '../../../core/constants/app_styles.dart';
 import '../../../core/data/student_directory_data.dart';
 import '../../../core/models/attendance_model.dart';
 import '../../../core/models/student_model.dart';
+import '../../../core/models/user_model.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/mock_data_service.dart';
 
@@ -58,6 +59,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   void _onSectionChanged(int year, String section) {
+    final user = AuthService().currentUser;
+    if (user != null && user.role == UserRole.advisor) {
+      // Class advisor cannot access any other year or section
+      return;
+    }
     setState(() {
       _selectedYear = year;
       _selectedSection = section;
@@ -286,6 +292,29 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   Widget _buildSectionBar() {
+    final user = AuthService().currentUser;
+    final isAdvisor = user?.role == UserRole.advisor;
+
+    if (isAdvisor) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        margin: const EdgeInsets.only(bottom: 8),
+        color: Colors.white,
+        child: Row(
+          children: [
+            const Icon(Icons.lock_person_rounded, size: 16, color: AppColors.primaryPurple),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Class Advisor Portal: $_selectedYear Year AI&DS - Section $_selectedSection (Restricted to your class)',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     final sections = _selectedYear == 4 ? ['A', 'B'] : ['A', 'B', 'C', 'D'];
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -295,6 +324,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              margin: const EdgeInsets.only(right: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFD1FAE5),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Text('HOD Full Access', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF047857))),
+            ),
             // Year Chips
             const Text('Year: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
             ...[2, 3, 4].map((y) {
