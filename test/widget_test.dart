@@ -117,4 +117,101 @@ void main() {
     expect(find.text('👨‍🏫 Class Advisor'), findsOneWidget);
     expect(find.text('🎓 Student / CR'), findsOneWidget);
   });
+
+  test('All 10 Section Advisors and HODs have dedicated usernames and passwords', () {
+    final advisors = AuthService.sectionAdvisors;
+    expect(advisors.length, 10);
+
+    // IV Year
+    final adv4a = advisors.firstWhere((a) => a.id == 'adv-4a');
+    expect(adv4a.name, 'Mr. Muthuselvan');
+    expect(adv4a.username, 'advisor.muthuselvan');
+    expect(adv4a.password, 'Adv@Muthu4A');
+
+    final adv4b = advisors.firstWhere((a) => a.id == 'adv-4b');
+    expect(adv4b.name, 'Mrs. Nandhinidevi');
+    expect(adv4b.username, 'advisor.nandhinidevi');
+    expect(adv4b.password, 'Adv@Nandhini4B');
+
+    // III Year
+    final adv3a = advisors.firstWhere((a) => a.id == 'adv-3a');
+    expect(adv3a.name, 'Ms. C. Vishnupriya');
+    expect(adv3a.username, 'advisor.vishnupriya');
+    expect(adv3a.password, 'Adv@Vishnu3A');
+
+    final adv3b = advisors.firstWhere((a) => a.id == 'adv-3b');
+    expect(adv3b.name, 'Dr. R. Murugesan');
+    expect(adv3b.username, 'advisor.murugesan');
+    expect(adv3b.password, 'Adv@Murugesan3B');
+
+    final adv3c = advisors.firstWhere((a) => a.id == 'adv-3c');
+    expect(adv3c.name, 'Mrs. B. Bharathi');
+    expect(adv3c.username, 'advisor.bharathi');
+    expect(adv3c.password, 'Adv@Bharathi3C');
+
+    final adv3d = advisors.firstWhere((a) => a.id == 'adv-3d');
+    expect(adv3d.name, 'Ms. S. Muthulakshmi');
+    expect(adv3d.username, 'advisor.muthulakshmi');
+    expect(adv3d.password, 'Adv@Muthu3D');
+
+    // II Year
+    final adv2a = advisors.firstWhere((a) => a.id == 'adv-2a');
+    expect(adv2a.name, 'Dr. D. Anandhan');
+    expect(adv2a.username, 'advisor.anandhan');
+    expect(adv2a.password, 'Adv@Anandh2A');
+
+    final adv2b = advisors.firstWhere((a) => a.id == 'adv-2b');
+    expect(adv2b.name, 'Dr. M. Rajendiran');
+    expect(adv2b.username, 'advisor.rajendiran');
+    expect(adv2b.password, 'Adv@Rajen2B');
+
+    final adv2c = advisors.firstWhere((a) => a.id == 'adv-2c');
+    expect(adv2c.name, 'Mr. A. Bharathidasan');
+    expect(adv2c.username, 'advisor.bharathidasan');
+    expect(adv2c.password, 'Adv@Bharathi2C');
+
+    final adv2d = advisors.firstWhere((a) => a.id == 'adv-2d');
+    expect(adv2d.name, 'Mr. R. Palraj');
+    expect(adv2d.username, 'advisor.palraj');
+    expect(adv2d.password, 'Adv@Palraj2D');
+
+    // HODs
+    expect(AuthService.overallHod.username, 'hod.manivannan');
+    expect(AuthService.overallHod.password, 'Hod@Mani2026');
+    expect(AuthService.juniorHod.username, 'hod.kavitha');
+    expect(AuthService.juniorHod.password, 'Hod@Kavi2026');
+  });
+
+  testWidgets('Class Advisor tab opens View All 10 Advisors modal and auto-fills login', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1280, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(const MyApp());
+    await tester.pump(const Duration(milliseconds: 300));
+
+    // Switch to Class Advisor tab
+    await tester.tap(find.text('👨‍🏫 Class Advisor'));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    // Verify advisor quick section and 'View All 10 Advisors' button
+    expect(find.text('View All 10 Advisors'), findsOneWidget);
+    expect(find.text('IV-A: Mr. Muthuselvan'), findsOneWidget);
+    expect(find.text('IV-B: Mrs. Nandhinidevi'), findsOneWidget);
+
+    // Open View All 10 Advisors dialog
+    await tester.tap(find.text('View All 10 Advisors'));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    // Verify dialog header and advisors listed
+    expect(find.text('All 10 Section Class Advisors'), findsOneWidget);
+    expect(find.text('Dr. D. Anandhan'), findsOneWidget);
+
+    // Click 'Use Login' for Dr. D. Anandhan
+    await tester.tap(find.text('Use Login').first);
+    await tester.pump(const Duration(milliseconds: 300));
+
+    // Verify username and password were set in controller
+    expect(find.text('advisor.anandhan'), findsOneWidget);
+  });
 }
