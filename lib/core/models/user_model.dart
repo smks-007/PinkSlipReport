@@ -18,6 +18,8 @@ class UserModel {
   final String? gender; // 'Boy' or 'Girl'
   final int? year; // 2, 3, 4
   final String? section; // 'A', 'B', 'C', 'D'
+  final String? customUsername;
+  final String? customPassword;
 
   const UserModel({
     required this.id,
@@ -35,7 +37,12 @@ class UserModel {
     this.gender,
     this.year,
     this.section,
+    this.customUsername,
+    this.customPassword,
   });
+
+  String get username => customUsername ?? (rollNumber ?? email.split('@').first);
+  String get password => customPassword ?? (rollNumber != null ? 'Stu@$rollNumber' : 'password123');
 
   String get roleDisplayName {
     switch (role) {

@@ -39,6 +39,8 @@ class AuthService extends ChangeNotifier {
     department: 'AI&DS',
     college: 'V.S.B. Engineering College',
     hodScope: 'Overall & III/IV Year',
+    customUsername: 'hod.manivannan',
+    customPassword: 'Hod@Mani2026',
   );
 
   static const UserModel juniorHod = UserModel(
@@ -49,6 +51,8 @@ class AuthService extends ChangeNotifier {
     department: 'AI&DS',
     college: 'V.S.B. Engineering College',
     hodScope: 'I & II Year',
+    customUsername: 'hod.kavitha',
+    customPassword: 'Hod@Kavi2026',
   );
 
   /// Default Advisor (II-B Dr. M. Rajendiran)
@@ -63,6 +67,8 @@ class AuthService extends ChangeNotifier {
     batchYear: '2025 BATCH',
     year: 2,
     section: 'B',
+    customUsername: 'advisor.rajendiran',
+    customPassword: 'Adv@Rajen2B',
   );
 
   /// 10 Section Class Advisors (Academic Year 2026-2027)
@@ -77,6 +83,8 @@ class AuthService extends ChangeNotifier {
       batchYear: '2025 BATCH',
       year: 2,
       section: 'A',
+      customUsername: 'advisor.anandhan',
+      customPassword: 'Adv@Anandh2A',
     ),
     UserModel(
       id: 'adv-2b',
@@ -88,6 +96,8 @@ class AuthService extends ChangeNotifier {
       batchYear: '2025 BATCH',
       year: 2,
       section: 'B',
+      customUsername: 'advisor.rajendiran',
+      customPassword: 'Adv@Rajen2B',
     ),
     UserModel(
       id: 'adv-2c',
@@ -99,6 +109,8 @@ class AuthService extends ChangeNotifier {
       batchYear: '2025 BATCH',
       year: 2,
       section: 'C',
+      customUsername: 'advisor.bharathidasan',
+      customPassword: 'Adv@Bharathi2C',
     ),
     UserModel(
       id: 'adv-2d',
@@ -110,6 +122,8 @@ class AuthService extends ChangeNotifier {
       batchYear: '2025 BATCH',
       year: 2,
       section: 'D',
+      customUsername: 'advisor.palraj',
+      customPassword: 'Adv@Palraj2D',
     ),
     UserModel(
       id: 'adv-3a',
@@ -121,6 +135,8 @@ class AuthService extends ChangeNotifier {
       batchYear: '2024 BATCH',
       year: 3,
       section: 'A',
+      customUsername: 'advisor.vishnupriya',
+      customPassword: 'Adv@Vishnu3A',
     ),
     UserModel(
       id: 'adv-3b',
@@ -132,6 +148,8 @@ class AuthService extends ChangeNotifier {
       batchYear: '2024 BATCH',
       year: 3,
       section: 'B',
+      customUsername: 'advisor.murugesan',
+      customPassword: 'Adv@Murugesan3B',
     ),
     UserModel(
       id: 'adv-3c',
@@ -143,6 +161,8 @@ class AuthService extends ChangeNotifier {
       batchYear: '2024 BATCH',
       year: 3,
       section: 'C',
+      customUsername: 'advisor.bharathi',
+      customPassword: 'Adv@Bharathi3C',
     ),
     UserModel(
       id: 'adv-3d',
@@ -154,6 +174,8 @@ class AuthService extends ChangeNotifier {
       batchYear: '2024 BATCH',
       year: 3,
       section: 'D',
+      customUsername: 'advisor.muthulakshmi',
+      customPassword: 'Adv@Muthu3D',
     ),
     UserModel(
       id: 'adv-4a',
@@ -165,6 +187,8 @@ class AuthService extends ChangeNotifier {
       batchYear: '2023 BATCH',
       year: 4,
       section: 'A',
+      customUsername: 'advisor.muthuselvan',
+      customPassword: 'Adv@Muthu4A',
     ),
     UserModel(
       id: 'adv-4b',
@@ -176,6 +200,8 @@ class AuthService extends ChangeNotifier {
       batchYear: '2023 BATCH',
       year: 4,
       section: 'B',
+      customUsername: 'advisor.nandhinidevi',
+      customPassword: 'Adv@Nandhini4B',
     ),
   ];
 

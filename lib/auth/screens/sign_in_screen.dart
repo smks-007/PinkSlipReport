@@ -351,12 +351,27 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                       : 'Students & CR Logins:',
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
             ),
-            TextButton.icon(
-              onPressed: _showCredentialsDirectoryDialog,
-              icon: const Icon(Icons.menu_book_rounded, size: 14, color: AppColors.primaryPurple),
-              label: const Text('All Credentials & PDF', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primaryPurple)),
-              style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(50, 30)),
-            ),
+            if (_selectedRoleTab == 1)
+              TextButton.icon(
+                onPressed: _showAllAdvisorsDialog,
+                icon: const Icon(Icons.co_present_rounded, size: 14, color: AppColors.primaryPurple),
+                label: const Text('View All 10 Advisors', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primaryPurple)),
+                style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(50, 30)),
+              )
+            else if (_selectedRoleTab == 2)
+              TextButton.icon(
+                onPressed: _showAllClassRepsDialog,
+                icon: const Icon(Icons.people_alt_rounded, size: 14, color: AppColors.primaryPurple),
+                label: const Text('View All 20 CRs', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primaryPurple)),
+                style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(50, 30)),
+              )
+            else
+              TextButton.icon(
+                onPressed: _showCredentialsDirectoryDialog,
+                icon: const Icon(Icons.menu_book_rounded, size: 14, color: AppColors.primaryPurple),
+                label: const Text('All Credentials & PDF', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primaryPurple)),
+                style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(50, 30)),
+              ),
           ],
         ),
         const SizedBox(height: 6),
@@ -505,6 +520,228 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _showAllAdvisorsDialog() async {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 540, maxHeight: 640),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(color: const Color(0xFFD1FAE5), borderRadius: BorderRadius.circular(10)),
+                    child: const Icon(Icons.co_present_rounded, color: Color(0xFF047857), size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('All 10 Section Class Advisors', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                        Text('Select any Advisor to load their official Username & Password', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                      ],
+                    ),
+                  ),
+                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                ],
+              ),
+              const Divider(height: 20),
+              Expanded(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: AuthService.sectionAdvisors.length,
+                  itemBuilder: (context, i) {
+                    final adv = AuthService.sectionAdvisors[i];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: ListTile(
+                        dense: true,
+                        leading: CircleAvatar(
+                          radius: 18,
+                          backgroundColor: const Color(0xFFD1FAE5),
+                          child: Text(
+                            '${adv.year}${adv.section}',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF047857)),
+                          ),
+                        ),
+                        title: Text(adv.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('${adv.classSection} • ${adv.batchYear}', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                Text('User: ${adv.username}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF0284C7))),
+                                const SizedBox(width: 10),
+                                Text('Pass: ${adv.password}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF059669))),
+                              ],
+                            ),
+                          ],
+                        ),
+                        trailing: ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            setState(() {
+                              _selectedRoleTab = 1;
+                              _usernameCtrl.text = adv.username;
+                              _passwordCtrl.text = adv.password;
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Loaded credentials for ${adv.name} (${adv.classSection})! Ready to Sign In ⚡'),
+                                backgroundColor: const Color(0xFF047857),
+                                duration: const Duration(seconds: 2),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF047857),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          child: const Text('Use Login'),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showAllClassRepsDialog() async {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 540, maxHeight: 640),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(10)),
+                    child: const Icon(Icons.people_alt_rounded, color: AppColors.primaryPurple, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('All 20 Class Representatives (CRs)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                        Text('1 Boy CR & 1 Girl CR per section • Select to load login', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                      ],
+                    ),
+                  ),
+                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                ],
+              ),
+              const Divider(height: 20),
+              Expanded(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: AuthService.classRepresentatives.length,
+                  itemBuilder: (context, i) {
+                    final cr = AuthService.classRepresentatives[i];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: ListTile(
+                        dense: true,
+                        leading: CircleAvatar(
+                          radius: 16,
+                          backgroundColor: cr.gender == 'Girl' ? const Color(0xFFFDF2F8) : const Color(0xFFEFF6FF),
+                          child: Text(
+                            cr.gender == 'Girl' ? '♀' : '♂',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: cr.gender == 'Girl' ? Colors.pink : Colors.blue,
+                            ),
+                          ),
+                        ),
+                        title: Text('${cr.name} (${cr.gender} CR)', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('${cr.rollNumber} • ${cr.classSection} (${cr.batchYear})', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                Text('User: ${cr.username}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF0284C7))),
+                                const SizedBox(width: 10),
+                                Text('Pass: ${cr.password}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF059669))),
+                              ],
+                            ),
+                          ],
+                        ),
+                        trailing: ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            setState(() {
+                              _selectedRoleTab = 2;
+                              _usernameCtrl.text = cr.username;
+                              _passwordCtrl.text = cr.password;
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Loaded credentials for ${cr.name} (${cr.gender} CR)! Ready to Sign In ⚡'),
+                                backgroundColor: const Color(0xFF0284C7),
+                                duration: const Duration(seconds: 2),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0284C7),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          child: const Text('Use Login'),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
