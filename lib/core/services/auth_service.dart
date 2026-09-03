@@ -166,7 +166,7 @@ class AuthService extends ChangeNotifier {
     ),
     UserModel(
       id: 'adv-3d',
-      name: 'Mr. Veluswamy',
+      name: 'Mr. Velusamy',
       email: 'advisor.3d@vsb.ac.in',
       role: UserRole.advisor,
       department: 'AI&DS',
@@ -174,7 +174,7 @@ class AuthService extends ChangeNotifier {
       batchYear: '2024 BATCH',
       year: 3,
       section: 'D',
-      customUsername: 'advisor.veluswamy',
+      customUsername: 'advisor.velusamy',
       customPassword: 'Adv@Velu3D',
     ),
     UserModel(
@@ -530,12 +530,14 @@ class AuthService extends ChangeNotifier {
         emailLower.contains('dr.')) {
       _pendingUser = overallHod;
     } else {
-      // 1. Check Section Advisors (e.g. muthuselvan, nandhinidevi, vishnupriya, murugesan, bharathi, muthulakshmi, anandhan, rajendiran, bharathidasan, palraj, advisor.4a, etc.)
+      // 1. Check Section Advisors (e.g. muthuselvan, nandhinidevi, vishnupriya, murugesan, bharathi, velusamy, anandhan, rajendiran, bharathidasan, palraj, advisor.4a, etc.)
       UserModel? matchedAdv;
       for (final adv in sectionAdvisors) {
         final advNameLower = adv.name.toLowerCase();
         final advCode = '${adv.year}${adv.section?.toLowerCase()}';
         if (emailLower == adv.email.toLowerCase() ||
+            emailLower == adv.username.toLowerCase() ||
+            (adv.id == 'adv-3d' && (emailLower.contains('velusamy') || emailLower.contains('veluswamy') || emailLower == 'advisor.veluswamy')) ||
             emailLower.contains('advisor.$advCode') ||
             emailLower == advCode ||
             advNameLower.split(' ').any((part) => part.length > 3 && emailLower.contains(part))) {

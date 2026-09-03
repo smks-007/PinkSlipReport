@@ -25,6 +25,84 @@ class MockDataService {
   static int get absentToday => totalStrength - presentToday;
   static double get attendancePercentage => (presentToday / totalStrength) * 100;
 
+  static int getSectionStrength(int year, String section) {
+    final list = getStudentsBySection(year, section);
+    return list.isNotEmpty ? list.length : 60;
+  }
+
+  static int getSectionAbsent(int year, String section) {
+    // Dynamic realistic absentee distribution across 10 sections
+    final key = '$year-$section';
+    switch (key) {
+      case '4-A': return 3;
+      case '4-B': return 3;
+      case '3-A': return 4;
+      case '3-B': return 3;
+      case '3-C': return 3;
+      case '3-D': return 3;
+      case '2-A': return 3;
+      case '2-B': return 4;
+      case '2-C': return 3;
+      case '2-D': return 4;
+      default: return 3;
+    }
+  }
+
+  static int getSectionPresent(int year, String section) {
+    final str = getSectionStrength(year, section);
+    final abs = getSectionAbsent(year, section);
+    return str - abs;
+  }
+
+  static double getSectionAttendancePercentage(int year, String section) {
+    final str = getSectionStrength(year, section);
+    if (str == 0) return 100.0;
+    final pres = getSectionPresent(year, section);
+    return (pres / str) * 100;
+  }
+
+  static int getSectionPendingSlips(int year, String section) {
+    final list = _leaveRequests.where((l) => l.year == year && l.section == section && l.letterStatus == LetterStatus.submitted).toList();
+    return list.isNotEmpty ? list.length : 1;
+  }
+
+  static int getSectionReturnCheck(int year, String section) {
+    final list = _leaveRequests.where((l) => l.year == year && l.section == section && l.letterStatus == LetterStatus.approved).toList();
+    return list.isNotEmpty ? list.length : 1;
+  }
+
+  static List<LeaveModel> getSectionLeaves(int year, String section) {
+    final filtered = _leaveRequests.where((l) => l.year == year && l.section == section).toList();
+    if (filtered.isNotEmpty) return filtered;
+    // Return sample request for this section if empty
+    final studentsInSec = getStudentsBySection(year, section);
+    final sampleStu = studentsInSec.isNotEmpty ? studentsInSec.first : null;
+    return [
+      LeaveModel(
+        id: 'l-$year$section-sample',
+        studentId: sampleStu?.id ?? 'stu_sample',
+        studentName: sampleStu?.name ?? 'Sample Student',
+        studentRollNumber: sampleStu?.rollNumber ?? '25243001',
+        category: LeaveCategory.leave,
+        section: section,
+        year: year,
+        batchYear: sampleStu?.batchYear ?? '2026 BATCH',
+        leaveDate: DateTime.now().subtract(const Duration(days: 1)),
+        leaveType: LeaveType.informed,
+        reason: 'Personal Academic Consultation & Family Leave',
+        letterSubmitted: true,
+        letterStatus: LetterStatus.submitted,
+        attachmentFileName: 'parent_leave_application.pdf',
+        attachmentFileType: 'Parent Signed Application',
+        attachmentFileSize: '1.2 MB',
+        dateSubmittedToAdvisor: DateTime.now().subtract(const Duration(days: 1)),
+        advisorRemarks: 'Reviewed by Class Advisor for Section $section.',
+        dueDays: 1,
+        totalLeavesTaken: 1,
+      ),
+    ];
+  }
+
   // ──────────────────── Leave & On-Duty (OD) Requests ────────────────────
 
   static final List<LeaveModel> _leaveRequests = [

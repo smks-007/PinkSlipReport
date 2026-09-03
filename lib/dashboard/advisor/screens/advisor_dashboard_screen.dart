@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_styles.dart';
 import '../../../core/models/user_model.dart';
+import '../../../core/models/student_model.dart';
 import '../../../core/models/leave_model.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/mock_data_service.dart';
+import '../../../core/data/student_directory_data.dart';
 import '../../shared/widgets/storage_management_dialog.dart';
 
-/// Advisor Dashboard — matches the provided design.
-/// Shows attendance overview, quick actions, recent pink slips.
+/// Advisor Dashboard — Dedicated Section Portals for all 10 Section Class Advisors.
+/// Supports individual section isolation, advisor details, class statistics, and full student rosters.
 class AdvisorDashboardScreen extends StatefulWidget {
   const AdvisorDashboardScreen({super.key});
 
@@ -17,10 +19,41 @@ class AdvisorDashboardScreen extends StatefulWidget {
 }
 
 class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
-  UserModel get _advisor => AuthService().currentUser ?? AuthService.advisor;
+  late UserModel _currentAdvisor;
+  String _studentSearchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    final loggedIn = AuthService().currentUser;
+    if (loggedIn != null && loggedIn.role == UserRole.advisor) {
+      _currentAdvisor = loggedIn;
+    } else {
+      _currentAdvisor = AuthService.sectionAdvisors.firstWhere(
+        (a) => a.id == 'adv-3d', // Default to III-D Mr. Velusamy or logged-in
+        orElse: () => AuthService.sectionAdvisors.first,
+      );
+    }
+  }
+
+  void _selectAdvisor(UserModel advisor) {
+    setState(() {
+      _currentAdvisor = advisor;
+      _studentSearchQuery = '';
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    final year = _currentAdvisor.year ?? 3;
+    final section = _currentAdvisor.section ?? 'D';
+    final students = StudentDirectoryData.bySection['$year-$section'] ?? [];
+    final filteredStudents = students.where((s) {
+      if (_studentSearchQuery.isEmpty) return true;
+      return s.name.toLowerCase().contains(_studentSearchQuery.toLowerCase()) ||
+          s.rollNumber.contains(_studentSearchQuery);
+    }).toList();
+
     return Scaffold(
       backgroundColor: AppColors.pageBackground,
       body: SafeArea(
@@ -30,25 +63,27 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildAppBar(),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
+              _buildSectionSelectorPills(),
+              const SizedBox(height: 12),
               _buildWelcomeCard(),
               const SizedBox(height: 20),
-              _buildSectionTitle("AI & DS Class Advisors Directory"),
-              const SizedBox(height: 10),
-              _buildAdvisorsDirectorySection(),
-              const SizedBox(height: 24),
-              _buildSectionTitle("Today's Attendance Overview"),
+              _buildSectionTitle("Today's Section Attendance Overview"),
               const SizedBox(height: 12),
-              _buildStatsGrid(),
-              const SizedBox(height: 24),
+              _buildStatsGrid(year, section),
+              const SizedBox(height: 20),
               _buildSectionTitle('Quick Actions'),
               const SizedBox(height: 12),
               _buildQuickActions(),
               const SizedBox(height: 24),
+              _buildClassRepsCard(year, section),
+              const SizedBox(height: 24),
+              _buildStudentRosterSection(filteredStudents, students.length),
+              const SizedBox(height: 24),
               _buildRecentPinkSlipsHeader(),
               const SizedBox(height: 12),
-              _buildRecentPinkSlips(),
-              const SizedBox(height: 100),
+              _buildRecentPinkSlips(year, section),
+              const SizedBox(height: 80),
             ],
           ),
         ),
@@ -62,65 +97,128 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
       child: Row(
         children: [
           Container(
-            width: 36,
-            height: 36,
+            width: 38,
+            height: 38,
             decoration: BoxDecoration(
               color: AppColors.purpleSurface,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.description_outlined,
-                size: 20, color: AppColors.primaryPurple),
+            child: const Icon(Icons.school_rounded, size: 22, color: AppColors.primaryPurple),
           ),
           const SizedBox(width: 10),
-          RichText(
-            text: TextSpan(children: [
-              TextSpan(
-                text: 'Pink',
-                style: AppStyles.headingSmall.copyWith(
-                  color: AppColors.primaryPurple,
-                  fontSize: 18,
-                ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              RichText(
+                text: TextSpan(children: [
+                  TextSpan(
+                    text: 'Pink',
+                    style: AppStyles.headingSmall.copyWith(
+                      color: AppColors.primaryPurple,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  TextSpan(
+                    text: 'Slip',
+                    style: AppStyles.headingSmall.copyWith(
+                      color: const Color(0xFF0284C7),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 18,
+                    ),
+                  ),
+                  TextSpan(
+                    text: 'Report',
+                    style: AppStyles.headingSmall.copyWith(
+                      color: const Color(0xFF475569),
+                      fontWeight: FontWeight.w400,
+                      fontSize: 18,
+                    ),
+                  ),
+                ]),
               ),
-              TextSpan(
-                text: 'Slip',
-                style: AppStyles.headingSmall.copyWith(
-                  color: AppColors.primaryPurple,
-                  fontWeight: FontWeight.w400,
-                  fontSize: 18,
-                ),
+              const Text(
+                'Department of AI & DS • Section Advisor Portal',
+                style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
               ),
-              TextSpan(
-                text: 'Report',
-                style: AppStyles.headingSmall.copyWith(
-                  color: AppColors.primaryPurple,
-                  fontWeight: FontWeight.w400,
-                  fontSize: 18,
-                ),
-              ),
-            ]),
+            ],
           ),
           const Spacer(),
           IconButton(
             icon: const Icon(Icons.dns_rounded, size: 22, color: Color(0xFF0284C7)),
-            tooltip: 'Storage & Data Center',
+            tooltip: 'Storage Telemetry & Data Center',
             onPressed: () => showDialog(
               context: context,
               builder: (ctx) => const StorageManagementDialog(),
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.notifications_none_rounded, size: 26),
-            color: AppColors.textPrimary,
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout_rounded, size: 24),
-            color: AppColors.textPrimary,
-            onPressed: () =>
-                Navigator.pushReplacementNamed(context, '/sign-in'),
+            icon: const Icon(Icons.logout_rounded, size: 22, color: Color(0xFFEF4444)),
+            tooltip: 'Sign Out',
+            onPressed: () => Navigator.pushReplacementNamed(context, '/sign-in'),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSectionSelectorPills() {
+    final advisors = AuthService.sectionAdvisors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Switch Section Portal (10 Sections):',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+              ),
+              Text(
+                '10 Advisors Registered',
+                style: TextStyle(fontSize: 11, color: Color(0xFF0284C7), fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 6),
+        SizedBox(
+          height: 40,
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            itemCount: advisors.length,
+            itemBuilder: (context, index) {
+              final adv = advisors[index];
+              final isSelected = adv.id == _currentAdvisor.id;
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: FilterChip(
+                  selected: isSelected,
+                  label: Text('${adv.year}-${adv.section} • ${adv.name.split(' ').last}'),
+                  labelStyle: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    color: isSelected ? Colors.white : const Color(0xFF1E293B),
+                  ),
+                  backgroundColor: Colors.white,
+                  selectedColor: AppColors.primaryPurple,
+                  checkmarkColor: Colors.white,
+                  side: BorderSide(
+                    color: isSelected ? AppColors.primaryPurple : const Color(0xFFCBD5E1),
+                  ),
+                  onSelected: (selected) {
+                    if (selected) _selectAdvisor(adv);
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -129,8 +227,22 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(20),
-        decoration: AppStyles.welcomeCardDecoration,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF312E81), Color(0xFF4338CA), Color(0xFF6366F1)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF4338CA).withValues(alpha: 0.35),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -138,14 +250,14 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppColors.statusApproved,
+                    color: const Color(0xFF10B981),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Text(
-                    _advisor.roleBadge,
-                    style: AppStyles.chipText.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+                  child: const Text(
+                    '👨‍🏫 Class Adviser Portal',
+                    style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                   ),
                 ),
                 Container(
@@ -155,28 +267,29 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    _advisor.classSection ?? 'AI&DS Portal',
-                    style: AppStyles.bodyOnPurple.copyWith(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      color: Colors.white,
-                    ),
+                    '${_currentAdvisor.classSection} (${_currentAdvisor.batchYear ?? "2026"})',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.white),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 14),
-            Text(
-              'Welcome back,',
-              style: AppStyles.bodyOnPurple.copyWith(fontSize: 13, color: Colors.white70),
+            const SizedBox(height: 12),
+            const Text(
+              'Welcome back, Class Advisor',
+              style: TextStyle(fontSize: 12.5, color: Colors.white70),
             ),
             const SizedBox(height: 2),
             Row(
               children: [
                 Expanded(
                   child: Text(
-                    _advisor.name,
-                    style: AppStyles.headingOnPurple.copyWith(fontSize: 22, fontWeight: FontWeight.bold),
+                    _currentAdvisor.name,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: -0.5,
+                    ),
                   ),
                 ),
                 Container(
@@ -186,7 +299,7 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    '@${_advisor.username}',
+                    '@${_currentAdvisor.username}',
                     style: const TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.bold, fontSize: 11),
                   ),
                 ),
@@ -194,8 +307,8 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              '${_advisor.email} • ${_advisor.college}',
-              style: AppStyles.bodyOnPurple.copyWith(fontSize: 12, color: Colors.white.withValues(alpha: 0.85)),
+              '${_currentAdvisor.email} • ${_currentAdvisor.college}',
+              style: TextStyle(fontSize: 11.5, color: Colors.white.withValues(alpha: 0.85)),
             ),
           ],
         ),
@@ -203,99 +316,21 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
     );
   }
 
-  Widget _buildAdvisorsDirectorySection() {
-    final advisors = AuthService.sectionAdvisors;
-    return SizedBox(
-      height: 125,
-      child: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        itemCount: advisors.length,
-        itemBuilder: (context, index) {
-          final adv = advisors[index];
-          final isCurrent = adv.id == _advisor.id || adv.username == _advisor.username;
-          return Container(
-            width: 220,
-            margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: isCurrent ? const Color(0xFFEEF2FF) : Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: isCurrent ? AppColors.primaryPurple : const Color(0xFFE2E8F0),
-                width: isCurrent ? 2 : 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: isCurrent ? AppColors.primaryPurple : const Color(0xFF0284C7),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        '${adv.year}-${adv.section}',
-                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    if (isCurrent)
-                      const Text('ACTIVE', style: TextStyle(color: AppColors.primaryPurple, fontSize: 9, fontWeight: FontWeight.bold))
-                    else
-                      Text(adv.batchYear ?? '', style: const TextStyle(color: Color(0xFF64748B), fontSize: 9)),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      adv.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'User: ${adv.username}',
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF0284C7), fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
-                Text(
-                  adv.email,
-                  style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Text(title, style: AppStyles.headingMedium.copyWith(fontSize: 18)),
+      child: Text(title, style: AppStyles.headingMedium.copyWith(fontSize: 16, color: const Color(0xFF0F172A))),
     );
   }
 
-  Widget _buildStatsGrid() {
+  Widget _buildStatsGrid(int year, String section) {
+    final strength = MockDataService.getSectionStrength(year, section);
+    final present = MockDataService.getSectionPresent(year, section);
+    final absent = MockDataService.getSectionAbsent(year, section);
+    final percentage = MockDataService.getSectionAttendancePercentage(year, section);
+    final pending = MockDataService.getSectionPendingSlips(year, section);
+    final returnCheck = MockDataService.getSectionReturnCheck(year, section);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
@@ -304,9 +339,9 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
             children: [
               Expanded(
                 child: _StatCard(
-                  label: 'Attendance',
-                  value: '${MockDataService.attendancePercentage.toStringAsFixed(2)}%',
-                  subtitle: '${MockDataService.presentToday}/${MockDataService.totalStrength} Present',
+                  label: 'Section Attendance',
+                  value: '${percentage.toStringAsFixed(2)}%',
+                  subtitle: '$present/$strength Present',
                   icon: Icons.pie_chart_outline_rounded,
                   iconColor: AppColors.primaryPurple,
                 ),
@@ -315,8 +350,8 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
               Expanded(
                 child: _StatCard(
                   label: 'Absentees',
-                  value: '${MockDataService.absentToday}',
-                  subtitle: 'Students',
+                  value: '$absent',
+                  subtitle: 'Students Today',
                   icon: Icons.person_off_outlined,
                   iconColor: AppColors.absentRed,
                 ),
@@ -329,8 +364,8 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
               Expanded(
                 child: _StatCard(
                   label: 'Pending Slips',
-                  value: '${MockDataService.pendingSlips}',
-                  subtitle: 'Needs HOD',
+                  value: '$pending',
+                  subtitle: 'Needs HOD/Review',
                   icon: Icons.hourglass_bottom_rounded,
                   iconColor: AppColors.pendingOrange,
                 ),
@@ -339,8 +374,8 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
               Expanded(
                 child: _StatCard(
                   label: 'Return Check',
-                  value: '${MockDataService.returnCheckReady}',
-                  subtitle: 'Ready',
+                  value: '$returnCheck',
+                  subtitle: 'Approved & Ready',
                   icon: Icons.check_circle_outline_rounded,
                   iconColor: AppColors.readyGreen,
                 ),
@@ -370,7 +405,7 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
             child: _QuickActionCard(
               icon: Icons.calendar_month_outlined,
               label: 'Timetable',
-              color: AppColors.primaryPurple,
+              color: const Color(0xFF0284C7),
               onTap: () => Navigator.pushNamed(context, '/timetable'),
             ),
           ),
@@ -379,20 +414,278 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
             child: _QuickActionCard(
               icon: Icons.assignment_outlined,
               label: 'Pink Slip',
-              color: AppColors.primaryPurple,
+              color: const Color(0xFFEA580C),
               onTap: () => Navigator.pushNamed(context, '/leave-management'),
             ),
           ),
           const SizedBox(width: 10),
           Expanded(
             child: _QuickActionCard(
-              icon: Icons.download_rounded,
-              label: 'Reports',
-              color: AppColors.primaryPurple,
-              onTap: () {},
+              icon: Icons.dns_outlined,
+              label: 'Storage',
+              color: const Color(0xFF059669),
+              onTap: () => showDialog(
+                context: context,
+                builder: (ctx) => const StorageManagementDialog(),
+              ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildClassRepsCard(int year, String section) {
+    final crs = AuthService.classRepresentatives.where((c) => c.year == year && c.section == section).toList();
+    final boyCr = crs.where((c) => c.gender == 'Boy').firstOrNull;
+    final girlCr = crs.where((c) => c.gender == 'Girl').firstOrNull;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.badge_outlined, color: AppColors.primaryPurple, size: 18),
+                    SizedBox(width: 8),
+                    Text(
+                      'Section Class Representatives (CRs)',
+                      style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEF2FF),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text('2 CRs Active', style: TextStyle(color: AppColors.primaryPurple, fontSize: 10, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0F9FF),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFBAE6FD)),
+                    ),
+                    child: Row(
+                      children: [
+                        const CircleAvatar(
+                          radius: 16,
+                          backgroundColor: Color(0xFF0284C7),
+                          child: Text('♂', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                boyCr?.name ?? 'Assigned Boy CR',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0F172A)),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text('Roll: ${boyCr?.rollNumber ?? "N/A"}', style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B))),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFDF2F8),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFFBCFE8)),
+                    ),
+                    child: Row(
+                      children: [
+                        const CircleAvatar(
+                          radius: 16,
+                          backgroundColor: Color(0xFFDB2777),
+                          child: Text('♀', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                girlCr?.name ?? 'Assigned Girl CR',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0F172A)),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text('Roll: ${girlCr?.rollNumber ?? "N/A"}', style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B))),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStudentRosterSection(List<StudentModel> students, int totalCount) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${_currentAdvisor.classSection} Student Roster',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                    ),
+                    Text(
+                      'Total $totalCount Students Registered',
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    ),
+                  ],
+                ),
+                ElevatedButton.icon(
+                  onPressed: () => Navigator.pushNamed(context, '/attendance'),
+                  icon: const Icon(Icons.edit_calendar_rounded, size: 14),
+                  label: const Text('Mark Attendance'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryPurple,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              decoration: InputDecoration(
+                hintText: 'Search student name or roll number in ${_currentAdvisor.year}-${_currentAdvisor.section}...',
+                hintStyle: const TextStyle(fontSize: 11.5),
+                prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                filled: true,
+                fillColor: const Color(0xFFF8FAFC),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+              ),
+              onChanged: (v) => setState(() => _studentSearchQuery = v),
+            ),
+            const SizedBox(height: 10),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: students.length > 8 ? 8 : students.length,
+              itemBuilder: (context, i) {
+                final s = students[i];
+                final isAbsent = (i == 2 || i == 5); // Sample representation
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFF1F5F9)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 24,
+                        alignment: Alignment.center,
+                        child: Text('${i + 1}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(s.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                            Text('${s.rollNumber} • ${s.batchYear}', style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B))),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: isAbsent ? const Color(0xFFFEE2E2) : const Color(0xFFD1FAE5),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          isAbsent ? 'Absent' : 'Present',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: isAbsent ? const Color(0xFFDC2626) : const Color(0xFF059669),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+            if (students.length > 8) ...[
+              const SizedBox(height: 6),
+              Center(
+                child: TextButton(
+                  onPressed: () => Navigator.pushNamed(context, '/attendance'),
+                  child: Text(
+                    'View Complete List (${students.length} Students) in Attendance ➔',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primaryPurple),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -403,32 +696,29 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text('Recent Pink Slips',
-              style: AppStyles.headingMedium.copyWith(fontSize: 18)),
+          Text('Section Pink Slips & Leave Requests', style: AppStyles.headingMedium.copyWith(fontSize: 16)),
           TextButton(
             onPressed: () => Navigator.pushNamed(context, '/leave-management'),
-            child: Text('View All',
-                style: AppStyles.linkText
-                    .copyWith(color: AppColors.primaryPurple)),
+            child: Text('View All', style: AppStyles.linkText.copyWith(color: AppColors.primaryPurple, fontSize: 12)),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildRecentPinkSlips() {
-    final recentSlips = MockDataService.leaveRequests.take(4).toList();
+  Widget _buildRecentPinkSlips(int year, String section) {
+    final slips = MockDataService.getSectionLeaves(year, section);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
-        children: recentSlips.map((slip) => _PinkSlipTile(leave: slip)).toList(),
+        children: slips.map((slip) => _PinkSlipTile(leave: slip)).toList(),
       ),
     );
   }
 }
 
 // ══════════════════════════════════════════════════════════════════
-//  Private Widgets
+//  Private Component Widgets
 // ══════════════════════════════════════════════════════════════════
 
 class _StatCard extends StatelessWidget {
@@ -449,8 +739,19 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: AppStyles.statCardDecoration,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -459,18 +760,27 @@ class _StatCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(label,
-                    style: AppStyles.bodySmall.copyWith(
-                      color: AppColors.textSecondary,
-                      fontSize: 13,
+                    style: const TextStyle(
+                      color: Color(0xFF64748B),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
                     )),
               ),
-              Icon(icon, size: 22, color: iconColor),
+              Icon(icon, size: 20, color: iconColor),
             ],
           ),
-          const SizedBox(height: 10),
-          Text(value, style: AppStyles.statValue),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF0F172A),
+              letterSpacing: -0.5,
+            ),
+          ),
           const SizedBox(height: 2),
-          Text(subtitle, style: AppStyles.statLabel),
+          Text(subtitle, style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
         ],
       ),
     );
@@ -495,22 +805,22 @@ class _QuickActionCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 18),
+        padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withValues(alpha: 0.15)),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withValues(alpha: 0.18)),
         ),
         child: Column(
           children: [
-            Icon(icon, size: 28, color: color),
-            const SizedBox(height: 8),
+            Icon(icon, size: 24, color: color),
+            const SizedBox(height: 6),
             Text(
               label,
-              style: AppStyles.bodySmall.copyWith(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w500,
-                fontSize: 13,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.bold,
+                fontSize: 11.5,
               ),
             ),
           ],
@@ -528,56 +838,52 @@ class _PinkSlipTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.cardBackground,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.inputBorder),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Row(
         children: [
-          // Status Icon
           Container(
-            width: 42,
-            height: 42,
+            width: 38,
+            height: 38,
             decoration: BoxDecoration(
               color: _statusBgColor,
               shape: BoxShape.circle,
             ),
-            child: Icon(_statusIcon, size: 20, color: _statusColor),
+            child: Icon(_statusIcon, size: 18, color: _statusColor),
           ),
-          const SizedBox(width: 12),
-          // Info
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   leave.studentName,
-                  style: AppStyles.bodyLarge.copyWith(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15,
-                  ),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   '${leave.studentRollNumber} • ${leave.reason}',
-                  style: AppStyles.bodySmall.copyWith(fontSize: 12),
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
-          // Status Badge
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
               color: _statusBgColor,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
               leave.letterStatusDisplay,
-              style: AppStyles.chipText.copyWith(color: _statusColor),
+              style: TextStyle(color: _statusColor, fontSize: 10, fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -624,3 +930,4 @@ class _PinkSlipTile extends StatelessWidget {
     }
   }
 }
+
