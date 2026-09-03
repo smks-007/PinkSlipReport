@@ -385,6 +385,28 @@ class MockDataService {
 
     // Generate initial records for this section and date
     final targetStudents = getStudentsBySection(year, section);
+    // Realistic section advisor name
+    final advName = (year == 4 && section == 'A')
+        ? 'Mr. Muthuselvan'
+        : (year == 4 && section == 'B')
+            ? 'Mrs. Nandhinidevi'
+            : (year == 3 && section == 'A')
+                ? 'Ms. C. Vishnupriya'
+                : (year == 3 && section == 'B')
+                    ? 'Dr. R. Murugesan'
+                    : (year == 3 && section == 'C')
+                        ? 'Mrs. B. Bharathi'
+                        : (year == 3 && section == 'D')
+                            ? 'Mr. Velusamy'
+                            : (year == 2 && section == 'A')
+                                ? 'Dr. D. Anandhan'
+                                : (year == 2 && section == 'B')
+                                    ? 'Dr. M. Rajendiran'
+                                    : (year == 2 && section == 'C')
+                                        ? 'Mr. A. Bharathidasan'
+                                        : (year == 2 && section == 'D')
+                                            ? 'Mr. R. Palraj'
+                                            : 'Class Advisor';
     final isPastDate = date.isBefore(DateTime.now().subtract(const Duration(hours: 12)));
 
     final records = targetStudents.asMap().entries.map((entry) {
@@ -406,7 +428,7 @@ class MockDataService {
             ? DateTime(date.year, date.month, date.day, 16, 0 + (s.id.hashCode % 30).abs())
             : null,
         source: isPastDate ? 'manual_verified' : 'biometric',
-        recordedBy: 'Dr. M. Rajendiran',
+        recordedBy: advName,
         createdAt: date,
       );
     }).toList();
