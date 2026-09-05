@@ -1,9 +1,11 @@
 import React from 'react';
 import { 
   LayoutDashboard, 
+  CalendarDays,
   Grid3X3, 
   FileCheck2, 
   UserCheck, 
+  BarChart3,
   CloudRain, 
   AlertTriangle, 
   CheckCircle2, 
@@ -27,23 +29,35 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenJarvis, onOpenExport }) 
 
   const navItems: { id: ActiveTab; label: string; icon: React.FC<any>; badge?: number; badgeColor?: string }[] = [
     { 
+      id: 'monthly_calendar', 
+      label: '1-Month Attendance Calendar', 
+      icon: CalendarDays,
+      badge: 31,
+      badgeColor: 'bg-cyan-950 text-cyan-300 border-cyan-800'
+    },
+    { 
+      id: 'leave_workflow', 
+      label: '2-Tier Leave & OD Pipeline', 
+      icon: FileCheck2, 
+      badge: pendingLeaves.length,
+      badgeColor: 'bg-amber-950 text-amber-300 border-amber-800'
+    },
+    { 
+      id: 'dept_analytics', 
+      label: 'Visual Analytics & Percentages', 
+      icon: BarChart3
+    },
+    { 
       id: 'hod_cockpit', 
-      label: '2 HOD Command Cockpit', 
+      label: 'HOD Command Cockpit', 
       icon: LayoutDashboard,
       badge: shortageCount,
       badgeColor: 'bg-rose-950 text-rose-300 border-rose-800'
     },
     { 
       id: 'period_marker', 
-      label: '8-Period Attendance Grid', 
+      label: '8-Period Roll Call Grid', 
       icon: Grid3X3 
-    },
-    { 
-      id: 'leave_triage', 
-      label: 'Prior Leave vs Uninformed', 
-      icon: FileCheck2, 
-      badge: pendingLeaves.length,
-      badgeColor: 'bg-amber-950 text-amber-300 border-amber-800'
     },
     { 
       id: 'student_dossier', 
@@ -59,25 +73,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenJarvis, onOpenExport }) 
 
   return (
     <aside className="w-64 flex-shrink-0 flex flex-col h-screen border-r border-slate-800/80 bg-[#0a0d16]/95 backdrop-blur-2xl transition-all select-none">
-      {/* Years Quick Breakdown */}
+      {/* AIDS Sections Summary */}
       <div className="p-4 border-b border-slate-800/70">
         <div className="flex items-center justify-between mb-2">
           <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-            AIDS Sections (10)
+            AIDS Dept (10 Sections)
           </span>
           <span className="text-[10px] font-bold text-cyan-400">{students.length} Students</span>
         </div>
         <div className="grid grid-cols-3 gap-1.5 text-xs">
           <div className="p-2 rounded-xl bg-[#121828] border border-slate-800 text-center">
-            <span className="text-[9px] text-slate-400 block font-bold">II Year</span>
+            <span className="text-[9px] text-slate-400 block font-bold">II Year (4)</span>
             <span className="text-[11px] font-extrabold text-emerald-400">89.2%</span>
           </div>
           <div className="p-2 rounded-xl bg-[#121828] border border-slate-800 text-center">
-            <span className="text-[9px] text-slate-400 block font-bold">III Year</span>
+            <span className="text-[9px] text-slate-400 block font-bold">III Year (4)</span>
             <span className="text-[11px] font-extrabold text-academic-300">85.8%</span>
           </div>
           <div className="p-2 rounded-xl bg-[#121828] border border-slate-800 text-center">
-            <span className="text-[9px] text-slate-400 block font-bold">IV Year</span>
+            <span className="text-[9px] text-slate-400 block font-bold">IV Year (2)</span>
             <span className="text-[11px] font-extrabold text-cyan-300">86.4%</span>
           </div>
         </div>
@@ -86,7 +100,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenJarvis, onOpenExport }) 
       {/* Main Navigation List */}
       <div className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto">
         <div className="px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
-          Core Workspaces
+          Workspaces & Modules
         </div>
 
         {navItems.map(item => {
@@ -117,7 +131,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenJarvis, onOpenExport }) 
 
         {/* Quick Tool Links */}
         <div className="pt-3 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
-          Smart AI Tools
+          Smart AI & Export Tools
         </div>
 
         {onOpenJarvis && (

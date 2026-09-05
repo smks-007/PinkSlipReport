@@ -14,6 +14,28 @@
 
 ## 🚀 Latest Updates & Changelog
 
+### 🔖 Version 0.5.0 — 1-Month Attendance Calendar, 2-Tier Leave/OD Approval Pipeline & Department Visual Analytics
+* **📅 1-Month Manual Day-Wise Attendance Calendar**:
+  * Complete 30+ working day calendar horizon (August 1 – September 5, 2026) for all 622 AIDS students across 10 sections.
+  * Rapid 1-click batch presence/absent/OD toggling with HOD digital signature sign-off.
+  * Historical day-wise attendance ledger with tamper-proof status tracking (`draft` ➔ `submitted_to_hod` ➔ `verified_by_hod`).
+* **📑 2-Tier Leave & On-Duty Approval Workflow (Student ➔ Class Advisor ➔ HOD)**:
+  * **Student Application Portal**: Students can submit Leave/OD requests with typed formal letters and/or uploaded document proof attachments (PDF/Images).
+  * **Class Advisor Review Inbox**: Respective class advisors inspect proofs, add advisory recommendations, and forward to HOD or reject with remarks.
+  * **HOD Final Sanction**: HOD reviews forwarded requests, provides statutory approval/rejection with official remarks.
+  * **Automated Notification & Attendance Pre-Locking**:
+    * Instant in-app notifications and toast dispatches to both Student and Class Advisor upon HOD decision.
+    * Approved On-Duties (`leave_od`) and Prior Leaves (`leave_prior_cl` / `leave_ml`) are automatically pre-locked on target dates in the attendance ledger, safeguarding against accidental overwrite.
+* **📊 Visual Intelligence & Analytics Dashboard**:
+  * **Class-by-Class Comparative Bar Charts**: Real-time percentage benchmarking across all 10 AIDS sections against Anna University's 75% statutory threshold.
+  * **30-Day Department Attendance Trend Curve**: Interactive day-by-day attendance progression across the 31-day horizon.
+  * **Categorized Absence Breakdown**: Visual donut/bar distribution comparing sanctioned academic On-Duties vs genuine medical leaves vs unannounced cuts.
+  * **8-Period Drop-off Heatmap**: Period-by-period attrition analysis identifying peak drop periods (Period 5 post-lunch).
+* **🛡 Idempotent Data Protection**:
+  * *"If updated, don't overwrite"* policy ensures prior approvals and verified attendance records remain strictly immutable during batch updates.
+
+---
+
 ### 🔖 Version 0.4.0 — AIDS Department Official Roster, Jarvis AI Copilot & Digital Pink Slip Suite
 * **Department of Artificial Intelligence & Data Science (AIDS) Integration**:
   * Integrated official student rosters for all 10 sections across 2nd, 3rd, and 4th years (**622 students**):

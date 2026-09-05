@@ -1,4 +1,4 @@
-import { User, Batch, Student, LeaveRecord, FacultyComplianceItem, DepartmentSummary } from '../types';
+import { User, Batch, Student, LeaveRecord, FacultyComplianceItem, DepartmentSummary, DayAttendanceSubmission, NotificationItem } from '../types';
 import aidsRawData from './mockData.json';
 
 export const mockUsers: Record<string, User> = {
@@ -157,6 +157,12 @@ export const periodTimeSlots: { periodNumber: number; timeRange: string }[] = [
 
 export const initialBatches: Batch[] = aidsRawData.batches as Batch[];
 export const initialStudents: Student[] = aidsRawData.students as Student[];
-export const initialPendingLeaves: LeaveRecord[] = aidsRawData.pendingLeaves as LeaveRecord[];
+export const initialLeaveRecords: LeaveRecord[] = aidsRawData.leaveRecords as LeaveRecord[];
+export const initialPendingLeaves: LeaveRecord[] = (aidsRawData.leaveRecords as LeaveRecord[]).filter(
+  l => l.status === 'pending_advisor' || l.status === 'forwarded_to_hod'
+);
+export const initialDaySubmissions: DayAttendanceSubmission[] = (aidsRawData.daySubmissions || []) as DayAttendanceSubmission[];
+export const initialNotifications: NotificationItem[] = (aidsRawData.notifications || []) as NotificationItem[];
+export const workingDates: string[] = (aidsRawData.workingDates || []) as string[];
 export const initialComplianceList: FacultyComplianceItem[] = aidsRawData.complianceList as FacultyComplianceItem[];
 export const initialDepartmentSummary: DepartmentSummary = aidsRawData.departmentSummary as DepartmentSummary;

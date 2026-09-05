@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
+import { MonthlyAttendanceCalendar } from './components/calendar/MonthlyAttendanceCalendar';
+import { LeaveWorkflowCenter } from './components/leave/LeaveWorkflowCenter';
+import { DepartmentAnalyticsCharts } from './components/analytics/DepartmentAnalyticsCharts';
 import { HODCockpit } from './components/hod/HODCockpit';
 import { PeriodAttendanceGrid } from './components/attendance/PeriodAttendanceGrid';
-import { LeaveTriageCenter } from './components/leave/LeaveTriageCenter';
 import { StudentDossier } from './components/student/StudentDossier';
 import { CloudAndNAACView } from './components/cloud/CloudAndNAACView';
 import { JarvisAiAdvisor } from './components/ai/JarvisAiAdvisor';
@@ -43,9 +45,11 @@ export const App: React.FC = () => {
         />
 
         <main className="flex-1 overflow-y-auto p-6 space-y-6">
+          {activeTab === 'monthly_calendar' && <MonthlyAttendanceCalendar />}
+          {activeTab === 'leave_workflow' && <LeaveWorkflowCenter />}
+          {activeTab === 'dept_analytics' && <DepartmentAnalyticsCharts />}
           {activeTab === 'hod_cockpit' && <HODCockpit />}
           {activeTab === 'period_marker' && <PeriodAttendanceGrid />}
-          {activeTab === 'leave_triage' && <LeaveTriageCenter />}
           {activeTab === 'student_dossier' && <StudentDossier />}
           {activeTab === 'cloud_naac' && <CloudAndNAACView />}
         </main>

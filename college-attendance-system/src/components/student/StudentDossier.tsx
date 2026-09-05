@@ -253,7 +253,7 @@ export const StudentDossier: React.FC = () => {
                       {l.documentProofName && (
                         <div className="flex items-center justify-between text-[11px] text-cyan-400">
                           <span>📄 {l.documentProofName}</span>
-                          <span className="text-emerald-400 font-semibold">✓ {l.reviewedBy}</span>
+                          <span className="text-emerald-400 font-semibold">✓ {l.hodName || l.advisorName || 'Approved by HOD'}</span>
                         </div>
                       )}
                     </div>
