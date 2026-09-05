@@ -14,6 +14,26 @@
 
 ## 🚀 Latest Updates & Changelog
 
+### 🔖 Version 0.4.0 — AIDS Department Official Roster, Jarvis AI Copilot & Digital Pink Slip Suite
+* **Department of Artificial Intelligence & Data Science (AIDS) Integration**:
+  * Integrated official student rosters for all 10 sections across 2nd, 3rd, and 4th years (**622 students**):
+    * **II Year (2025 Batch)**: `II-AIDS-A` (63), `II-AIDS-B` (63), `II-AIDS-C` (60), `II-AIDS-D` (63).
+    * **III Year (2024 Batch)**: `III-AIDS-A` (65), `III-AIDS-B` (61), `III-AIDS-C` (60), `III-AIDS-D` (63).
+    * **IV Year (2023 Batch)**: `IV-AIDS-A` (59), `IV-AIDS-B` (65).
+  * Implemented idempotent update protection (*"if updated, don't overwrite"*), preserving approved prior leaves (CL/OD/ML) and preventing redundant recalculations.
+* **Jarvis AI Attendance & Risk Copilot**:
+  * Interactive predictive detention risk forecaster and LLM agent.
+  * Bilingual Tamil & English parent alert generator for daily 4:30 PM unapproved cuts.
+* **Digital Pink Slip & Clearance Certificate Generator**:
+  * Printable and downloadable official exam clearance slips with cryptographic QR code validation.
+* **Multi-Mode Attendance Input**:
+  * Rapid Keyboard Roll Call deck (`[P]` Present, `[A]` Absent).
+  * Biometric turnstile & facial recognition telemetry sync simulator.
+* **Excel & CSV Export/Import Gateway**:
+  * 1-Click section attendance ledger download and mass parent broadcast dispatcher.
+
+---
+
 ### 🔖 Version 0.2.0 (Commit `fab3036`) — Test Automation & Configuration Refactoring
 * **Widget Test Suite Expansion**:
   * Added end-to-end integration tests in [`test/widget_test.dart`](file:///c:/Users/Rajavel/.gemini/antigravity/scratch/PinkSlipReport/test/widget_test.dart) covering all three authentication screens.
