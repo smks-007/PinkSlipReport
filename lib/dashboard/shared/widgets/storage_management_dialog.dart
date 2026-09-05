@@ -86,16 +86,22 @@ class StorageManagementDialog extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.cloud_done_rounded, color: Color(0xFF34D399), size: 18),
-                          const SizedBox(width: 6),
-                          Text(
-                            'System Health: ${metrics['systemHealth']}',
-                            style: const TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold, fontSize: 13),
-                          ),
-                        ],
+                      Expanded(
+                        child: Row(
+                          children: [
+                            const Icon(Icons.cloud_done_rounded, color: Color(0xFF34D399), size: 18),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                'System Health: ${metrics['systemHealth']}',
+                                style: const TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold, fontSize: 13),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
+                      const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(

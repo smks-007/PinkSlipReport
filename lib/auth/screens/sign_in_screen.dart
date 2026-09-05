@@ -20,11 +20,8 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
 
   bool _isLoading = false;
   bool _obscurePassword = true;
-  bool _isStorming = false;
-  double _lightningOpacity = 0.0;
 
   late AnimationController _cloudAnimController;
-  late AnimationController _lightningAnimController;
 
   @override
   void initState() {
@@ -33,26 +30,11 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
       vsync: this,
       duration: const Duration(seconds: 12),
     )..repeat();
-
-    _lightningAnimController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1400),
-    );
-
-    _lightningAnimController.addListener(() {
-      final v = _lightningAnimController.value;
-      if ((v > 0.12 && v < 0.22) || (v > 0.32 && v < 0.45) || (v > 0.60 && v < 0.72)) {
-        setState(() => _lightningOpacity = 0.95);
-      } else {
-        setState(() => _lightningOpacity = 0.0);
-      }
-    });
   }
 
   @override
   void dispose() {
     _cloudAnimController.dispose();
-    _lightningAnimController.dispose();
     _usernameCtrl.dispose();
     _passwordCtrl.dispose();
     super.dispose();
@@ -90,22 +72,16 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
 
     setState(() {
       _isLoading = true;
-      _isStorming = true;
     });
-
-    _lightningAnimController.forward(from: 0.0);
 
     final success = await authService.preAuthenticate(
       _usernameCtrl.text,
       _passwordCtrl.text,
     );
 
-    await Future.delayed(const Duration(milliseconds: 900));
-
     if (!mounted) return;
     setState(() {
       _isLoading = false;
-      _isStorming = false;
     });
 
     if (success) {
@@ -217,16 +193,16 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                               ),
                               child: _isLoading
-                                  ? Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: const [
-                                        Icon(Icons.bolt_rounded, color: Color(0xFFFDE047)),
-                                        SizedBox(width: 8),
-                                        Text('Signing in with Thunder...', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                      ],
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2.5,
+                                      ),
                                     )
                                   : Text(
-                                      'Sign In as ${_getRoleTitle()} ⚡',
+                                      'Sign In as ${_getRoleTitle()}',
                                       style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
                                     ),
                             ),
@@ -246,14 +222,6 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
               ],
             ),
           ),
-          if (_isStorming && _lightningOpacity > 0.0)
-            Positioned.fill(
-              child: IgnorePointer(
-                child: Container(
-                  color: Colors.white.withValues(alpha: _lightningOpacity),
-                ),
-              ),
-            ),
         ],
       ),
     );
@@ -270,7 +238,6 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
         children: [
           _roleTabItem(0, '🏛️ HOD Portal'),
           _roleTabItem(1, '👨‍🏫 Class Advisor'),
-          _roleTabItem(2, '🎓 Student / CR'),
         ],
       ),
     );
@@ -435,19 +402,18 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
   }
 
   Widget _buildSkyCloudHeader() {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 600),
+    return Container(
       width: double.infinity,
       height: 290,
       decoration: BoxDecoration(
-        gradient: _isStorming ? AppColors.stormGradient : AppColors.headerGradient,
+        gradient: AppColors.headerGradient,
         borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(40),
           bottomRight: Radius.circular(40),
         ),
         boxShadow: [
           BoxShadow(
-            color: (_isStorming ? const Color(0xFF0F172A) : const Color(0xFF0284C7)).withValues(alpha: 0.35),
+            color: const Color(0xFF0284C7).withValues(alpha: 0.35),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -481,12 +447,6 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
               );
             },
           ),
-          if (_isStorming)
-            Positioned(
-              top: 50,
-              left: MediaQuery.of(context).size.width * 0.45,
-              child: const Icon(Icons.flash_on_rounded, size: 100, color: Color(0xFFFDE047)),
-            ),
           SafeArea(
             child: Center(
               child: Column(
@@ -500,20 +460,20 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 1.5),
                     ),
-                    child: Icon(
-                      _isStorming ? Icons.thunderstorm_rounded : Icons.account_balance_rounded,
+                    child: const Icon(
+                      Icons.account_balance_rounded,
                       size: 30,
-                      color: _isStorming ? const Color(0xFFFDE047) : Colors.white,
+                      color: Colors.white,
                     ),
                   ),
                   const SizedBox(height: 10),
-                  const Text('PinkSlipReport', style: TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.bold, fontFamily: 'Poppins')),
+                  const Text('PinkSlipReport', style: TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 2),
                   const Text('V.S.B. Engineering College • Dept of AI & DS', style: TextStyle(color: Colors.white70, fontSize: 11)),
                   const SizedBox(height: 6),
-                  Text(
-                    _isStorming ? '⚡ Authenticating...' : 'Official Academic Portal',
-                    style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                  const Text(
+                    'Official Academic Portal',
+                    style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),

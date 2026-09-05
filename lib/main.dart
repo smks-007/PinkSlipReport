@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'auth/screens/sign_in_screen.dart';
 import 'auth/screens/sign_up_screen.dart';
 import 'auth/screens/forgot_password_screen.dart';
@@ -24,7 +25,10 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        fontFamily: 'Inter',
+        textTheme: GoogleFonts.spaceGroteskTextTheme(
+          ThemeData.light().textTheme,
+        ),
+        fontFamily: GoogleFonts.spaceGrotesk().fontFamily,
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF047857),
           brightness: Brightness.light,
