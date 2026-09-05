@@ -295,7 +295,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(20)),
                   child: Text(_currentHodTitle, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                 ),
-                const Text('AI & DS (14 Sections)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
+                const Text('AI & DS (10 Sections · 622 Students)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
               ],
             ),
             const SizedBox(height: 14),
@@ -492,9 +492,9 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
         children: [
           Row(
             children: [
-              Expanded(child: _miniKPICard('Dept Attendance', '91.8%', '418/455 Present', Icons.pie_chart_outline_rounded, AppColors.primaryPurple)),
+              Expanded(child: _miniKPICard('Dept Attendance', '${MockDataService.attendancePercentage.toStringAsFixed(1)}%', '${MockDataService.presentToday}/${MockDataService.totalStrength} Present', Icons.pie_chart_outline_rounded, AppColors.primaryPurple)),
               const SizedBox(width: 12),
-              Expanded(child: _miniKPICard('Total Sections', '14', '1st-4th Years', Icons.grid_view_rounded, AppColors.primaryPurple)),
+              Expanded(child: _miniKPICard('Total Students', '${MockDataService.totalStrength}', '10 AIDS Sections (622)', Icons.groups_rounded, AppColors.primaryPurple)),
             ],
           ),
           const SizedBox(height: 12),

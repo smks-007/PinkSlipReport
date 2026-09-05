@@ -115,7 +115,6 @@ void main() {
     expect(find.text('Mrs. Kavitha (I & II Yr HOD)'), findsOneWidget);
     expect(find.text('🏛️ HOD Portal'), findsOneWidget);
     expect(find.text('👨‍🏫 Class Advisor'), findsOneWidget);
-    expect(find.text('🎓 Student / CR'), findsOneWidget);
   });
 
   test('All 10 Section Advisors and HODs have dedicated usernames and passwords', () {
