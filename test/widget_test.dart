@@ -205,13 +205,13 @@ void main() {
     expect(metrics.containsKey('purgedAlumniRecords'), isTrue);
   });
 
-  testWidgets('App renders Smart Pro SignIn with HOD and Advisor logins', (WidgetTester tester) async {
+  testWidgets('App renders PinkSlipReport SignIn with HOD and Advisor logins', (WidgetTester tester) async {
     await tester.pumpWidget(const SmartProApp());
     await tester.pump();
 
     // Verify SignIn screen elements
-    expect(find.text('SMART'), findsOneWidget);
-    expect(find.text('PRO'), findsOneWidget);
+    expect(find.text('PinkSlipReport'), findsOneWidget);
+    expect(find.text('Official Academic Portal'), findsOneWidget);
     expect(find.text('DR. MANIVANNAN (Overall HOD)'), findsOneWidget);
     expect(find.text('Mrs. Kavitha (I & II Yr HOD)'), findsOneWidget);
     expect(find.text('🏛️ HOD Portal'), findsOneWidget);

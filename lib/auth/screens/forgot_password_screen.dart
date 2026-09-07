@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../core/widgets/smart_pro_logo.dart';
 
 /// Redesigned Smart Pro Credential Recovery Screen
 /// Matches the high-tech, modern visual aesthetic of the Smart Pro Portal.
@@ -120,7 +119,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   Navigator.pushReplacementNamed(context, '/sign-in');
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF4F46E5),
+                  backgroundColor: const Color(0xFF0284C7),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
@@ -149,92 +148,130 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          // ── App Header ───────────────────────────────────────
+          // ── App Sky Cloud Header ────────────────────────────────
           SliverToBoxAdapter(
             child: Container(
-              padding: const EdgeInsets.only(top: 50, bottom: 26, left: 20, right: 20),
+              padding: const EdgeInsets.only(top: 45, bottom: 26, left: 20, right: 20),
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    Color(0xFF0A0F29),
-                    Color(0xFF1E1B4B),
-                    Color(0xFF312E81),
+                    Color(0xFF0284C7),
+                    Color(0xFF38BDF8),
+                    Color(0xFF7DD3FC),
                   ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
                 ),
                 borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(32),
-                  bottomRight: Radius.circular(32),
+                  bottomLeft: Radius.circular(36),
+                  bottomRight: Radius.circular(36),
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0x440284C7),
+                    blurRadius: 24,
+                    offset: Offset(0, 8),
+                  ),
+                ],
               ),
-              child: Column(
+              child: Stack(
                 children: [
-                  Row(
+                  // Cloud silhouettes
+                  Positioned(
+                    top: 0,
+                    left: -10,
+                    child: Icon(
+                      Icons.cloud,
+                      size: 110,
+                      color: Colors.white.withValues(alpha: 0.20),
+                    ),
+                  ),
+                  Positioned(
+                    top: 20,
+                    right: -10,
+                    child: Icon(
+                      Icons.cloud,
+                      size: 95,
+                      color: Colors.white.withValues(alpha: 0.18),
+                    ),
+                  ),
+                  Column(
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
-                        onPressed: () => Navigator.pushReplacementNamed(context, '/sign-in'),
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+                            onPressed: () => Navigator.pushReplacementNamed(context, '/sign-in'),
+                          ),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.25),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
+                            ),
+                            child: const Icon(Icons.account_balance_rounded, size: 18, color: Colors.white),
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'PinkSlipReport',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const Spacer(),
+                          const SizedBox(width: 44),
+                        ],
                       ),
-                      const Spacer(),
-                      const SmartProLogo(size: 26, showText: false),
-                      const SizedBox(width: 8),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.22),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.lock_reset_rounded, color: Colors.white, size: 15),
+                            SizedBox(width: 6),
+                            Text(
+                              'FACULTY CREDENTIAL RECOVERY',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                       const Text(
-                        'SMART PRO',
+                        'Reset Access Password',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w900,
-                          fontSize: 16,
-                          letterSpacing: 1.2,
+                          fontSize: 22,
                         ),
                       ),
-                      const Spacer(),
-                      const SizedBox(width: 44),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(Icons.lock_reset_rounded, color: Color(0xFF38BDF8), size: 15),
-                        SizedBox(width: 6),
-                        Text(
-                          'FACULTY CREDENTIAL RECOVERY',
-                          style: TextStyle(
-                            color: Color(0xFF38BDF8),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.0,
-                          ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Enter your registered institutional college email to receive secure recovery & biometric passkey re-enrollment instructions.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12.5,
+                          height: 1.4,
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Reset Access Password',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 22,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Enter your registered institutional college email to receive secure recovery & biometric passkey re-enrollment instructions.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Color(0xFF94A3B8),
-                      fontSize: 12.5,
-                      height: 1.4,
-                    ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -271,20 +308,20 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       keyboardType: TextInputType.emailAddress,
                       decoration: InputDecoration(
                         hintText: 'e.g. manivannan.hod@vsb.ac.in',
-                        prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFF6366F1)),
+                        prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFF0284C7)),
                         filled: true,
                         fillColor: Colors.white,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                          borderSide: const BorderSide(color: Color(0xFFBAE6FD)),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                          borderSide: const BorderSide(color: Color(0xFFBAE6FD)),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5),
+                          borderSide: const BorderSide(color: Color(0xFF0284C7), width: 1.5),
                         ),
                       ),
                       validator: (v) {
@@ -314,30 +351,46 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     SizedBox(
                       width: double.infinity,
                       height: 52,
-                      child: ElevatedButton.icon(
-                        onPressed: _isLoading ? null : _handleResetRequest,
-                        icon: _isLoading
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                              )
-                            : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
-                        label: Text(
-                          _isLoading ? 'Dispatching Recovery Token...' : 'Send Recovery Instructions',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF38BDF8), Color(0xFF0284C7)],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
                           ),
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF0284C7).withValues(alpha: 0.35),
+                              blurRadius: 14,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
                         ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF4F46E5),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                        child: ElevatedButton.icon(
+                          onPressed: _isLoading ? null : _handleResetRequest,
+                          icon: _isLoading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                )
+                              : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                          label: Text(
+                            _isLoading ? 'Dispatching Recovery Token...' : 'Send Recovery Instructions',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                          elevation: 3,
-                          shadowColor: const Color(0xFF4F46E5).withValues(alpha: 0.35),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -402,10 +455,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEEF2FF),
+                              color: const Color(0xFFE0F2FE),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: const Icon(Icons.support_agent_rounded, color: Color(0xFF4F46E5), size: 20),
+                            child: const Icon(Icons.support_agent_rounded, color: Color(0xFF0284C7), size: 20),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -441,11 +494,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     Center(
                       child: TextButton.icon(
                         onPressed: () => Navigator.pushReplacementNamed(context, '/sign-in'),
-                        icon: const Icon(Icons.arrow_back_rounded, size: 16, color: Color(0xFF4F46E5)),
+                        icon: const Icon(Icons.arrow_back_rounded, size: 16, color: Color(0xFF0284C7)),
                         label: const Text(
                           'Remember password? Back to Sign In',
                           style: TextStyle(
-                            color: Color(0xFF4F46E5),
+                            color: Color(0xFF0284C7),
                             fontWeight: FontWeight.w700,
                             fontSize: 13,
                           ),
@@ -496,7 +549,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     '🏛️ HOD Portal',
                     style: TextStyle(
                       fontWeight: _selectedRoleTab == 0 ? FontWeight.w800 : FontWeight.w600,
-                      color: _selectedRoleTab == 0 ? const Color(0xFF4F46E5) : const Color(0xFF64748B),
+                      color: _selectedRoleTab == 0 ? const Color(0xFF0284C7) : const Color(0xFF64748B),
                       fontSize: 13,
                     ),
                   ),
@@ -527,7 +580,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     '👨‍🏫 Class Advisor',
                     style: TextStyle(
                       fontWeight: _selectedRoleTab == 1 ? FontWeight.w800 : FontWeight.w600,
-                      color: _selectedRoleTab == 1 ? const Color(0xFF4F46E5) : const Color(0xFF64748B),
+                      color: _selectedRoleTab == 1 ? const Color(0xFF0284C7) : const Color(0xFF64748B),
                       fontSize: 13,
                     ),
                   ),
@@ -547,19 +600,19 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: const Color(0xFFF1F5F9),
+          color: const Color(0xFFE0F2FE),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFCBD5E1)),
+          border: Border.all(color: const Color(0xFFBAE6FD)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.touch_app_rounded, size: 12, color: Color(0xFF6366F1)),
+            const Icon(Icons.touch_app_rounded, size: 12, color: Color(0xFF0284C7)),
             const SizedBox(width: 4),
             Text(
               label,
               style: const TextStyle(
-                color: Color(0xFF334155),
+                color: Color(0xFF0369A1),
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
               ),

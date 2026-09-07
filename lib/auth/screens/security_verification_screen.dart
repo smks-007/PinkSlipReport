@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/auth_service.dart';
-import '../../core/widgets/smart_pro_logo.dart';
 
 /// Mobile Biometric Security Gateway
 /// Replaces manual OTP codes with hardware-bound mobile biometric authentication
@@ -114,92 +113,130 @@ class _SecurityVerificationScreenState extends State<SecurityVerificationScreen>
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          // ── App Header ───────────────────────────────────────
+          // ── App Sky Cloud Header ─────────────────────────────
           SliverToBoxAdapter(
             child: Container(
-              padding: const EdgeInsets.only(top: 50, bottom: 26, left: 20, right: 20),
+              padding: const EdgeInsets.only(top: 45, bottom: 26, left: 20, right: 20),
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    Color(0xFF0A0F29),
-                    Color(0xFF1E1B4B),
-                    Color(0xFF312E81),
+                    Color(0xFF0284C7),
+                    Color(0xFF38BDF8),
+                    Color(0xFF7DD3FC),
                   ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
                 ),
                 borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(32),
-                  bottomRight: Radius.circular(32),
+                  bottomLeft: Radius.circular(36),
+                  bottomRight: Radius.circular(36),
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0x440284C7),
+                    blurRadius: 24,
+                    offset: Offset(0, 8),
+                  ),
+                ],
               ),
-              child: Column(
+              child: Stack(
                 children: [
-                  Row(
+                  // Cloud silhouettes
+                  Positioned(
+                    top: 0,
+                    left: -10,
+                    child: Icon(
+                      Icons.cloud,
+                      size: 110,
+                      color: Colors.white.withValues(alpha: 0.20),
+                    ),
+                  ),
+                  Positioned(
+                    top: 20,
+                    right: -10,
+                    child: Icon(
+                      Icons.cloud,
+                      size: 95,
+                      color: Colors.white.withValues(alpha: 0.18),
+                    ),
+                  ),
+                  Column(
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
-                        onPressed: () => Navigator.pushReplacementNamed(context, '/sign-in'),
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+                            onPressed: () => Navigator.pushReplacementNamed(context, '/sign-in'),
+                          ),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.25),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
+                            ),
+                            child: const Icon(Icons.account_balance_rounded, size: 18, color: Colors.white),
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'PinkSlipReport',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const Spacer(),
+                          const SizedBox(width: 44),
+                        ],
                       ),
-                      const Spacer(),
-                      const SmartProLogo(size: 26, showText: false),
-                      const SizedBox(width: 8),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.22),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.shield_outlined, color: Colors.white, size: 15),
+                            SizedBox(width: 6),
+                            Text(
+                              'HARDWARE BIOMETRIC SECURITY GATE',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                       const Text(
-                        'SMART PRO',
+                        'Biometric Mobile Login',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w900,
-                          fontSize: 16,
-                          letterSpacing: 1.2,
+                          fontSize: 22,
                         ),
                       ),
-                      const Spacer(),
-                      const SizedBox(width: 44),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(Icons.shield_outlined, color: Color(0xFF38BDF8), size: 15),
-                        SizedBox(width: 6),
-                        Text(
-                          'HARDWARE BIOMETRIC SECURITY GATE',
-                          style: TextStyle(
-                            color: Color(0xFF38BDF8),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.0,
-                          ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Authorize using your phone\'s local biometric sensor to unlock departmental attendance & student records.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12.5,
+                          height: 1.4,
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Biometric Mobile Login',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 22,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Authorize using your phone\'s local biometric sensor to unlock departmental attendance & student records.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Color(0xFF94A3B8),
-                      fontSize: 12.5,
-                      height: 1.4,
-                    ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -481,12 +518,12 @@ class _SecurityVerificationScreenState extends State<SecurityVerificationScreen>
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF4F46E5),
+                        backgroundColor: const Color(0xFF0284C7),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
                         elevation: 3,
-                        shadowColor: const Color(0xFF4F46E5).withValues(alpha: 0.35),
+                        shadowColor: const Color(0xFF0284C7).withValues(alpha: 0.35),
                       ),
                     ),
                   ),

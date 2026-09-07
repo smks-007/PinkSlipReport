@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/auth_service.dart';
-import '../../core/widgets/smart_pro_logo.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -99,7 +98,7 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         child: Column(
           children: [
-            _buildSmartProHeader(),
+            _buildSkyCloudHeader(),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Form(
@@ -126,12 +125,12 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                       controller: _usernameCtrl,
                       decoration: InputDecoration(
                         hintText: _getInputHint(),
-                        prefixIcon: Icon(_getInputIcon(), color: const Color(0xFF6366F1)),
+                        prefixIcon: const Icon(Icons.shield_outlined, color: Color(0xFF0284C7)),
                         filled: true,
                         fillColor: Colors.white,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFBAE6FD))),
                         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5)),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF0284C7), width: 1.5)),
                       ),
                       validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter your username/credential' : null,
                     ),
@@ -146,16 +145,16 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                       obscureText: _obscurePassword,
                       decoration: InputDecoration(
                         hintText: 'Enter official password',
-                        prefixIcon: const Icon(Icons.lock_outline_rounded, color: Color(0xFF6366F1)),
+                        prefixIcon: const Icon(Icons.lock_outline_rounded, color: Color(0xFF0284C7)),
                         suffixIcon: IconButton(
                           icon: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: Colors.grey),
                           onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                         ),
                         filled: true,
                         fillColor: Colors.white,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFBAE6FD))),
                         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5)),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF0284C7), width: 1.5)),
                       ),
                       validator: (v) => (v == null || v.length < 4) ? 'Password too short' : null,
                     ),
@@ -165,38 +164,53 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                       alignment: Alignment.centerRight,
                       child: TextButton(
                         onPressed: () => Navigator.pushNamed(context, '/forgot-password'),
-                        child: const Text('Forgot Password?', style: TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.w600, fontSize: 12)),
+                        child: const Text('Forgot Password?', style: TextStyle(color: Color(0xFF0284C7), fontWeight: FontWeight.w600, fontSize: 12)),
                       ),
                     ),
 
                     const SizedBox(height: 14),
 
-                    // Login Button
+                    // Login Button (Sky Blue Gradient)
                     SizedBox(
                       width: double.infinity,
                       height: 52,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _handleLogin,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF4F46E5),
-                          foregroundColor: Colors.white,
-                          elevation: 4,
-                          shadowColor: const Color(0xFF4F46E5).withValues(alpha: 0.4),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF38BDF8), Color(0xFF0284C7)],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF0284C7).withValues(alpha: 0.35),
+                              blurRadius: 14,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
                         ),
-                        child: _isLoading
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2.5,
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _handleLogin,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2.5,
+                                  ),
+                                )
+                              : Text(
+                                  'Sign In as ${_selectedRoleTab == 0 ? "HOD" : "Class Advisor"}',
+                                  style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
                                 ),
-                              )
-                            : Text(
-                                'Sign In as ${_selectedRoleTab == 0 ? "HOD" : "Class Advisor"}',
-                                style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
-                              ),
+                        ),
                       ),
                     ),
 
@@ -278,11 +292,6 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
     return 'e.g., advisor.anandhan or advisor.2a@vsb.ac.in';
   }
 
-  IconData _getInputIcon() {
-    if (_selectedRoleTab == 0) return Icons.admin_panel_settings_rounded;
-    return Icons.school_rounded;
-  }
-
   Widget _buildQuickRoleAccounts() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -299,8 +308,8 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
             if (_selectedRoleTab == 1)
               TextButton.icon(
                 onPressed: _showAllAdvisorsDialog,
-                icon: const Icon(Icons.co_present_rounded, size: 14, color: Color(0xFF6366F1)),
-                label: const Text('View All 10', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF6366F1))),
+                icon: const Icon(Icons.co_present_rounded, size: 14, color: Color(0xFF0284C7)),
+                label: const Text('View All 10', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0284C7))),
                 style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(50, 30)),
               ),
           ],
@@ -341,9 +350,9 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
 
   Widget _accountChip(String label, String username, [String? password]) {
     return ActionChip(
-      label: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF4338CA))),
-      backgroundColor: const Color(0xFFEEF2FF),
-      side: const BorderSide(color: Color(0xFFC7D2FE)),
+      label: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF0369A1))),
+      backgroundColor: const Color(0xFFE0F2FE),
+      side: const BorderSide(color: Color(0xFFBAE6FD)),
       onPressed: () {
         FocusScope.of(context).unfocus();
         setState(() {
@@ -354,35 +363,96 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
     );
   }
 
-  Widget _buildSmartProHeader() {
+  Widget _buildSkyCloudHeader() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.only(top: 48, bottom: 28),
+      height: 290,
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFF0F172A), Color(0xFF1E1B4B), Color(0xFF312E81)],
+          colors: [Color(0xFF0284C7), Color(0xFF38BDF8), Color(0xFF7DD3FC)],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
         borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(36),
-          bottomRight: Radius.circular(36),
+          bottomLeft: Radius.circular(40),
+          bottomRight: Radius.circular(40),
         ),
         boxShadow: [
           BoxShadow(
-            color: Color(0xFF312E81),
-            blurRadius: 20,
+            color: Color(0x440284C7),
+            blurRadius: 24,
             offset: Offset(0, 8),
           ),
         ],
       ),
-      child: Column(
-        children: const [
-          SmartProLogo(size: 68, isDark: true, subtitle: 'DEPARTMENT OF ARTIFICIAL INTELLIGENCE & DATA SCIENCE'),
-          SizedBox(height: 6),
-          Text(
-            'V.S.B. Engineering College • Academic Portal',
-            style: TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.w500),
+      child: Stack(
+        children: [
+          // Background soft cloud silhouettes
+          Positioned(
+            top: 25,
+            left: 20,
+            child: Icon(
+              Icons.cloud,
+              size: 135,
+              color: Colors.white.withValues(alpha: 0.22),
+            ),
+          ),
+          Positioned(
+            top: 60,
+            right: 15,
+            child: Icon(
+              Icons.cloud,
+              size: 115,
+              color: Colors.white.withValues(alpha: 0.20),
+            ),
+          ),
+          SafeArea(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 10),
+                  Container(
+                    width: 58,
+                    height: 58,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.25),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.6), width: 1.5),
+                    ),
+                    child: const Icon(
+                      Icons.account_balance_rounded,
+                      size: 30,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'PinkSlipReport',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  const Text(
+                    'V.S.B. Engineering College • Dept of AI & DS',
+                    style: TextStyle(color: Colors.white70, fontSize: 11),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Official Academic Portal',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -405,8 +475,8 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                 children: [
                   Container(
                     padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(color: const Color(0xFFEEF2FF), borderRadius: BorderRadius.circular(10)),
-                    child: const Icon(Icons.co_present_rounded, color: Color(0xFF6366F1), size: 22),
+                    decoration: BoxDecoration(color: const Color(0xFFE0F2FE), borderRadius: BorderRadius.circular(10)),
+                    child: const Icon(Icons.co_present_rounded, color: Color(0xFF0284C7), size: 22),
                   ),
                   const SizedBox(width: 12),
                   const Expanded(
@@ -439,23 +509,23 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                         dense: true,
                         leading: CircleAvatar(
                           radius: 18,
-                          backgroundColor: const Color(0xFFEEF2FF),
+                          backgroundColor: const Color(0xFFE0F2FE),
                           child: Text(
                             '${adv.year}${adv.section}',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF4F46E5)),
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
                           ),
                         ),
                         title: Text(adv.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('${adv.classSection} • ${adv.batchYear}', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                            Text(adv.classSection ?? '', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
                             const SizedBox(height: 2),
                             Row(
                               children: [
-                                Text('User: ${adv.username}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF0284C7))),
-                                const SizedBox(width: 10),
-                                Text('Pass: ${adv.password}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF059669))),
+                                Text('User: ${adv.username}', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF0284C7))),
+                                const SizedBox(width: 8),
+                                Text('Pass: ${adv.password}', style: const TextStyle(fontSize: 10.5, color: Color(0xFF16A34A))),
                               ],
                             ),
                           ],
@@ -463,22 +533,14 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                         trailing: ElevatedButton(
                           onPressed: () {
                             Navigator.pop(ctx);
+                            FocusScope.of(context).unfocus();
                             setState(() {
-                              _selectedRoleTab = 1;
                               _usernameCtrl.text = adv.username;
                               _passwordCtrl.text = adv.password;
                             });
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Loaded credentials for ${adv.name} (${adv.classSection})! Ready to Sign In ⚡'),
-                                backgroundColor: const Color(0xFF4F46E5),
-                                duration: const Duration(seconds: 2),
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF4F46E5),
+                            backgroundColor: const Color(0xFF0284C7),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                             textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
