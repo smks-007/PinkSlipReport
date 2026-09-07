@@ -544,44 +544,177 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: weeklyData.map((item) {
+                final isHoliday = item['isHoliday'] == true;
+                final holidayReason = item['holidayReason'] as String?;
                 final pct = item['percentage'] as double;
-                final height = (pct - 70) * 4.5; // Scale height (70% - 100%)
-                final clampedHeight = height.clamp(18.0, 120.0);
+                final height = isHoliday ? 70.0 : (pct - 70) * 4.5; // Scale height
+                final clampedHeight = height.clamp(24.0, 120.0);
                 final label = item['label'] as String;
+                final dayName = item['dayName'] ?? label.split(' ')[0];
 
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('${pct.toStringAsFixed(0)}%', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
-                    const SizedBox(height: 4),
-                    Container(
-                      width: 28,
-                      height: clampedHeight,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: pct >= 95
-                              ? [const Color(0xFF10B981), const Color(0xFF34D399)]
-                              : pct >= 85
-                                  ? [const Color(0xFF6366F1), const Color(0xFF818CF8)]
-                                  : [const Color(0xFFF59E0B), const Color(0xFFFBBF24)],
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
+                return GestureDetector(
+                  onTap: () {
+                    if (isHoliday) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          backgroundColor: const Color(0xFFD97706),
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          content: Row(
+                            children: [
+                              const Icon(Icons.celebration_rounded, color: Colors.white, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '🏛️ College Declared Leave: ${holidayReason ?? "Institutional Holiday"}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                          duration: const Duration(seconds: 3),
                         ),
-                        borderRadius: BorderRadius.circular(6),
+                      );
+                    }
+                  },
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isHoliday)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: const Color(0xFFFCD34D)),
+                          ),
+                          child: const Text(
+                            'LEAVE',
+                            style: TextStyle(
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFFB45309),
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        )
+                      else
+                        Text(
+                          '${pct.toStringAsFixed(0)}%',
+                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                        ),
+                      const SizedBox(height: 4),
+                      Container(
+                        width: 32,
+                        height: clampedHeight,
+                        decoration: BoxDecoration(
+                          gradient: isHoliday
+                              ? const LinearGradient(
+                                  colors: [Color(0xFFF59E0B), Color(0xFFFBBF24), Color(0xFFFDE68A)],
+                                  begin: Alignment.bottomCenter,
+                                  end: Alignment.topCenter,
+                                )
+                              : LinearGradient(
+                                  colors: pct >= 95
+                                      ? [const Color(0xFF10B981), const Color(0xFF34D399)]
+                                      : pct >= 85
+                                          ? [const Color(0xFF0284C7), const Color(0xFF38BDF8)]
+                                          : [const Color(0xFFF59E0B), const Color(0xFFFBBF24)],
+                                  begin: Alignment.bottomCenter,
+                                  end: Alignment.topCenter,
+                                ),
+                          borderRadius: BorderRadius.circular(8),
+                          border: isHoliday
+                              ? Border.all(color: const Color(0xFFD97706), width: 1.5)
+                              : null,
+                          boxShadow: [
+                            BoxShadow(
+                              color: (isHoliday ? const Color(0xFFF59E0B) : (pct >= 95 ? const Color(0xFF10B981) : const Color(0xFF0284C7)))
+                                  .withValues(alpha: 0.25),
+                              blurRadius: 6,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: isHoliday
+                            ? const Center(
+                                child: Icon(
+                                  Icons.celebration_rounded,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
+                              )
+                            : null,
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      label.split(' ')[0], // Day name (Mon, Tue...)
-                      style: const TextStyle(fontSize: 10, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
-                    ),
-                  ],
+                      const SizedBox(height: 6),
+                      Text(
+                        dayName,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: isHoliday ? const Color(0xFFB45309) : const Color(0xFF64748B),
+                          fontWeight: isHoliday ? FontWeight.w800 : FontWeight.w600,
+                        ),
+                      ),
+                      if (isHoliday)
+                        const Text(
+                          'Holiday',
+                          style: TextStyle(fontSize: 8.5, color: Color(0xFFD97706), fontWeight: FontWeight.bold),
+                        ),
+                    ],
+                  ),
                 );
               }).toList(),
+            ),
+            const SizedBox(height: 14),
+            // Institutional Legend
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildGraphLegendItem(const Color(0xFF10B981), '≥95% High'),
+                  _buildGraphLegendItem(const Color(0xFF0284C7), '85-94% Std'),
+                  _buildGraphLegendItem(const Color(0xFFF59E0B), '🏛️ College Leave'),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.block_rounded, size: 11, color: Color(0xFF94A3B8)),
+                      SizedBox(width: 3),
+                      Text('No Sunday', style: TextStyle(fontSize: 9.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildGraphLegendItem(Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 9.5, color: Color(0xFF475569), fontWeight: FontWeight.w600),
+        ),
+      ],
     );
   }
 

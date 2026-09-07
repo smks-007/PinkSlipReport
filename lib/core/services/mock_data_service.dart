@@ -189,57 +189,126 @@ class MockDataService {
     _notifyUpdate();
   }
 
+  // ──────────────────── College Declared Holidays & Calendar Leaves ────────────────────
+
+  static final Map<String, String> _collegeHolidays = {
+    '2026-09-04': 'Ganesh Chaturthi (State Holiday)',
+    '2026-09-16': 'Milad-un-Nabi (Govt Holiday)',
+    '2026-10-02': 'Gandhi Jayanti (National Holiday)',
+    '2026-10-19': 'Ayudha Puja (Festival Leave)',
+    '2026-10-20': 'Vijayadasami (Festival Holiday)',
+    '2026-11-08': 'Diwali Celebration (College Leave)',
+  };
+
+  static bool isSunday(DateTime date) => date.weekday == DateTime.sunday;
+
+  static bool isCollegeHoliday(DateTime date) {
+    final key = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    return _collegeHolidays.containsKey(key);
+  }
+
+  static String? getCollegeHolidayReason(DateTime date) {
+    final key = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    return _collegeHolidays[key];
+  }
+
+  static void declareCollegeHoliday(DateTime date, String reason) {
+    final key = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    _collegeHolidays[key] = reason;
+    _notifyUpdate();
+  }
+
+  static Map<String, String> get allCollegeHolidays => Map.unmodifiable(_collegeHolidays);
+
   // ──────────────────── Analytics Graphs & Statistics ────────────────────
 
-  /// Get daily attendance % trend for the last 7 instructional days (Weekly Graph)
+  /// Get daily attendance % trend for the last 6 working instructional days (Strictly Excludes Sundays, Highlights College Leaves)
   static List<Map<String, dynamic>> getWeeklyTrend(int year, String section) {
-    final now = DateTime(2026, 9, 7); // Active Academic Reference Date
+    final now = DateTime(2026, 9, 7); // Active Academic Reference Date (Monday)
     final List<Map<String, dynamic>> data = [];
 
-    for (int i = 6; i >= 0; i--) {
-      final d = now.subtract(Duration(days: i));
-      final pct = getSectionAttendancePercentage(year, section, d);
+    // Collect 6 working days going backward from now, strictly omitting Sundays
+    final List<DateTime> workingDays = [];
+    int offset = 0;
+    while (workingDays.length < 6) {
+      final d = now.subtract(Duration(days: offset));
+      if (d.weekday != DateTime.sunday) {
+        workingDays.add(d);
+      }
+      offset++;
+    }
+
+    // Sort chronologically (oldest to newest)
+    workingDays.sort((a, b) => a.compareTo(b));
+
+    for (final d in workingDays) {
+      final isHoliday = isCollegeHoliday(d);
+      final holidayReason = getCollegeHolidayReason(d);
+      final pct = isHoliday ? 0.0 : getSectionAttendancePercentage(year, section, d);
       final dayName = getDayAbbreviation(d.weekday);
+
       data.add({
         'date': d,
         'label': '$dayName ${d.day}/${d.month}',
+        'dayName': dayName,
         'percentage': double.parse(pct.toStringAsFixed(1)),
-        'present': getSectionPresent(year, section, d),
-        'absent': getSectionAbsent(year, section, d),
-        'od': getSectionOnDuty(year, section, d),
+        'isHoliday': isHoliday,
+        'holidayReason': holidayReason,
+        'present': isHoliday ? 0 : getSectionPresent(year, section, d),
+        'absent': isHoliday ? 0 : getSectionAbsent(year, section, d),
+        'od': isHoliday ? 0 : getSectionOnDuty(year, section, d),
       });
     }
     return data;
   }
 
-  /// Get overall department weekly trend across all 10 sections
+  /// Get overall department weekly trend across all 10 sections (Excludes Sundays, Highlights College Leaves)
   static List<Map<String, dynamic>> getOverallDepartmentWeeklyTrend() {
     final now = DateTime(2026, 9, 7);
     final List<Map<String, dynamic>> data = [];
 
-    for (int i = 6; i >= 0; i--) {
-      final d = now.subtract(Duration(days: i));
+    final List<DateTime> workingDays = [];
+    int offset = 0;
+    while (workingDays.length < 6) {
+      final d = now.subtract(Duration(days: offset));
+      if (d.weekday != DateTime.sunday) {
+        workingDays.add(d);
+      }
+      offset++;
+    }
+
+    workingDays.sort((a, b) => a.compareTo(b));
+
+    for (final d in workingDays) {
+      final isHoliday = isCollegeHoliday(d);
+      final holidayReason = getCollegeHolidayReason(d);
+
       int totalPres = 0;
       int totalOD = 0;
       int totalAbs = 0;
 
-      for (int yr = 2; yr <= 4; yr++) {
-        final sections = yr == 4 ? ['A', 'B'] : ['A', 'B', 'C', 'D'];
-        for (final sec in sections) {
-          totalPres += getSectionPresent(yr, sec, d);
-          totalOD += getSectionOnDuty(yr, sec, d);
-          totalAbs += getSectionAbsent(yr, sec, d);
+      if (!isHoliday) {
+        for (int yr = 2; yr <= 4; yr++) {
+          final sections = yr == 4 ? ['A', 'B'] : ['A', 'B', 'C', 'D'];
+          for (final sec in sections) {
+            totalPres += getSectionPresent(yr, sec, d);
+            totalOD += getSectionOnDuty(yr, sec, d);
+            totalAbs += getSectionAbsent(yr, sec, d);
+          }
         }
       }
 
       final total = totalPres + totalOD + totalAbs;
-      final pct = total > 0 ? ((totalPres + totalOD) / total) * 100 : 94.5;
+      final pct = isHoliday ? 0.0 : (total > 0 ? ((totalPres + totalOD) / total) * 100 : 94.5);
       final dayName = getDayAbbreviation(d.weekday);
 
       data.add({
         'date': d,
         'label': '$dayName ${d.day}/${d.month}',
+        'dayName': dayName,
         'percentage': double.parse(pct.toStringAsFixed(1)),
+        'isHoliday': isHoliday,
+        'holidayReason': holidayReason,
         'present': totalPres,
         'od': totalOD,
         'absent': totalAbs,

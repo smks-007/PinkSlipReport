@@ -387,6 +387,39 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               ],
             ),
           ),
+          if (MockDataService.isCollegeHoliday(_selectedDate))
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFCD34D)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.celebration_rounded, color: Color(0xFFD97706), size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '🏛️ College Declared Leave / Holiday',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF92400E)),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          MockDataService.getCollegeHolidayReason(_selectedDate) ?? 'Official Institutional Holiday • Attendance Exempted',
+                          style: const TextStyle(fontSize: 11.5, color: Color(0xFFB45309)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
           const SizedBox(height: 10),
 
           // Student Attendance List with 3-way toggle (Present, Absent, On-Duty)
@@ -463,7 +496,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final dates = MockDataService.getDatesForMonth(_selectedMonth);
 
     return Container(
-      height: 64,
+      height: 68,
       color: Colors.white,
       margin: const EdgeInsets.only(bottom: 8),
       child: ListView.builder(
@@ -474,39 +507,57 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         itemBuilder: (ctx, i) {
           final d = dates[i];
           final isSelected = d.day == _selectedDate.day && d.month == _selectedDate.month;
+          final isHoliday = MockDataService.isCollegeHoliday(d);
           final dayName = MockDataService.getDayAbbreviation(d.weekday);
 
           return GestureDetector(
             onTap: () => _onDateChanged(d),
             child: Container(
-              width: 48,
+              width: 52,
               margin: const EdgeInsets.only(right: 8),
               decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                color: isSelected
+                    ? (isHoliday ? const Color(0xFFD97706) : const Color(0xFF0F172A))
+                    : (isHoliday ? const Color(0xFFFEF3C7) : const Color(0xFFF8FAFC)),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isSelected ? const Color(0xFF6366F1) : const Color(0xFFE2E8F0),
+                  color: isSelected
+                      ? (isHoliday ? const Color(0xFFF59E0B) : const Color(0xFF0284C7))
+                      : (isHoliday ? const Color(0xFFFCD34D) : const Color(0xFFE2E8F0)),
                   width: isSelected ? 1.5 : 1,
                 ),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    dayName,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: isSelected ? const Color(0xFF67E8F9) : const Color(0xFF64748B),
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        dayName,
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.bold,
+                          color: isSelected
+                              ? Colors.white
+                              : (isHoliday ? const Color(0xFFB45309) : const Color(0xFF64748B)),
+                        ),
+                      ),
+                      if (isHoliday) ...[
+                        const SizedBox(width: 2),
+                        const Icon(Icons.celebration_rounded, size: 9, color: Color(0xFFD97706)),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 2),
                   Text(
                     '${d.day}',
                     style: TextStyle(
-                      fontSize: 15,
+                      fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      color: isSelected ? Colors.white : const Color(0xFF0F172A),
+                      color: isSelected
+                          ? Colors.white
+                          : (isHoliday ? const Color(0xFF92400E) : const Color(0xFF0F172A)),
                     ),
                   ),
                 ],
