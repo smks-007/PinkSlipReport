@@ -1,12 +1,8 @@
 import 'package:flutter/material.dart';
-import '../theme/auth_theme.dart';
-import '../widgets/auth_card.dart';
-import '../widgets/auth_illustration.dart';
-import '../widgets/auth_input_field.dart';
-import '../widgets/auth_link_text.dart';
-import '../widgets/auth_primary_button.dart';
+import '../../core/widgets/smart_pro_logo.dart';
 
-/// Forgot Password screen — recreates the right-side card from the reference image.
+/// Redesigned Smart Pro Credential Recovery Screen
+/// Matches the high-tech, modern visual aesthetic of the Smart Pro Portal.
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
 
@@ -16,7 +12,8 @@ class ForgotPasswordScreen extends StatefulWidget {
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController(text: 'manivannan.hod@vsb.ac.in');
+  int _selectedRoleTab = 0; // 0 = HOD, 1 = Class Advisor
   bool _isLoading = false;
 
   @override
@@ -25,89 +22,549 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     super.dispose();
   }
 
-  Future<void> _handleSendOtp() async {
+  void _onRoleTabChanged(int index) {
+    setState(() {
+      _selectedRoleTab = index;
+      if (index == 0) {
+        _emailCtrl.text = 'manivannan.hod@vsb.ac.in';
+      } else {
+        _emailCtrl.text = 'advisor.2a@vsb.ac.in';
+      }
+    });
+  }
+
+  Future<void> _handleResetRequest() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
-    // Simulate a network call
-    await Future.delayed(const Duration(seconds: 2));
+    await Future.delayed(const Duration(milliseconds: 1000));
 
     if (!mounted) return;
-    setState(() => _isLoading = false);
+    setState(() {
+      _isLoading = false;
+    });
 
-    // TODO: Replace with actual OTP logic
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('OTP sent to your email!')),
+    _showSuccessBottomSheet();
+  }
+
+  void _showSuccessBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(28),
+            topRight: Radius.circular(28),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFCBD5E1),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: const Color(0xFFDCFCE7),
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFF86EFAC), width: 2),
+              ),
+              child: const Icon(
+                Icons.mark_email_read_rounded,
+                color: Color(0xFF16A34A),
+                size: 34,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Reset Link Dispatched!',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                'A secure hardware token reset link has been delivered to ${_emailCtrl.text}. Please check your official inbox to re-bind your mobile biometric passkey.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFF64748B),
+                  fontSize: 13,
+                  height: 1.45,
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  Navigator.pushReplacementNamed(context, '/sign-in');
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4F46E5),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: const Text(
+                  'Return to Sign In',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AuthTheme.pageBackground,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: AuthCard(
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          // ── App Header ───────────────────────────────────────
+          SliverToBoxAdapter(
+            child: Container(
+              padding: const EdgeInsets.only(top: 50, bottom: 26, left: 20, right: 20),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Color(0xFF0A0F29),
+                    Color(0xFF1E1B4B),
+                    Color(0xFF312E81),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(32),
+                  bottomRight: Radius.circular(32),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+                        onPressed: () => Navigator.pushReplacementNamed(context, '/sign-in'),
+                      ),
+                      const Spacer(),
+                      const SmartProLogo(size: 26, showText: false),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'SMART PRO',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 16,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      const Spacer(),
+                      const SizedBox(width: 44),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.lock_reset_rounded, color: Color(0xFF38BDF8), size: 15),
+                        SizedBox(width: 6),
+                        Text(
+                          'FACULTY CREDENTIAL RECOVERY',
+                          style: TextStyle(
+                            color: Color(0xFF38BDF8),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Reset Access Password',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 22,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Enter your registered institutional college email to receive secure recovery & biometric passkey re-enrollment instructions.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Color(0xFF94A3B8),
+                      fontSize: 12.5,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // ── Recovery Body ─────────────────────────────────────
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
               child: Form(
                 key: _formKey,
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ── Illustration ──────────────────────────
-                    const ForgotPasswordIllustration(height: 150),
-                    const SizedBox(height: 16),
+                    // Role Selector Tabs
+                    _buildRoleTabs(),
 
-                    // ── Heading ──────────────────────────────
-                    const Text('Forget Password', style: AuthTheme.heading),
-                    const SizedBox(height: 8),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8),
-                      child: Text(
-                        "Don't worry it happens. Please enter the address associate with your account",
-                        style: AuthTheme.subtitle,
-                        textAlign: TextAlign.center,
+                    const SizedBox(height: 20),
+
+                    const Text(
+                      'Institutional Email / Faculty ID',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                        color: Color(0xFF0F172A),
                       ),
                     ),
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 8),
 
-                    // ── Email ─────────────────────────────────
-                    AuthInputField(
-                      hintText: 'Email address',
-                      prefixIcon: Icons.email_outlined,
-                      keyboardType: TextInputType.emailAddress,
+                    // Email Input Field
+                    TextFormField(
                       controller: _emailCtrl,
-                      textInputAction: TextInputAction.done,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: InputDecoration(
+                        hintText: 'e.g. manivannan.hod@vsb.ac.in',
+                        prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFF6366F1)),
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5),
+                        ),
+                      ),
                       validator: (v) {
-                        if (v == null || v.trim().isEmpty) return 'Please enter your email';
-                        if (!v.contains('@')) return 'Enter a valid email address';
+                        if (v == null || v.trim().isEmpty) return 'Please enter your registered college email';
+                        if (!v.contains('@')) return 'Please enter a valid email address';
                         return null;
                       },
                     ),
-                    const SizedBox(height: 28),
 
-                    // ── Send OTP Button ──────────────────────
-                    AuthPrimaryButton(
-                      label: 'Send OTP',
-                      isLoading: _isLoading,
-                      onPressed: _handleSendOtp,
-                    ),
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 12),
 
-                    // ── Sign In Link ─────────────────────────
-                    AuthLinkText(
-                      prefix: 'You remember your password? ',
-                      linkLabel: 'Sign in',
-                      onTap: () =>
-                          Navigator.pushReplacementNamed(context, '/sign-in'),
+                    // Quick Sample Chips
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        _buildSampleEmailChip('manivannan.hod@vsb.ac.in', 'HOD ID'),
+                        _buildSampleEmailChip('advisor.2a@vsb.ac.in', 'II-A Advisor'),
+                        _buildSampleEmailChip('advisor.3a@vsb.ac.in', 'III-A Advisor'),
+                        _buildSampleEmailChip('advisor.4a@vsb.ac.in', 'IV-A Advisor'),
+                      ],
                     ),
+
+                    const SizedBox(height: 24),
+
+                    // Reset Request Action Button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton.icon(
+                        onPressed: _isLoading ? null : _handleResetRequest,
+                        icon: _isLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                              )
+                            : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                        label: Text(
+                          _isLoading ? 'Dispatching Recovery Token...' : 'Send Recovery Instructions',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF4F46E5),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          elevation: 3,
+                          shadowColor: const Color(0xFF4F46E5).withValues(alpha: 0.35),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Security Protocol Info
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFBBF7D0)),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Icon(Icons.verified_outlined, color: Color(0xFF16A34A), size: 20),
+                          SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Security Policy & Data Protection',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 12.5,
+                                    color: Color(0xFF166534),
+                                  ),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'To safeguard 622 AI&DS student records, passkey resets require approval from the Department IT Administrator or institutional 2FA.',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    color: Color(0xFF15803D),
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Helpdesk Card
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEEF2FF),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.support_agent_rounded, color: Color(0xFF4F46E5), size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Text(
+                                  'Department IT Helpdesk',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12.5,
+                                    color: Color(0xFF0F172A),
+                                  ),
+                                ),
+                                SizedBox(height: 1),
+                                Text(
+                                  'HOD Office • Intercom Ext: 402 / 403',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Return to Login Link
+                    Center(
+                      child: TextButton.icon(
+                        onPressed: () => Navigator.pushReplacementNamed(context, '/sign-in'),
+                        icon: const Icon(Icons.arrow_back_rounded, size: 16, color: Color(0xFF4F46E5)),
+                        label: const Text(
+                          'Remember password? Back to Sign In',
+                          style: TextStyle(
+                            color: Color(0xFF4F46E5),
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
                   ],
                 ),
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRoleTabs() {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE2E8F0),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () => _onRoleTabChanged(0),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: _selectedRoleTab == 0 ? Colors.white : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: _selectedRoleTab == 0
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.06),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Center(
+                  child: Text(
+                    '🏛️ HOD Portal',
+                    style: TextStyle(
+                      fontWeight: _selectedRoleTab == 0 ? FontWeight.w800 : FontWeight.w600,
+                      color: _selectedRoleTab == 0 ? const Color(0xFF4F46E5) : const Color(0xFF64748B),
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => _onRoleTabChanged(1),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: _selectedRoleTab == 1 ? Colors.white : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: _selectedRoleTab == 1
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.06),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Center(
+                  child: Text(
+                    '👨‍🏫 Class Advisor',
+                    style: TextStyle(
+                      fontWeight: _selectedRoleTab == 1 ? FontWeight.w800 : FontWeight.w600,
+                      color: _selectedRoleTab == 1 ? const Color(0xFF4F46E5) : const Color(0xFF64748B),
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSampleEmailChip(String email, String label) {
+    return InkWell(
+      onTap: () => setState(() => _emailCtrl.text = email),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFCBD5E1)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.touch_app_rounded, size: 12, color: Color(0xFF6366F1)),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFF334155),
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ),
       ),
     );

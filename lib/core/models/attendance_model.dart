@@ -1,13 +1,23 @@
+/// Attendance status options
+enum AttendanceStatus {
+  present,
+  absent,
+  onDuty,
+}
+
 /// Represents a single attendance record for a student.
 class AttendanceRecord {
   final String id;
   final String studentId;
   final DateTime date;
-  final bool isPresent;
+  final AttendanceStatus status;
   final DateTime? biometricPunchIn;
   final DateTime? biometricPunchOut;
   final String source; // "biometric" or "manual"
-  final String? recordedBy; // userId who recorded/edited
+  final String? recordedBy; // userId/advisor who recorded
+  final String? onDutyReason;
+  final String? typedLetter;
+  final String? attachmentFileName;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -15,30 +25,60 @@ class AttendanceRecord {
     required this.id,
     required this.studentId,
     required this.date,
-    required this.isPresent,
+    this.status = AttendanceStatus.present,
     this.biometricPunchIn,
     this.biometricPunchOut,
-    this.source = 'biometric',
+    this.source = 'manual',
     this.recordedBy,
+    this.onDutyReason,
+    this.typedLetter,
+    this.attachmentFileName,
     required this.createdAt,
     this.updatedAt,
   });
 
+  bool get isPresent => status == AttendanceStatus.present;
+  bool get isAbsent => status == AttendanceStatus.absent;
+  bool get isOnDuty => status == AttendanceStatus.onDuty;
+
+  String get statusDisplay {
+    switch (status) {
+      case AttendanceStatus.present:
+        return 'Present';
+      case AttendanceStatus.absent:
+        return 'Absent';
+      case AttendanceStatus.onDuty:
+        return 'On-Duty (OD)';
+    }
+  }
+
   AttendanceRecord copyWith({
+    AttendanceStatus? status,
     bool? isPresent,
     String? source,
     String? recordedBy,
+    String? onDutyReason,
+    String? typedLetter,
+    String? attachmentFileName,
     DateTime? updatedAt,
   }) {
+    AttendanceStatus newStatus = status ?? this.status;
+    if (status == null && isPresent != null) {
+      newStatus = isPresent ? AttendanceStatus.present : AttendanceStatus.absent;
+    }
+
     return AttendanceRecord(
       id: id,
       studentId: studentId,
       date: date,
-      isPresent: isPresent ?? this.isPresent,
+      status: newStatus,
       biometricPunchIn: biometricPunchIn,
       biometricPunchOut: biometricPunchOut,
       source: source ?? this.source,
       recordedBy: recordedBy ?? this.recordedBy,
+      onDutyReason: onDutyReason ?? this.onDutyReason,
+      typedLetter: typedLetter ?? this.typedLetter,
+      attachmentFileName: attachmentFileName ?? this.attachmentFileName,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

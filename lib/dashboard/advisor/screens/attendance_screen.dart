@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_styles.dart';
 import '../../../core/data/student_directory_data.dart';
 import '../../../core/models/attendance_model.dart';
 import '../../../core/models/student_model.dart';
@@ -8,7 +7,8 @@ import '../../../core/models/user_model.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/mock_data_service.dart';
 
-/// Attendance screen for Advisors & HODs — multi-day manual attendance and absentee management.
+/// Attendance screen for Advisors & HODs — supports 2026 Academic Calendar (Sep-Dec),
+/// date-wise manual attendance marking with Present, Absent, and On-Duty (OD) states.
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key});
 
@@ -18,8 +18,9 @@ class AttendanceScreen extends StatefulWidget {
 
 class _AttendanceScreenState extends State<AttendanceScreen> {
   int _selectedYear = 2;
-  String _selectedSection = 'B';
-  DateTime _selectedDate = DateTime.now();
+  String _selectedSection = 'A';
+  int _selectedMonth = 9; // 9 = September, 10 = October, 11 = November, 12 = December 2026
+  DateTime _selectedDate = DateTime(2026, 9, 7); // Default to current date in 2026
   String _searchQuery = '';
   final _searchCtrl = TextEditingController();
   late List<AttendanceRecord> _records;
@@ -54,6 +55,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   void _onDateChanged(DateTime date) {
     setState(() {
       _selectedDate = date;
+      _selectedMonth = date.month;
+      _loadRecords();
+    });
+  }
+
+  void _onMonthChanged(int month) {
+    setState(() {
+      _selectedMonth = month;
+      _selectedDate = DateTime(2026, month, 1);
       _loadRecords();
     });
   }
@@ -61,7 +71,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   void _onSectionChanged(int year, String section) {
     final user = AuthService().currentUser;
     if (user != null && user.role == UserRole.advisor) {
-      // Class advisor cannot access any other year or section
+      // Class advisor cannot switch to other sections
       return;
     }
     setState(() {
@@ -71,11 +81,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     });
   }
 
-  void _toggleAttendance(int index) {
+  void _setStatus(int index, AttendanceStatus newStatus, {String? odReason, String? typedLetter}) {
+    final advisorName = AuthService().currentUser?.name ?? 'Class Advisor';
     final updated = _records[index].copyWith(
-      isPresent: !_records[index].isPresent,
+      status: newStatus,
       source: 'manual',
-      recordedBy: AuthService().currentUser?.name ?? 'Class Advisor',
+      recordedBy: advisorName,
+      onDutyReason: odReason,
+      typedLetter: typedLetter,
       updatedAt: DateTime.now(),
     );
 
@@ -92,10 +105,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Updated: ${updated.isPresent ? "Marked Present" : "Marked Absent"}',
+          'Updated: ${updated.statusDisplay}',
         ),
-        duration: const Duration(milliseconds: 700),
-        backgroundColor: updated.isPresent ? const Color(0xFF047857) : AppColors.absentRed,
+        duration: const Duration(milliseconds: 600),
+        backgroundColor: updated.isPresent
+            ? const Color(0xFF047857)
+            : updated.isOnDuty
+                ? const Color(0xFF2563EB)
+                : AppColors.absentRed,
       ),
     );
   }
@@ -114,6 +131,119 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       SnackBar(
         content: Text('All ${_records.length} students marked Present for $_formattedDate'),
         backgroundColor: const Color(0xFF047857),
+      ),
+    );
+  }
+
+  void _markAllAbsent() {
+    final advisorName = AuthService().currentUser?.name ?? 'Class Advisor';
+    MockDataService.markAllAbsentForDate(
+      _selectedDate,
+      year: _selectedYear,
+      section: _selectedSection,
+      recordedBy: advisorName,
+    );
+    _loadRecords();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Marked all students as Absent for $_formattedDate'),
+        backgroundColor: AppColors.absentRed,
+      ),
+    );
+  }
+
+  void _showOnDutyDialog(int recordIndex, StudentModel student) {
+    final reasonCtrl = TextEditingController(text: _records[recordIndex].onDutyReason ?? '');
+    final letterCtrl = TextEditingController(text: _records[recordIndex].typedLetter ?? '');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(10)),
+              child: const Icon(Icons.badge_rounded, color: Color(0xFF2563EB), size: 22),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Mark On-Duty (OD)', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text('${student.name} (${student.rollNumber})', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('OD Reason / Event Category:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<String>(
+                initialValue: 'Technical Symposium / Paper Presentation',
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'Technical Symposium / Paper Presentation', child: Text('Symposium / Paper Presentation', style: TextStyle(fontSize: 12))),
+                  DropdownMenuItem(value: 'Smart India Hackathon (SIH)', child: Text('Smart India Hackathon (SIH)', style: TextStyle(fontSize: 12))),
+                  DropdownMenuItem(value: 'Zonal / State Sports Tournament', child: Text('Sports / Athletic Tournament', style: TextStyle(fontSize: 12))),
+                  DropdownMenuItem(value: 'Campus Recruitment / Placement Drive', child: Text('Placement / Technical Interview', style: TextStyle(fontSize: 12))),
+                  DropdownMenuItem(value: 'NPTEL / Anna University Exam Duty', child: Text('NPTEL / University Exam Duty', style: TextStyle(fontSize: 12))),
+                  DropdownMenuItem(value: 'Other Official Duty', child: Text('Other Official Duty', style: TextStyle(fontSize: 12))),
+                ],
+                onChanged: (v) {
+                  if (v != null) reasonCtrl.text = v;
+                },
+              ),
+              const SizedBox(height: 12),
+              const Text('Explanation / Letter Words:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              const SizedBox(height: 6),
+              TextField(
+                controller: letterCtrl,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: 'Enter student on-duty details, organizing college, and endorsement...',
+                  hintStyle: const TextStyle(fontSize: 11),
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2563EB),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _setStatus(
+                recordIndex,
+                AttendanceStatus.onDuty,
+                odReason: reasonCtrl.text.trim().isNotEmpty ? reasonCtrl.text.trim() : 'Symposium / OD Event',
+                typedLetter: letterCtrl.text.trim(),
+              );
+            },
+            child: const Text('Save On-Duty'),
+          ),
+        ],
       ),
     );
   }
@@ -139,15 +269,16 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   int get _presentCount => _records.where((r) => r.isPresent).length;
-  int get _absentCount => _records.where((r) => !r.isPresent).length;
+  int get _absentCount => _records.where((r) => r.isAbsent).length;
+  int get _onDutyCount => _records.where((r) => r.isOnDuty).length;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.pageBackground,
       appBar: AppBar(
-        backgroundColor: AppColors.pageBackground,
-        elevation: 0,
+        backgroundColor: Colors.white,
+        elevation: 0.5,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded, size: 20),
           onPressed: () => Navigator.pop(context),
@@ -156,29 +287,30 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Attendance Register',
+              'Attendance Register (2026)',
               style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF0F172A),
               ),
             ),
             Text(
               '$_selectedYear Year AI&DS - Section $_selectedSection • $_formattedDate',
-              style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
             ),
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.calendar_today_rounded, size: 20, color: AppColors.primaryPurple),
-            tooltip: 'Select Date',
+            icon: const Icon(Icons.calendar_month_rounded, size: 22, color: Color(0xFF6366F1)),
+            tooltip: '2026 Academic Calendar (Sep-Dec)',
             onPressed: () async {
               final picked = await showDatePicker(
                 context: context,
                 initialDate: _selectedDate,
-                firstDate: DateTime(2025),
-                lastDate: DateTime.now().add(const Duration(days: 7)),
+                firstDate: DateTime(2026, 9, 1),
+                lastDate: DateTime(2026, 12, 31),
+                helpText: 'SELECT 2026 ACADEMIC WORKING DATE',
               );
               if (picked != null) _onDateChanged(picked);
             },
@@ -187,10 +319,16 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       ),
       body: Column(
         children: [
-          // Section & Year Selector Bar
+          // Section Access & Year Selector Bar
           _buildSectionBar(),
 
-          // Stats bar
+          // 2026 Academic Calendar Month Selector
+          _buildMonthTabs(),
+
+          // Horizontal Date Selector Strip for Active Month
+          _buildDateStrip(),
+
+          // Live Stats Bar (Strength, Present, Absent, OD, Turnout)
           _buildStatsBar(),
           const SizedBox(height: 10),
 
@@ -200,53 +338,50 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             child: TextField(
               controller: _searchCtrl,
               onChanged: (v) => setState(() => _searchQuery = v),
-              decoration: AppStyles.inputDecoration(
-                hintText: 'Search by student name or roll number...',
-                prefixIcon: Icons.search_rounded,
+              decoration: InputDecoration(
+                hintText: 'Search student name or roll number (e.g. 25243001)...',
+                hintStyle: const TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
+                prefixIcon: const Icon(Icons.search_rounded, size: 18, color: Color(0xFF6366F1)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
               ),
             ),
           ),
           const SizedBox(height: 8),
 
-          // Date & Quick Actions Bar
+          // Quick Action Buttons (Mark All Present, Mark All Absent)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
               children: [
                 Expanded(
-                  child: OutlinedButton.icon(
+                  child: ElevatedButton.icon(
                     onPressed: _markAllPresent,
-                    icon: const Icon(Icons.check_circle_outline, size: 16),
-                    label: const Text('Mark All Present', style: TextStyle(fontSize: 12)),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.statusApproved,
-                      side: const BorderSide(color: AppColors.statusApproved),
+                    icon: const Icon(Icons.check_circle_outline, size: 15),
+                    label: const Text('Mark All Present', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF047857),
+                      foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFBFDBFE)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.edit_calendar_rounded, size: 14, color: Color(0xFF2563EB)),
-                      const SizedBox(width: 4),
-                      Text(
-                        _formattedDate,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1E40AF),
-                        ),
-                      ),
-                    ],
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _markAllAbsent,
+                    icon: const Icon(Icons.cancel_outlined, size: 15),
+                    label: const Text('Mark All Absent', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.absentRed,
+                      side: const BorderSide(color: AppColors.absentRed),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
                   ),
                 ),
               ],
@@ -254,7 +389,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           ),
           const SizedBox(height: 10),
 
-          // Student list
+          // Student Attendance List with 3-way toggle (Present, Absent, On-Duty)
           Expanded(
             child: _filteredRecords.isEmpty
                 ? const Center(
@@ -270,23 +405,115 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                         (s) => s.id == record.studentId,
                         orElse: () => StudentDirectoryData.allStudents.first,
                       );
+                      final recordIdx = _records.indexWhere((r) => r.id == record.id);
+
                       return _AttendanceTile(
                         indexNumber: index + 1,
                         name: student.name,
                         rollNumber: student.rollNumber,
                         gender: student.gender,
-                        isPresent: record.isPresent,
+                        status: record.status,
                         source: record.source,
-                        recordedBy: record.recordedBy,
-                        punchIn: record.biometricPunchIn,
-                        onToggle: () => _toggleAttendance(
-                          _records.indexWhere((r) => r.id == record.id),
-                        ),
+                        onDutyReason: record.onDutyReason,
+                        onSetPresent: () => _setStatus(recordIdx, AttendanceStatus.present),
+                        onSetAbsent: () => _setStatus(recordIdx, AttendanceStatus.absent),
+                        onSetOnDuty: () => _showOnDutyDialog(recordIdx, student),
                       );
                     },
                   ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMonthTabs() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: MockDataService.academicMonths2026.map((m) {
+          final isSelected = _selectedMonth == m['month'];
+          return InkWell(
+            onTap: () => _onMonthChanged(m['month'] as int),
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: isSelected ? const Color(0xFF6366F1) : const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                m['short'] as String,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? Colors.white : const Color(0xFF475569),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildDateStrip() {
+    final dates = MockDataService.getDatesForMonth(_selectedMonth);
+
+    return Container(
+      height: 64,
+      color: Colors.white,
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        itemCount: dates.length,
+        itemBuilder: (ctx, i) {
+          final d = dates[i];
+          final isSelected = d.day == _selectedDate.day && d.month == _selectedDate.month;
+          final dayName = MockDataService.getDayAbbreviation(d.weekday);
+
+          return GestureDetector(
+            onTap: () => _onDateChanged(d),
+            child: Container(
+              width: 48,
+              margin: const EdgeInsets.only(right: 8),
+              decoration: BoxDecoration(
+                color: isSelected ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isSelected ? const Color(0xFF6366F1) : const Color(0xFFE2E8F0),
+                  width: isSelected ? 1.5 : 1,
+                ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    dayName,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: isSelected ? const Color(0xFF67E8F9) : const Color(0xFF64748B),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${d.day}',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: isSelected ? Colors.white : const Color(0xFF0F172A),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -298,16 +525,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     if (isAdvisor) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        margin: const EdgeInsets.only(bottom: 8),
-        color: Colors.white,
+        color: const Color(0xFFEEF2FF),
         child: Row(
           children: [
-            const Icon(Icons.lock_person_rounded, size: 16, color: AppColors.primaryPurple),
+            const Icon(Icons.lock_person_rounded, size: 16, color: Color(0xFF4F46E5)),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Class Advisor Portal: $_selectedYear Year AI&DS - Section $_selectedSection (Restricted to your class)',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                'Class Advisor: $_selectedYear Year AI&DS - Section $_selectedSection (Restricted Access)',
+                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF312E81)),
               ),
             ),
           ],
@@ -318,7 +544,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final sections = _selectedYear == 4 ? ['A', 'B'] : ['A', 'B', 'C', 'D'];
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      margin: const EdgeInsets.only(bottom: 8),
       color: Colors.white,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -331,9 +556,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 color: const Color(0xFFD1FAE5),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: const Text('HOD Full Access', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF047857))),
+              child: const Text('HOD Full View', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF047857))),
             ),
-            // Year Chips
             const Text('Year: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
             ...[2, 3, 4].map((y) {
               final isSelected = _selectedYear == y;
@@ -342,7 +566,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 child: ChoiceChip(
                   label: Text('$y Yr', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isSelected ? Colors.white : AppColors.textPrimary)),
                   selected: isSelected,
-                  selectedColor: AppColors.primaryPurple,
+                  selectedColor: const Color(0xFF6366F1),
                   backgroundColor: const Color(0xFFF1F5F9),
                   onSelected: (selected) {
                     if (selected) _onSectionChanged(y, 'A');
@@ -352,7 +576,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             }),
             const SizedBox(width: 8),
             const Text('Sec: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
-            // Section Chips
             ...sections.map((sec) {
               final isSelected = _selectedSection == sec;
               return Padding(
@@ -375,38 +598,44 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   Widget _buildStatsBar() {
-    final pct = _records.isNotEmpty ? ((_presentCount / _records.length) * 100).toStringAsFixed(1) : '0';
+    final total = _records.length;
+    final pct = total > 0 ? (((_presentCount + _onDutyCount) / total) * 100).toStringAsFixed(1) : '0';
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          gradient: AppColors.primaryGradient,
+          gradient: const LinearGradient(
+            colors: [Color(0xFF0F172A), Color(0xFF1E1B4B)],
+          ),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _miniStat('Strength', '${_records.length}', Icons.people_rounded),
-            Container(height: 30, width: 1, color: Colors.white30),
-            _miniStat('Present', '$_presentCount', Icons.check_circle_rounded),
-            Container(height: 30, width: 1, color: Colors.white30),
-            _miniStat('Absent', '$_absentCount', Icons.cancel_rounded),
-            Container(height: 30, width: 1, color: Colors.white30),
-            _miniStat('Turnout', '$pct%', Icons.pie_chart_rounded),
+            _miniStat('Total', '$total', Icons.groups_rounded, Colors.white),
+            Container(height: 26, width: 1, color: Colors.white24),
+            _miniStat('Present', '$_presentCount', Icons.check_circle_rounded, const Color(0xFF34D399)),
+            Container(height: 26, width: 1, color: Colors.white24),
+            _miniStat('Absent', '$_absentCount', Icons.cancel_rounded, const Color(0xFFF87171)),
+            Container(height: 26, width: 1, color: Colors.white24),
+            _miniStat('On-Duty', '$_onDutyCount', Icons.badge_rounded, const Color(0xFF60A5FA)),
+            Container(height: 26, width: 1, color: Colors.white24),
+            _miniStat('Turnout', '$pct%', Icons.pie_chart_rounded, const Color(0xFFFBBF24)),
           ],
         ),
       ),
     );
   }
 
-  Widget _miniStat(String label, String value, IconData icon) {
+  Widget _miniStat(String label, String value, IconData icon, Color color) {
     return Column(
       children: [
-        Icon(icon, size: 18, color: Colors.white70),
+        Icon(icon, size: 16, color: color),
         const SizedBox(height: 2),
-        Text(value, style: AppStyles.headingSmall.copyWith(color: Colors.white, fontSize: 16)),
-        Text(label, style: AppStyles.bodySmall.copyWith(color: Colors.white70, fontSize: 10)),
+        Text(value, style: TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.bold)),
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 9.5)),
       ],
     );
   }
@@ -417,36 +646,44 @@ class _AttendanceTile extends StatelessWidget {
   final String name;
   final String rollNumber;
   final String gender;
-  final bool isPresent;
+  final AttendanceStatus status;
   final String source;
-  final String? recordedBy;
-  final DateTime? punchIn;
-  final VoidCallback onToggle;
+  final String? onDutyReason;
+  final VoidCallback onSetPresent;
+  final VoidCallback onSetAbsent;
+  final VoidCallback onSetOnDuty;
 
   const _AttendanceTile({
     required this.indexNumber,
     required this.name,
     required this.rollNumber,
     required this.gender,
-    required this.isPresent,
+    required this.status,
     required this.source,
-    this.recordedBy,
-    this.punchIn,
-    required this.onToggle,
+    this.onDutyReason,
+    required this.onSetPresent,
+    required this.onSetAbsent,
+    required this.onSetOnDuty,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isPresent = status == AttendanceStatus.present;
+    final isAbsent = status == AttendanceStatus.absent;
+    final isOnDuty = status == AttendanceStatus.onDuty;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: AppColors.cardBackground,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isPresent
-              ? AppColors.statusApproved.withValues(alpha: 0.3)
-              : AppColors.statusRejected.withValues(alpha: 0.3),
+              ? const Color(0xFFD1FAE5)
+              : isOnDuty
+                  ? const Color(0xFFBFDBFE)
+                  : const Color(0xFFFEE2E2),
         ),
       ),
       child: Row(
@@ -464,16 +701,22 @@ class _AttendanceTile extends StatelessWidget {
 
           // Avatar
           CircleAvatar(
-            radius: 18,
+            radius: 17,
             backgroundColor: isPresent
-                ? AppColors.statusApprovedBg
-                : AppColors.statusRejectedBg,
+                ? const Color(0xFFD1FAE5)
+                : isOnDuty
+                    ? const Color(0xFFEFF6FF)
+                    : const Color(0xFFFEE2E2),
             child: Text(
               gender == 'Female' ? '♀' : (name.isNotEmpty ? name[0] : 'S'),
               style: TextStyle(
                 fontWeight: FontWeight.w700,
                 fontSize: 13,
-                color: isPresent ? AppColors.statusApproved : AppColors.statusRejected,
+                color: isPresent
+                    ? const Color(0xFF047857)
+                    : isOnDuty
+                        ? const Color(0xFF2563EB)
+                        : const Color(0xFFDC2626),
               ),
             ),
           ),
@@ -486,7 +729,7 @@ class _AttendanceTile extends StatelessWidget {
               children: [
                 Text(
                   name,
-                  style: AppStyles.bodyLarge.copyWith(fontSize: 13, fontWeight: FontWeight.w600),
+                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -494,63 +737,62 @@ class _AttendanceTile extends StatelessWidget {
                 Row(
                   children: [
                     Text(rollNumber, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: source == 'biometric' ? const Color(0xFFF3E8FF) : const Color(0xFFFEF3C7),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        source == 'biometric' ? 'Biometric' : 'Manual',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                          color: source == 'biometric' ? AppColors.primaryPurple : const Color(0xFFD97706),
+                    if (isOnDuty && onDutyReason != null) ...[
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          '• $onDutyReason',
+                          style: const TextStyle(fontSize: 10, color: Color(0xFF2563EB), fontWeight: FontWeight.w600),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ],
             ),
           ),
 
-          // Toggle Button
-          GestureDetector(
-            onTap: onToggle,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: isPresent ? AppColors.statusApproved : AppColors.statusRejected,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: (isPresent ? AppColors.statusApproved : AppColors.statusRejected).withValues(alpha: 0.3),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    isPresent ? Icons.check_circle_rounded : Icons.cancel_rounded,
-                    size: 14,
-                    color: Colors.white,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    isPresent ? 'Present' : 'Absent',
-                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
+          // 3-Way Selector (P, A, OD)
+          Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _optionButton('P', isPresent, const Color(0xFF047857), onSetPresent),
+                _optionButton('A', isAbsent, const Color(0xFFDC2626), onSetAbsent),
+                _optionButton('OD', isOnDuty, const Color(0xFF2563EB), onSetOnDuty),
+              ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _optionButton(String label, bool isSelected, Color activeColor, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? activeColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            color: isSelected ? Colors.white : const Color(0xFF64748B),
+          ),
+        ),
       ),
     );
   }

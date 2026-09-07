@@ -144,9 +144,27 @@ class StorageManagementDialog extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            const Text(
-              'Storage Allocation Breakdown',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Storage Allocation Breakdown',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0FDF4),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF86EFAC)),
+                  ),
+                  child: const Text(
+                    '🛡️ 2-Yr Auto-Purge Active',
+                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF166534)),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
 

@@ -12,16 +12,16 @@ import 'dashboard/student/screens/student_dashboard_screen.dart';
 import 'dashboard/timetable/screens/timetable_screen.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const SmartProApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class SmartProApp extends StatelessWidget {
+  const SmartProApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'PinkSlipReport',
+      title: 'Smart Pro',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
@@ -30,7 +30,7 @@ class MyApp extends StatelessWidget {
         ),
         fontFamily: GoogleFonts.spaceGrotesk().fontFamily,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF047857),
+          seedColor: const Color(0xFF6366F1),
           brightness: Brightness.light,
         ),
         scaffoldBackgroundColor: const Color(0xFFF8FAFC),
