@@ -92,15 +92,14 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => FocusScope.of(context).unfocus(),
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC),
-        body: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Column(
-            children: [
-              _buildSmartProHeader(),
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        child: Column(
+          children: [
+            _buildSmartProHeader(),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Form(
@@ -176,41 +175,28 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                     SizedBox(
                       width: double.infinity,
                       height: 52,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF0EA5E9), Color(0xFF6366F1), Color(0xFF8B5CF6)],
-                          ),
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF6366F1).withValues(alpha: 0.35),
-                              blurRadius: 16,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _handleLogin,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF4F46E5),
+                          foregroundColor: Colors.white,
+                          elevation: 4,
+                          shadowColor: const Color(0xFF4F46E5).withValues(alpha: 0.4),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         ),
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : _handleLogin,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.transparent,
-                            shadowColor: Colors.transparent,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                          ),
-                          child: _isLoading
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2.5,
-                                  ),
-                                )
-                              : Text(
-                                  'Sign In as ${_selectedRoleTab == 0 ? "HOD" : "Class Advisor"}',
-                                  style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2.5,
                                 ),
-                        ),
+                              )
+                            : Text(
+                                'Sign In as ${_selectedRoleTab == 0 ? "HOD" : "Class Advisor"}',
+                                style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                              ),
                       ),
                     ),
 
@@ -227,7 +213,7 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
           ],
         ),
       ),
-    ));
+    );
   }
 
   Widget _buildRoleTabs() {
