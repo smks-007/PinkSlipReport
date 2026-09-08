@@ -1,6 +1,6 @@
 import '../models/student_model.dart';
 
-/// Complete official student directory for the AI & DS Department (All 10 Sections, 622 Students).
+/// Complete official student directory for the AI & DS Department (All 10 Sections, 627 Students).
 /// Indexed by Roll Number, Name, Class, Batch, and Section.
 class StudentDirectoryData {
   StudentDirectoryData._();
@@ -204,6 +204,7 @@ class StudentDirectoryData {
     StudentModel(id: 'stu_196', name: 'SHALINI B', rollNumber: '25243198', department: 'AI&DS', section: 'D', year: 2, batchYear: '2025 BATCH', advisorId: 'adv-2d', gender: 'Female'),
     StudentModel(id: 'stu_197', name: 'SHALINI R', rollNumber: '25243199', department: 'AI&DS', section: 'D', year: 2, batchYear: '2025 BATCH', advisorId: 'adv-2d', gender: 'Female'),
     StudentModel(id: 'stu_198', name: 'SHANKARI T', rollNumber: '25243200', department: 'AI&DS', section: 'D', year: 2, batchYear: '2025 BATCH', advisorId: 'adv-2d', gender: 'Female'),
+    StudentModel(id: 'stu_198b', name: 'SHANMUGA SUNDARAM B', rollNumber: '25243201', department: 'AI&DS', section: 'D', year: 2, batchYear: '2025 BATCH', advisorId: 'adv-2d', gender: 'Male'),
     StudentModel(id: 'stu_199', name: 'SHANMUGAPRIYA N', rollNumber: '25243202', department: 'AI&DS', section: 'D', year: 2, batchYear: '2025 BATCH', advisorId: 'adv-2d', gender: 'Female'),
     StudentModel(id: 'stu_200', name: 'SHARVESH S E', rollNumber: '25243203', department: 'AI&DS', section: 'D', year: 2, batchYear: '2025 BATCH', advisorId: 'adv-2d', gender: 'Male'),
     StudentModel(id: 'stu_201', name: 'SHIFA R', rollNumber: '25243204', department: 'AI&DS', section: 'D', year: 2, batchYear: '2025 BATCH', advisorId: 'adv-2d', gender: 'Female'),
@@ -213,6 +214,7 @@ class StudentDirectoryData {
     StudentModel(id: 'stu_205', name: 'SIVADEEPIKA M', rollNumber: '25243208', department: 'AI&DS', section: 'D', year: 2, batchYear: '2025 BATCH', advisorId: 'adv-2d', gender: 'Female'),
     StudentModel(id: 'stu_206', name: 'SOPHIA S', rollNumber: '25243209', department: 'AI&DS', section: 'D', year: 2, batchYear: '2025 BATCH', advisorId: 'adv-2d', gender: 'Female'),
     StudentModel(id: 'stu_207', name: 'SOUNDARAJAN A S', rollNumber: '25243210', department: 'AI&DS', section: 'D', year: 2, batchYear: '2025 BATCH', advisorId: 'adv-2d', gender: 'Male'),
+    StudentModel(id: 'stu_207b', name: 'SRI HARISHKUMAR T', rollNumber: '25243211', department: 'AI&DS', section: 'D', year: 2, batchYear: '2025 BATCH', advisorId: 'adv-2d', gender: 'Male'),
     StudentModel(id: 'stu_208', name: 'SRI RAKSHAYARISHA P', rollNumber: '25243212', department: 'AI&DS', section: 'D', year: 2, batchYear: '2025 BATCH', advisorId: 'adv-2d', gender: 'Female'),
     StudentModel(id: 'stu_209', name: 'SRIYASHWANTHIKA R', rollNumber: '25243213', department: 'AI&DS', section: 'D', year: 2, batchYear: '2025 BATCH', advisorId: 'adv-2d', gender: 'Female'),
     StudentModel(id: 'stu_210', name: 'SUBHASREE K', rollNumber: '25243214', department: 'AI&DS', section: 'D', year: 2, batchYear: '2025 BATCH', advisorId: 'adv-2d', gender: 'Female'),
@@ -227,6 +229,7 @@ class StudentDirectoryData {
     StudentModel(id: 'stu_219', name: 'SWETHA M', rollNumber: '25243223', department: 'AI&DS', section: 'D', year: 2, batchYear: '2025 BATCH', advisorId: 'adv-2d', gender: 'Female'),
     StudentModel(id: 'stu_220', name: 'SYED HALIFA S', rollNumber: '25243224', department: 'AI&DS', section: 'D', year: 2, batchYear: '2025 BATCH', advisorId: 'adv-2d', gender: 'Male'),
     StudentModel(id: 'stu_221', name: 'TAMIL SELVAN K', rollNumber: '25243225', department: 'AI&DS', section: 'D', year: 2, batchYear: '2025 BATCH', advisorId: 'adv-2d', gender: 'Male'),
+    StudentModel(id: 'stu_221b', name: 'TAMILARASAN M', rollNumber: '25243226', department: 'AI&DS', section: 'D', year: 2, batchYear: '2025 BATCH', advisorId: 'adv-2d', gender: 'Male'),
     StudentModel(id: 'stu_222', name: 'TAMIZHINI G', rollNumber: '25243227', department: 'AI&DS', section: 'D', year: 2, batchYear: '2025 BATCH', advisorId: 'adv-2d', gender: 'Female'),
     StudentModel(id: 'stu_223', name: 'THAMARAIKKANNAN S', rollNumber: '25243228', department: 'AI&DS', section: 'D', year: 2, batchYear: '2025 BATCH', advisorId: 'adv-2d', gender: 'Male'),
     StudentModel(id: 'stu_224', name: 'THANISWAR N', rollNumber: '25243229', department: 'AI&DS', section: 'D', year: 2, batchYear: '2025 BATCH', advisorId: 'adv-2d', gender: 'Male'),
@@ -435,6 +438,7 @@ class StudentDirectoryData {
     StudentModel(id: 'stu_427', name: 'SABARITHURAI C', rollNumber: '24243176', department: 'AI&DS', section: 'C', year: 3, batchYear: '2024 BATCH', advisorId: 'adv-3c', gender: 'Male'),
     StudentModel(id: 'stu_428', name: 'SABESH E', rollNumber: '24243177', department: 'AI&DS', section: 'C', year: 3, batchYear: '2024 BATCH', advisorId: 'adv-3c', gender: 'Male'),
     StudentModel(id: 'stu_429', name: 'SACHIN K S', rollNumber: '24243178', department: 'AI&DS', section: 'C', year: 3, batchYear: '2024 BATCH', advisorId: 'adv-3c', gender: 'Male'),
+    StudentModel(id: 'stu_429b', name: 'SAKTHI B', rollNumber: '24243179', department: 'AI&DS', section: 'C', year: 3, batchYear: '2024 BATCH', advisorId: 'adv-3c', gender: 'Male'),
     StudentModel(id: 'stu_430', name: 'SAKTHI BALAN M', rollNumber: '24243180', department: 'AI&DS', section: 'C', year: 3, batchYear: '2024 BATCH', advisorId: 'adv-3c', gender: 'Male'),
     StudentModel(id: 'stu_431', name: 'SANGEETH SRAVAN J', rollNumber: '24243182', department: 'AI&DS', section: 'C', year: 3, batchYear: '2024 BATCH', advisorId: 'adv-3c', gender: 'Male'),
     StudentModel(id: 'stu_432', name: 'SANJAI M', rollNumber: '24243183', department: 'AI&DS', section: 'C', year: 3, batchYear: '2024 BATCH', advisorId: 'adv-3c', gender: 'Male'),
@@ -528,6 +532,7 @@ class StudentDirectoryData {
     StudentModel(id: 'stu_520', name: 'K.GOKULAKRISHNAN', rollNumber: '23243023', department: 'AI&DS', section: 'A', year: 4, batchYear: '2023 BATCH', advisorId: 'adv-4a', gender: 'Male'),
     StudentModel(id: 'stu_521', name: 'V.GOKUL ANAND', rollNumber: '23243024', department: 'AI&DS', section: 'A', year: 4, batchYear: '2023 BATCH', advisorId: 'adv-4a', gender: 'Male'),
     StudentModel(id: 'stu_522', name: 'S.GOKUL KRISHNA', rollNumber: '23243025', department: 'AI&DS', section: 'A', year: 4, batchYear: '2023 BATCH', advisorId: 'adv-4a', gender: 'Male'),
+    StudentModel(id: 'stu_522b', name: 'M.GOKUL', rollNumber: '23243026', department: 'AI&DS', section: 'A', year: 4, batchYear: '2023 BATCH', advisorId: 'adv-4a', gender: 'Male'),
     StudentModel(id: 'stu_523', name: 'S.GOKULA KANNAN', rollNumber: '23243027', department: 'AI&DS', section: 'A', year: 4, batchYear: '2023 BATCH', advisorId: 'adv-4a', gender: 'Male'),
     StudentModel(id: 'stu_524', name: 'S.GOPI PRAGAN', rollNumber: '23243028', department: 'AI&DS', section: 'A', year: 4, batchYear: '2023 BATCH', advisorId: 'adv-4a', gender: 'Male'),
     StudentModel(id: 'stu_525', name: 'S.GUHAN', rollNumber: '23243029', department: 'AI&DS', section: 'A', year: 4, batchYear: '2023 BATCH', advisorId: 'adv-4a', gender: 'Male'),

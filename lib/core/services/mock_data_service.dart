@@ -32,8 +32,19 @@ class MockDataService {
         .toList();
   }
 
-  static int get totalStrength => allStudents.length; // 622
-  static int get presentToday => 589;
+  static int get totalStrength => allStudents.length;
+  
+  static int get presentToday {
+    int total = 0;
+    for (int yr = 2; yr <= 4; yr++) {
+      final sections = yr == 4 ? ['A', 'B'] : ['A', 'B', 'C', 'D'];
+      for (final sec in sections) {
+        total += getSectionPresent(yr, sec, DateTime(2026, 9, 7)) + getSectionOnDuty(yr, sec, DateTime(2026, 9, 7));
+      }
+    }
+    return total;
+  }
+
   static int get absentToday => totalStrength - presentToday;
   static double get attendancePercentage => totalStrength > 0 ? (presentToday / totalStrength) * 100 : 0.0;
 
@@ -43,19 +54,19 @@ class MockDataService {
   }
 
   static int getSectionAbsent(int year, String section, [DateTime? date]) {
-    final targetDate = date ?? DateTime.now();
+    final targetDate = date ?? DateTime(2026, 9, 7);
     final records = getAttendanceForDate(targetDate, year: year, section: section);
     return records.where((r) => r.isAbsent).length;
   }
 
   static int getSectionPresent(int year, String section, [DateTime? date]) {
-    final targetDate = date ?? DateTime.now();
+    final targetDate = date ?? DateTime(2026, 9, 7);
     final records = getAttendanceForDate(targetDate, year: year, section: section);
     return records.where((r) => r.isPresent).length;
   }
 
   static int getSectionOnDuty(int year, String section, [DateTime? date]) {
-    final targetDate = date ?? DateTime.now();
+    final targetDate = date ?? DateTime(2026, 9, 7);
     final records = getAttendanceForDate(targetDate, year: year, section: section);
     return records.where((r) => r.isOnDuty).length;
   }
@@ -68,6 +79,82 @@ class MockDataService {
     // On-Duty (OD) is counted as present for official academic compliance
     return ((pres + od) / str) * 100;
   }
+
+  /// Check whether a student is present today (including On-Duty)
+  static bool isStudentPresent(String rollNumber) {
+    return !todaysAbsentRollNumbers.contains(rollNumber);
+  }
+
+  /// Check whether a student is absent today
+  static bool isStudentAbsent(String rollNumber) {
+    return todaysAbsentRollNumbers.contains(rollNumber);
+  }
+
+  // ──────────────────── Official Today's Absentee Database ────────────────────
+
+  static const Set<String> todaysAbsentRollNumbers = {
+    // II Year Section A (6 Absentees)
+    '25243006', // AKHIL M
+    '25243010', // ARSHAD S
+    '25243022', // BHARATH M
+    '25243035', // DHARSAN S
+    '25243039', // DHARUN K
+    '25243041', // DHIVAKAR S
+
+    // II Year Section B (3 Absentees)
+    '25243096', // LAKSHAYAA S
+    '25243100', // LITHESH HARI R
+    '25243128', // MUGESHDHARAN M
+
+    // II Year Section C (60 Absentees - Full Section Absent)
+    '25243129', '25243130', '25243131', '25243132', '25243133', '25243134', '25243135', '25243136',
+    '25243137', '25243138', '25243139', '25243140', '25243141', '25243142', '25243143', '25243144',
+    '25243145', '25243146', '25243147', '25243148', '25243149', '25243150', '25243151', '25243152',
+    '25243153', '25243154', '25243155', '25243156', '25243157', '25243158', '25243159', '25243160',
+    '25243161', '25243162', '25243163', '25243164', '25243165', '25243166', '25243167', '25243168',
+    '25243169', '25243170', '25243171', '25243172', '25243173', '25243174', '25243175', '25243176',
+    '25243177', '25243178', '25243179', '25243180', '25243181', '25243182', '25243183', '25243184',
+    '25243185', '25243186', '25243187', '25243188',
+
+    // II Year Section D (6 Absentees)
+    '25243195', // SANTHOSH RAJ B
+    '25243201', // SHANMUGA SUNDARAM B
+    '25243211', // SRI HARISHKUMAR T
+    '25243226', // TAMILARASAN M
+    '25243228', // THAMARAIKKANNAN S
+    '25243242', // VIJAY M
+
+    // III Year Section A (1 Absentee)
+    '24243302', // SANTHOSH A
+
+    // III Year Section B (6 Absentees)
+    '24243079', // KAVIN SHARVESH R
+    '24243081', // KAVIYA D
+    '24243084', // KAVYA SHREE TV
+    '24243095', // LALITHA M
+    '24243097', // LOGESH S
+    '24243101', // MAHALAKSHMI K
+
+    // III Year Section C (1 Absentee)
+    '24243180', // SAKTHI BALAN M
+
+    // III Year Section D (2 Absentees)
+    '24243179', // SAKTHI B
+    '24243240', // VELAVAN A
+
+    // IV Year Section A (7 Absentees)
+    '23243001', // S.AARTHI
+    '23243020', // S.ELAMATHI
+    '23243024', // V.GOKUL ANAND
+    '23243025', // S.GOKUL KRISHNA
+    '23243026', // M.GOKUL
+    '23243031', // S.HARI KRISHNA
+    '23243036', // V.S HARINI
+
+    // IV Year Section B (2 Absentees)
+    '23243092', // P. ROOBALAKSHMI
+    '23243117', // K. THARANI KUMAR
+  };
 
   // ──────────────────── 2026 Academic Calendar (Sep - Dec) ────────────────────
 
@@ -110,21 +197,51 @@ class MockDataService {
     // Generate initial records for this section and date
     final targetStudents = getStudentsBySection(year, section);
     final advName = _getAdvisorName(year, section);
+    final isToday = (date.year == 2026 && date.month == 9 && date.day == 7) ||
+        (date.year == DateTime.now().year && date.month == DateTime.now().month && date.day == DateTime.now().day);
     final isPastDate = date.isBefore(DateTime(2026, 9, 7, 23, 59));
 
     final records = targetStudents.asMap().entries.map((entry) {
       final idx = entry.key;
       final s = entry.value;
 
-      // Realistic pseudo-random distribution based on student index and date day
-      final hash = (s.id.hashCode + date.day * 7 + date.month * 13).abs();
-      AttendanceStatus status = AttendanceStatus.present;
+      AttendanceStatus status;
+      String? odReason;
 
-      if (hash % 29 == 4) {
-        status = AttendanceStatus.onDuty; // On-Duty
-      } else if (hash % 19 == 7 || (idx % 22 == 5 && date.day % 3 == 0)) {
-        status = AttendanceStatus.absent; // Absent
+      if (isToday) {
+        if (todaysAbsentRollNumbers.contains(s.rollNumber)) {
+          status = AttendanceStatus.absent;
+        } else {
+          // Check if student has active registered OD
+          final hasOd = _leaveRequests.any((l) =>
+              l.studentRollNumber == s.rollNumber &&
+              l.category == LeaveCategory.onDuty &&
+              l.leaveDate.day == date.day &&
+              l.leaveDate.month == date.month &&
+              l.leaveDate.year == date.year);
+
+          if (hasOd) {
+            status = AttendanceStatus.onDuty;
+            final req = _leaveRequests.firstWhere((l) => l.studentRollNumber == s.rollNumber && l.category == LeaveCategory.onDuty);
+            odReason = req.reason;
+          } else {
+            status = AttendanceStatus.present;
+          }
+        }
+      } else {
+        // Realistic pseudo-random distribution for past/future working calendar days
+        final hash = (s.id.hashCode + date.day * 7 + date.month * 13).abs();
+        if (hash % 29 == 4) {
+          status = AttendanceStatus.onDuty;
+          odReason = 'Technical Symposium / Sports OD';
+        } else if (hash % 19 == 7 || (idx % 22 == 5 && date.day % 3 == 0)) {
+          status = AttendanceStatus.absent;
+        } else {
+          status = AttendanceStatus.present;
+        }
       }
+
+      final hash = (s.id.hashCode + date.day * 7 + date.month * 13).abs();
 
       return AttendanceRecord(
         id: 'att-${s.id}-${date.year}${date.month}${date.day}',
@@ -137,9 +254,9 @@ class MockDataService {
         biometricPunchOut: status == AttendanceStatus.present
             ? DateTime(date.year, date.month, date.day, 16, 0 + (hash % 30))
             : null,
-        source: isPastDate ? 'manual_verified' : 'biometric',
+        source: isToday ? 'live_biometric_sync' : (isPastDate ? 'manual_verified' : 'biometric'),
         recordedBy: advName,
-        onDutyReason: status == AttendanceStatus.onDuty ? 'Technical Symposium / Sports OD' : null,
+        onDutyReason: status == AttendanceStatus.onDuty ? (odReason ?? 'Official OD') : null,
         createdAt: date,
       );
     }).toList();
@@ -331,10 +448,10 @@ class MockDataService {
   /// Overall department monthly progression
   static List<Map<String, dynamic>> getOverallDepartmentMonthlyTrend() {
     return [
-      {'month': 'Sep 2026', 'percentage': 94.8, 'target': 95.0, 'totalStudents': 622},
-      {'month': 'Oct 2026', 'percentage': 95.3, 'target': 95.0, 'totalStudents': 622},
-      {'month': 'Nov 2026', 'percentage': 96.0, 'target': 95.0, 'totalStudents': 622},
-      {'month': 'Dec 2026', 'percentage': 95.5, 'target': 95.0, 'totalStudents': 622},
+      {'month': 'Sep 2026', 'percentage': 94.8, 'target': 95.0, 'totalStudents': 627},
+      {'month': 'Oct 2026', 'percentage': 95.3, 'target': 95.0, 'totalStudents': 627},
+      {'month': 'Nov 2026', 'percentage': 96.0, 'target': 95.0, 'totalStudents': 627},
+      {'month': 'Dec 2026', 'percentage': 95.5, 'target': 95.0, 'totalStudents': 627},
     ];
   }
 
@@ -574,6 +691,21 @@ class MockDataService {
         letterStatus: LetterStatus.approved,
         dateApprovedRejected: DateTime.now(),
         hodRemarks: remarks ?? 'Approved by Head of Department (AI&DS). Document verified.',
+      );
+      _notifyUpdate();
+      return true;
+    }
+    return false;
+  }
+
+  static bool rejectByAdvisor(String leaveId, {String? remarks}) {
+    final index = _leaveRequests.indexWhere((l) => l.id == leaveId);
+    if (index != -1) {
+      final item = _leaveRequests[index];
+      _leaveRequests[index] = item.copyWith(
+        letterStatus: LetterStatus.rejected,
+        dateApprovedRejected: DateTime.now(),
+        advisorRemarks: remarks ?? 'Returned to student by Class Advisor for correction.',
       );
       _notifyUpdate();
       return true;
@@ -926,18 +1058,18 @@ class MockDataService {
     final purgedAlumni = _alumniArchive.where((a) => a.isPurged).length;
 
     return {
-      'totalStudents': allStudents.length, // 622
+      'totalStudents': allStudents.length, // 627
       'totalAdvisors': 10,
       'totalHods': 2,
       'totalSections': 10,
       'totalLeaveSlips': _leaveRequests.length,
-      'totalAttendanceRecords': 622 * 30, // 30 days of persistent records
+      'totalAttendanceRecords': 627 * 30, // 30 days of persistent records
       'activeAlumniUnder2YrRetention': activeAlumni,
       'purgedAlumniRecords': purgedAlumni,
       'storageAllocatedMB': 100.0,
       'storageUsedMB': 34.20,
       'breakdown': [
-        {'category': '622 Active Student Bio & Academic Data', 'size': '2.45 MB', 'records': '622 active'},
+        {'category': '627 Active Student Bio & Academic Data', 'size': '2.45 MB', 'records': '627 active'},
         {'category': 'Alumni 2-Year Retention Archive Vault', 'size': '1.85 MB', 'records': '$activeAlumni retained, $purgedAlumni auto-purged'},
         {'category': '10 Faculty Advisor & HOD Portals', 'size': '320 KB', 'records': '12 accounts'},
         {'category': 'Sep-Dec 2026 Attendance & Punch Logs', 'size': '6.40 MB', 'records': '18,660 logs'},

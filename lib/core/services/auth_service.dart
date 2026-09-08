@@ -564,7 +564,7 @@ class AuthService extends ChangeNotifier {
         if (matchedCr != null) {
           _pendingUser = matchedCr;
         } else {
-          // 3. Check any student by Roll Number or Name in the 622-student directory
+          // 3. Check any student by Roll Number or Name in the 627-student directory
           final rollMatch = RegExp(r'\b(2[345]243\d{3})\b').firstMatch(emailLower);
           final rollKey = rollMatch?.group(1) ?? emailLower.replaceAll('@vsb.ac.in', '').trim();
           final student = StudentDirectoryData.byRollNumber[rollKey];
@@ -646,7 +646,7 @@ class AuthService extends ChangeNotifier {
     if (user.id == 'adv-3a') return 'advisor.vishnupriya';
     if (user.id == 'adv-3b') return 'advisor.murugesan';
     if (user.id == 'adv-3c') return 'advisor.bharathi';
-    if (user.id == 'adv-3d') return 'advisor.veluswamy';
+    if (user.id == 'adv-3d') return 'advisor.velusamy';
     if (user.id == 'adv-2a') return 'advisor.anandhan';
     if (user.id == 'adv-2b') return 'advisor.rajendiran';
     if (user.id == 'adv-2c') return 'advisor.bharathidasan';

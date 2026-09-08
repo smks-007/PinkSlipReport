@@ -80,7 +80,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
           });
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Leave/OD submitted: '),
+              content: Text('Leave/OD submitted for ${newLeave.studentName}!'),
               backgroundColor: const Color(0xFF059669),
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -146,6 +146,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'student_submit_leave_fab',
         backgroundColor: AppColors.primaryPurple,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.note_add_rounded),

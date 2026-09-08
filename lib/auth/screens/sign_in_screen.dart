@@ -320,8 +320,7 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
             spacing: 8,
             runSpacing: 8,
             children: [
-              _accountChip('DR. MANIVANNAN (Overall HOD)', 'hod.manivannan', 'Hod@Mani2026'),
-              _accountChip('Mrs. Kavitha (I & II Yr HOD)', 'hod.kavitha', 'Hod@Kavi2026'),
+              _accountChip('DR. MANIVANNAN (Ph.D.) - Department HOD', 'hod.manivannan', 'Hod@Mani2026'),
             ],
           )
         else

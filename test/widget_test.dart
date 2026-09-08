@@ -4,25 +4,32 @@ import 'package:slipreport/main.dart';
 import 'package:slipreport/auth/screens/security_verification_screen.dart';
 import 'package:slipreport/auth/screens/forgot_password_screen.dart';
 import 'package:slipreport/core/data/student_directory_data.dart';
+import 'package:slipreport/core/models/student_model.dart';
 import 'package:slipreport/core/models/leave_model.dart';
 import 'package:slipreport/core/models/promotion_model.dart';
 import 'package:slipreport/core/services/auth_service.dart';
 import 'package:slipreport/core/services/mock_data_service.dart';
+import 'package:slipreport/chatbot/widgets/jarvis_fab.dart';
+import 'package:slipreport/dashboard/shared/widgets/role_ai_agent_sheet.dart';
+import 'package:slipreport/dashboard/student/screens/student_dashboard_screen.dart';
+import 'package:slipreport/dashboard/advisor/screens/advisor_dashboard_screen.dart';
+import 'package:slipreport/dashboard/hod/screens/hod_dashboard_screen.dart';
+import 'package:slipreport/core/services/ai_agent_service.dart';
 
 void main() {
-  test('StudentDirectoryData contains all 622 students across all 10 sections', () {
-    expect(StudentDirectoryData.allStudents.length, 622);
+  test('StudentDirectoryData contains all 627 students across all 10 sections', () {
+    expect(StudentDirectoryData.allStudents.length, 627);
 
     // Verify all 10 sections exist and have correct student counts
     expect(StudentDirectoryData.bySection['2-A']?.length, 63);
     expect(StudentDirectoryData.bySection['2-B']?.length, 63);
     expect(StudentDirectoryData.bySection['2-C']?.length, 60);
-    expect(StudentDirectoryData.bySection['2-D']?.length, 63);
+    expect(StudentDirectoryData.bySection['2-D']?.length, 66);
     expect(StudentDirectoryData.bySection['3-A']?.length, 65);
     expect(StudentDirectoryData.bySection['3-B']?.length, 61);
-    expect(StudentDirectoryData.bySection['3-C']?.length, 60);
+    expect(StudentDirectoryData.bySection['3-C']?.length, 61);
     expect(StudentDirectoryData.bySection['3-D']?.length, 63);
-    expect(StudentDirectoryData.bySection['4-A']?.length, 59);
+    expect(StudentDirectoryData.bySection['4-A']?.length, 60);
     expect(StudentDirectoryData.bySection['4-B']?.length, 65);
 
     // Verify key students across years
@@ -45,6 +52,11 @@ void main() {
     expect(s4?.name, 'S. HARINI');
     expect(s4?.batchYear, '2023 BATCH');
     expect(s4?.section, 'B');
+
+    // Verify today's attendance metrics
+    expect(MockDataService.presentToday, 533);
+    expect(MockDataService.absentToday, 94);
+    expect(MockDataService.todaysAbsentRollNumbers.length, 94);
   });
 
   test('All 10 Section Advisors and HODs have dedicated usernames and passwords', () {
@@ -212,8 +224,7 @@ void main() {
     // Verify SignIn screen elements
     expect(find.text('PinkSlipReport'), findsOneWidget);
     expect(find.text('Official Academic Portal'), findsOneWidget);
-    expect(find.text('DR. MANIVANNAN (Overall HOD)'), findsOneWidget);
-    expect(find.text('Mrs. Kavitha (I & II Yr HOD)'), findsOneWidget);
+    expect(find.text('DR. MANIVANNAN (Ph.D.) - Department HOD'), findsOneWidget);
     expect(find.text('🏛️ HOD Portal'), findsOneWidget);
     expect(find.text('👨‍🏫 Class Advisor'), findsOneWidget);
   });
@@ -262,4 +273,280 @@ void main() {
 
     await tester.pumpWidget(const SizedBox());
   });
+
+  test('AiAgentService autonomous reasoning, student deep lookup, and pink slip issuance', () async {
+    final aiAgent = AiAgentService();
+
+    // 1. Deep student profile retrieval
+    final profile = aiAgent.getStudentDeepProfile('25243001');
+    expect(profile, isNotNull);
+    final student = profile!['student'] as StudentModel;
+    expect(student.name, 'ABINAYA G');
+    expect(profile['isPresentToday'], isTrue);
+    expect(profile['advisorName'], 'Dr. D. Anandhan');
+    expect(profile['cumulativePercentage'], isNotNull);
+
+    // 2. Directory search by query
+    final found = aiAgent.findStudent('ARUL DEEPIKA');
+    expect(found, isNotNull);
+    expect(found?.rollNumber, '25243011');
+
+    // 3. Pink slip issuance
+    final slip = aiAgent.issuePinkSlip(
+      rollNumber: '25243001',
+      reason: 'Smart India Hackathon Finalist Round',
+      date: DateTime(2026, 9, 7),
+      issuedBy: 'Dr. K. Manivannan',
+      category: LeaveCategory.onDuty,
+    );
+    expect(slip.studentRollNumber, '25243001');
+    expect(slip.letterStatus, LetterStatus.approved);
+    expect(slip.category, LeaveCategory.onDuty);
+
+    // 4. Autonomous AI Agent Goal Execution
+    final result = await aiAgent.executeAutonomousGoal('Run a defaulter notification sweep across all 10 sections');
+    expect(result.steps.isNotEmpty, isTrue);
+    expect(result.steps.every((s) => s.isSuccess), isTrue);
+    expect(result.executiveSummary.contains('Defaulter Audit'), isTrue);
+  });
+
+  test('HOD Pink Slip Central and student attendance verification', () {
+    // 533 Present vs 94 Absent checks
+    expect(MockDataService.isStudentPresent('25243001'), isTrue); // Present
+    expect(MockDataService.isStudentAbsent('25243006'), isTrue); // Absent (Akhil M)
+    expect(MockDataService.isStudentPresent('25243006'), isFalse);
+
+    // HOD single and batch approval
+    final initialPending = MockDataService.leaveRequests.where((l) => l.letterStatus == LetterStatus.forwarded || l.letterStatus == LetterStatus.submitted).length;
+    expect(initialPending >= 0, isTrue);
+
+    final req = MockDataService.leaveRequests.first;
+    MockDataService.approveByHod(req.id, remarks: 'Verified by HOD');
+    final updatedReq = MockDataService.leaveRequests.firstWhere((l) => l.id == req.id);
+    expect(updatedReq.letterStatus, LetterStatus.approved);
+    expect(updatedReq.hodRemarks, 'Verified by HOD');
+  });
+
+  test('Student AI-Agent autonomous reasoning: forecast, safe leaves, and auto-draft', () async {
+    final aiAgent = AiAgentService();
+    final studentUser = AuthService.classRepresentatives[2]; // Lithesh Hari R (25243100)
+
+    // 1. Attendance forecast tool
+    final forecast = aiAgent.calculateAttendanceForecast(rollNumber: '25243100');
+    expect(forecast.containsKey('currentPercentage'), isTrue);
+    expect(forecast.containsKey('safeLeavesAllowed'), isTrue);
+    expect(forecast.containsKey('classesNeededFor75'), isTrue);
+    expect(forecast['totalTermDays'], 90);
+
+    // 2. Student attendance forecast goal
+    final resForecast = await aiAgent.executeAutonomousGoal(
+      'Forecast my attendance and check safe leaves allowed',
+      user: studentUser,
+    );
+    expect(resForecast.steps.isNotEmpty, isTrue);
+    expect(resForecast.executiveSummary.contains('Attendance Diagnostic'), isTrue);
+
+    // 3. Student auto-draft OD goal
+    final resDraft = await aiAgent.executeAutonomousGoal(
+      'Draft and submit an On-Duty OD application for SIH Hackathon',
+      user: studentUser,
+    );
+    expect(resDraft.steps.isNotEmpty, isTrue);
+    expect(resDraft.actionsExecuted.any((a) => a.contains('Auto-drafted')), isTrue);
+  });
+
+  test('Class Advisor AI-Agent autonomous reasoning: batch forward ODs, defaulters audit, and section brief', () async {
+    final aiAgent = AiAgentService();
+    final advisorUser = AuthService.sectionAdvisors.first; // Dr. D. Anandhan (II-A)
+
+    // 1. Batch forward ODs goal
+    final resForward = await aiAgent.executeAutonomousGoal(
+      'Batch forward all submitted OD requests in my section to HOD',
+      user: advisorUser,
+    );
+    expect(resForward.steps.isNotEmpty, isTrue);
+    expect(resForward.executiveSummary.contains('Batch Verification & Forwarding'), isTrue);
+
+    // 2. Section defaulter audit goal
+    final resDefaulters = await aiAgent.executeAutonomousGoal(
+      'Scan my section for defaulters less than 75%',
+      user: advisorUser,
+    );
+    expect(resDefaulters.steps.isNotEmpty, isTrue);
+    expect(resDefaulters.executiveSummary.contains('Section Defaulter Audit'), isTrue);
+
+    // 3. Section daily turnout brief goal
+    final resBrief = await aiAgent.executeAutonomousGoal(
+      'Compile section daily turnout and absentees brief',
+      user: advisorUser,
+    );
+    expect(resBrief.steps.isNotEmpty, isTrue);
+    expect(resBrief.executiveSummary.contains('Daily Section Telemetry Brief'), isTrue);
+  });
+
+  testWidgets('RoleAiAgentSheet renders correctly for Student and Advisor roles', (WidgetTester tester) async {
+    final studentUser = AuthService.classRepresentatives[2];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RoleAiAgentSheet(user: studentUser),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Student AI-Agent Co-Pilot'), findsOneWidget);
+    expect(find.text('75% Attendance Forecast'), findsOneWidget);
+    expect(find.text('Auto-Draft OD Application'), findsOneWidget);
+
+    final advisorUser = AuthService.sectionAdvisors.first;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RoleAiAgentSheet(user: advisorUser),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Advisor AI-Agent Co-Pilot'), findsOneWidget);
+    expect(find.text('Batch Forward ODs to HOD'), findsOneWidget);
+    expect(find.text('Section Defaulter Audit'), findsOneWidget);
+  });
+
+  testWidgets('Jarvis FAB is restricted to HOD and opens dual-tab Chatbot & AI-Agent interface', (WidgetTester tester) async {
+    // Log in as HOD
+    AuthService().loginDirectly(AuthService.overallHod);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          floatingActionButton: JarvisFAB(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('AI-Agent Co-Pilot'), findsOneWidget);
+
+    // Tap FAB to open Jarvis drawer
+    await tester.tap(find.byType(JarvisFAB));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Smart Pro AI Intelligence'), findsOneWidget);
+    expect(find.text('Jarvis Chatbot'), findsOneWidget);
+    expect(find.text('⚡ Autonomous AI-Agent'), findsOneWidget);
+  });
+
+  testWidgets('Student Dashboard renders cleanly with Submit Leave FAB and NO AI-Agent or Chatbot', (WidgetTester tester) async {
+    // Log in as student
+    AuthService().loginDirectly(AuthService.classRepresentatives[2]);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: StudentDashboardScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Verify student actions
+    expect(find.text('Submit Leave / OD'), findsOneWidget);
+    expect(find.text('Class Roster (63)'), findsOneWidget);
+
+    // Verify AI-Agent and Chatbot are completely absent from student dashboard
+    expect(find.text('⚡ Launch AI-Agent Co-Pilot'), findsNothing);
+    expect(find.byType(JarvisFAB), findsNothing);
+    expect(find.text('Jarvis Chatbot'), findsNothing);
+    expect(find.text('AI-Agent Co-Pilot'), findsNothing);
+  });
+
+  testWidgets('Advisor Dashboard Pink Slip Forwarder, Proof Scanner, and Multi-Section Review Workflow', (WidgetTester tester) async {
+    // Log in as Advisor Dr. Anandhan (II-A)
+    final advisorUser = AuthService.sectionAdvisors.first;
+    AuthService().loginDirectly(advisorUser);
+
+    // Test advisor rejection and forward helper methods
+    final leave = MockDataService.leaveRequests.first;
+    final rejectSuccess = MockDataService.rejectByAdvisor(leave.id, remarks: 'Incomplete medical prescription attached.');
+    expect(rejectSuccess, isTrue);
+
+    final rejectedLeave = MockDataService.leaveRequests.firstWhere((l) => l.id == leave.id);
+    expect(rejectedLeave.letterStatus, equals(LetterStatus.rejected));
+    expect(rejectedLeave.advisorRemarks, contains('Incomplete medical prescription attached.'));
+
+    // Test attendance helper methods
+    expect(MockDataService.isStudentPresent('25243001'), isTrue);
+    expect(MockDataService.isStudentAbsent('25243006'), isTrue);
+
+    // Build Advisor Dashboard Screen
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: AdvisorDashboardScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Verify Quick Actions Pink Slip Banner
+    expect(find.text('🎫 Forward Absentee / Issue Pink Slip'), findsOneWidget);
+    expect(find.text('Pink Slip'), findsWidgets);
+    expect(find.text('Pink Slip & OD Management'), findsOneWidget);
+    expect(find.text('My Class (Yr 2-A)'), findsOneWidget);
+    expect(find.text('All 10 Sections (627)'), findsOneWidget);
+
+    // Verify Class Roster section
+    expect(find.textContaining('Class Roster (Yr 2-A)'), findsOneWidget);
+  });
+
+  testWidgets('HOD Executive Segmented Dashboard, Quick Actions Bar, and Tab Switching Workflow', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    // Log in as Overall HOD
+    AuthService().loginDirectly(AuthService.overallHod);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: HodDashboardScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Verify Executive Summary Banner
+    expect(find.text('Total Enrolled'), findsOneWidget);
+    expect(find.text('Present Today'), findsOneWidget);
+    expect(find.text('Absentees'), findsOneWidget);
+    expect(find.text('Pending Slips'), findsOneWidget);
+
+    // Verify Executive Segmented Navigation Tabs
+    expect(find.text('Overview'), findsOneWidget);
+    expect(find.text('Sections'), findsOneWidget);
+    expect(find.text('Approvals'), findsOneWidget);
+    expect(find.text('Promotion'), findsOneWidget);
+
+    // Verify Tab 0: Quick Actions Bar
+    expect(find.text('⚡ Executive Quick Actions'), findsOneWidget);
+    expect(find.text('Issue Pink Slip'), findsOneWidget);
+    expect(find.text('Broadcast Notice'), findsOneWidget);
+    expect(find.text('Parent Intimation'), findsOneWidget);
+    expect(find.text('Daily Muster Roll'), findsOneWidget);
+
+    // Switch to Tab 1: Sections
+    await tester.tap(find.byKey(const ValueKey('hod_tab_1')));
+    await tester.pumpAndSettle();
+    expect(find.text('Browse All 10 Sections (627 Students)'), findsOneWidget);
+
+    // Switch to Tab 2: Approvals
+    await tester.tap(find.byKey(const ValueKey('hod_tab_2')));
+    await tester.pumpAndSettle();
+    expect(find.text('Pink Slip & Digital Approval Central'), findsOneWidget);
+
+    // Switch to Tab 3: Promotion
+    await tester.tap(find.byKey(const ValueKey('hod_tab_3')));
+    await tester.pumpAndSettle();
+    expect(find.text('Academic Year Progression & Promotion Queue'), findsOneWidget);
+    expect(find.text('Alumni Data Retention & Auto-Purge Manager'), findsOneWidget);
+  });
 }
+

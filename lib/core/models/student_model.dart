@@ -1,4 +1,4 @@
-﻿import 'promotion_model.dart';
+import 'promotion_model.dart';
 
 /// Represents a student in the system with academic progression & lifecycle tracking.
 class StudentModel {
@@ -62,8 +62,8 @@ class StudentModel {
     }
   }
 
-  String get classDisplay => year >= 5 ? 'Graduated Alumni ()' : '  - Section ';
-  String get fullClassDetails => year >= 5 ? 'Graduated Alumni -  ()' : '  - Section  ()';
+  String get classDisplay => year >= 5 ? 'Graduated Alumni ($batchYear)' : '$romanYear AI&DS - Section $section';
+  String get fullClassDetails => year >= 5 ? 'Graduated Alumni - $name ($batchYear)' : '$romanYear AI&DS - Section $section ($batchYear)';
 
   StudentModel copyWith({
     String? id,

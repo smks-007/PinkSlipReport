@@ -54,10 +54,10 @@ Department Leadership:
 - Junior Wing Head of Department (I & II Year): Mrs. V. Kavitha - kavitha.hod@vsb.ac.in
 
 Student & Section Topology:
-- Total Department Strength: 622 Students across 10 Active Sections
-- IV Year (2023 Batch): 124 Students (Sec A: 59, Sec B: 65)
-- III Year (2024 Batch): 249 Students (Sec A: 65, Sec B: 61, Sec C: 60, Sec D: 63)
-- II Year (2025 Batch): 249 Students (Sec A: 63, Sec B: 63, Sec C: 60, Sec D: 63)
+- Total Department Strength: 627 Students across 10 Active Sections
+- IV Year (2023 Batch): 125 Students (Sec A: 60, Sec B: 65)
+- III Year (2024 Batch): 250 Students (Sec A: 65, Sec B: 61, Sec C: 61, Sec D: 63)
+- II Year (2025 Batch): 252 Students (Sec A: 63, Sec B: 63, Sec C: 60, Sec D: 66)
 
 Class Advisors Directory:
 $advisorList
@@ -65,9 +65,9 @@ $advisorList
 Class Representatives (CRs):
 $crList
 
-Live Attendance Status (Today: 03-09-2026):
-- Total Present: 589 Students (${MockDataService.attendancePercentage.toStringAsFixed(1)}% Turnout)
-- Total Absentees: 33 Students
+Live Attendance Status (Today):
+- Total Present: ${MockDataService.presentToday} Students (${MockDataService.attendancePercentage.toStringAsFixed(1)}% Turnout)
+- Total Absentees: ${MockDataService.absentToday} Students
 - Section Absentees: II-A: 3, II-B: 4, II-C: 3, II-D: 4, III-A: 4, III-B: 3, III-C: 3, III-D: 4, IV-A: 2, IV-B: 3
 
 HOD Approvals Queue ($pendingCount Pending Actions):

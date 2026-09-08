@@ -7,10 +7,13 @@ import '../../../core/models/student_model.dart';
 import '../../../core/models/promotion_model.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/mock_data_service.dart';
+import '../../../core/data/student_directory_data.dart';
 import '../../../core/widgets/smart_pro_logo.dart';
 import '../../../chatbot/widgets/jarvis_fab.dart';
 import '../../shared/widgets/letter_attachment_viewer_dialog.dart';
 import '../../shared/widgets/storage_management_dialog.dart';
+import '../../shared/widgets/promotion_dossier_viewer_dialog.dart';
+import '../../shared/widgets/attendance_report_viewer_dialog.dart';
 
 class HodDashboardScreen extends StatefulWidget {
   const HodDashboardScreen({super.key});
@@ -20,9 +23,30 @@ class HodDashboardScreen extends StatefulWidget {
 }
 
 class _HodDashboardScreenState extends State<HodDashboardScreen> {
+  int _currentTabIndex = 0;
   int _selectedYear = 2;
   String _selectedSection = 'A';
   bool _showDepartmentGraph = false;
+  String _pinkSlipFilter = 'All'; // All, Awaiting, Approved, OD, Leave, Rejected
+  final TextEditingController _pinkSlipSearchCtrl = TextEditingController();
+  String _pinkSlipQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    final user = AuthService().currentUser;
+    if (user != null && (user.id == 'hod-002' || user.name.toLowerCase().contains('kavitha'))) {
+      _selectedYear = 2;
+    } else {
+      _selectedYear = 3;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pinkSlipSearchCtrl.dispose();
+    super.dispose();
+  }
 
   int get _awaitingCount => MockDataService.leaveRequests
       .where((l) =>
@@ -35,15 +59,15 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
     if (user != null && user.role == UserRole.hod) {
       return user.name;
     }
-    return (_selectedYear == 1 || _selectedYear == 2)
-        ? 'Mrs. Kavitha'
-        : 'DR. MANIVANNAN (Ph.D.)';
+    return 'DR. MANIVANNAN (Ph.D.)';
   }
 
   String get _currentHodTitle {
-    return (_selectedYear == 1 || _selectedYear == 2)
-        ? 'I & II Year HOD (Junior Wing)'
-        : 'Overall Department HOD (III & IV Year)';
+    final user = AuthService().currentUser;
+    if (user != null && user.role == UserRole.hod) {
+      return 'Head of Department • Department of AI&DS';
+    }
+    return 'Head of Department • Department of AI&DS';
   }
 
   List<String> get _currentSections {
@@ -87,6 +111,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
           builder: (context, _, child) {
             final stats = _sectionStats;
             final defaulters = MockDataService.getAllDepartmentDefaulters();
+            final pendingPromotions = MockDataService.getPendingPromotionsForHod();
 
             return SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
@@ -97,51 +122,33 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   _buildAuthorityBanner(),
                   const SizedBox(height: 8),
                   _buildHODWelcomeCard(),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 12),
 
-                  // Low Attendance (<75%) Alert Section
-                  if (defaulters.isNotEmpty) ...[
-                    _buildLowAttendanceAlertCard(defaulters),
-                    const SizedBox(height: 20),
+                  // Executive Summary Banner
+                  _buildExecutiveSummaryBanner(_awaitingCount, pendingPromotions.length),
+                  const SizedBox(height: 14),
+
+                  // Executive Segmented Navigation Bar
+                  _buildExecutiveSegmentedNavBar(_awaitingCount, pendingPromotions.length),
+                  const SizedBox(height: 16),
+
+                  // Tab 0: Executive Overview & Analytics
+                  if (_currentTabIndex == 0) ...[
+                    _buildTab0Overview(stats, defaulters),
+                  ]
+                  // Tab 1: Section Portals & Attendance
+                  else if (_currentTabIndex == 1) ...[
+                    _buildTab1Sections(stats),
+                  ]
+                  // Tab 2: Approvals & Movement Passes
+                  else if (_currentTabIndex == 2) ...[
+                    _buildTab2Approvals(),
+                  ]
+                  // Tab 3: Academic Progression & Alumni Retention
+                  else if (_currentTabIndex == 3) ...[
+                    _buildTab3Progression(pendingPromotions),
                   ],
 
-                  _buildSectionTitle('Browse All 10 Sections (622 Students)'),
-                  const SizedBox(height: 10),
-                  _buildYearSelector(),
-                  const SizedBox(height: 8),
-                  _buildSectionSelector(),
-                  const SizedBox(height: 12),
-                  _buildActiveSectionCard(stats),
-                  const SizedBox(height: 24),
-
-                  // Weekly Daily Attendance Trend Graph
-                  _buildWeeklyTrendGraphSection(),
-                  const SizedBox(height: 24),
-
-                  // End of Month / Monthly Attendance Progression Graph
-                  _buildMonthlyProgressionSection(),
-                  const SizedBox(height: 24),
-
-                  // Today's Absentees & On-Duty Students with Proof Attachment Viewer
-                  _buildAbsenteesAndODSection(),
-                  const SizedBox(height: 24),
-
-                  _buildSectionTitle('Department Attendance Overview'),
-                  const SizedBox(height: 12),
-                  _buildDepartmentKPIs(),
-                  const SizedBox(height: 24),
-
-                  // Academic Year-End Promotion & Progression Batch Queue
-                  _buildPromotionApprovalSection(),
-                  const SizedBox(height: 24),
-
-                  // 2-Year Alumni Data Retention & Automated Database Purge Manager
-                  _buildAlumniRetentionSection(),
-                  const SizedBox(height: 24),
-
-                  _buildApprovalHeader(),
-                  const SizedBox(height: 12),
-                  _buildApprovalQueue(),
                   const SizedBox(height: 100),
                 ],
               ),
@@ -268,7 +275,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                 ),
                 const SizedBox(width: 8),
                 const Text(
-                  'AI&DS • 622 Students',
+                  'AI&DS • 627 Students',
                   style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.5),
                 ),
               ],
@@ -279,25 +286,37 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(_currentHodName, style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.bold)),
-                PopupMenuButton<String>(
-                  icon: const Icon(Icons.swap_horiz_rounded, color: Colors.white, size: 20),
-                  tooltip: 'Switch HOD Profile',
-                  onSelected: (val) {
-                    setState(() {
-                      if (val == 'kavitha') {
-                        AuthService().switchHod(AuthService.juniorHod);
-                        _selectedYear = 2;
-                      } else {
-                        AuthService().switchHod(AuthService.overallHod);
-                        _selectedYear = 3;
-                      }
-                    });
-                  },
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(value: 'kavitha', child: Text('Mrs. Kavitha (1st & 2nd Year HOD)')),
-                    const PopupMenuItem(value: 'manivannan', child: Text('Dr. Manivannan (Overall HOD)')),
-                  ],
+                Expanded(
+                  child: Text(
+                    _currentHodName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 19,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.verified_user_rounded, color: Colors.white, size: 14),
+                      SizedBox(width: 4),
+                      Text(
+                        'Verified HOD',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -305,6 +324,814 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
             const Text('V.S.B. Engineering College • Academic Term Sep-Dec 2026', style: TextStyle(color: Colors.white70, fontSize: 12)),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildExecutiveSummaryBanner(int awaitingCount, int pendingPromotionsCount) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _microSummaryItem('Total Enrolled', '627', '10 Sections', const Color(0xFF6366F1)),
+            Container(width: 1, height: 32, color: const Color(0xFFE2E8F0)),
+            _microSummaryItem('Present Today', '533', '85.0% Rate', const Color(0xFF10B981)),
+            Container(width: 1, height: 32, color: const Color(0xFFE2E8F0)),
+            _microSummaryItem('Absentees', '94', 'Uninformed/OD', const Color(0xFFEF4444)),
+            Container(width: 1, height: 32, color: const Color(0xFFE2E8F0)),
+            _microSummaryItem('Pending Slips', '$awaitingCount', 'HOD Action', const Color(0xFFF59E0B)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _microSummaryItem(String label, String value, String sub, Color color) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
+        const SizedBox(height: 1),
+        Text(label, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Color(0xFF334155))),
+        Text(sub, style: const TextStyle(fontSize: 9, color: Color(0xFF94A3B8))),
+      ],
+    );
+  }
+
+  Widget _buildExecutiveSegmentedNavBar(int awaitingCount, int pendingPromotionsCount) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: const Color(0xFFE2E8F0).withValues(alpha: 0.7),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            _buildSegmentTabItem(
+              index: 0,
+              icon: Icons.dashboard_outlined,
+              activeIcon: Icons.dashboard_rounded,
+              label: 'Overview',
+              badgeCount: 0,
+            ),
+            _buildSegmentTabItem(
+              index: 1,
+              icon: Icons.domain_outlined,
+              activeIcon: Icons.domain_rounded,
+              label: 'Sections',
+              badgeCount: 0,
+            ),
+            _buildSegmentTabItem(
+              index: 2,
+              icon: Icons.draw_outlined,
+              activeIcon: Icons.draw_rounded,
+              label: 'Approvals',
+              badgeCount: awaitingCount,
+              badgeColor: const Color(0xFFEC4899),
+            ),
+            _buildSegmentTabItem(
+              index: 3,
+              icon: Icons.school_outlined,
+              activeIcon: Icons.school_rounded,
+              label: 'Promotion',
+              badgeCount: pendingPromotionsCount,
+              badgeColor: const Color(0xFF6366F1),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSegmentTabItem({
+    required int index,
+    required IconData icon,
+    required IconData activeIcon,
+    required String label,
+    required int badgeCount,
+    Color badgeColor = const Color(0xFFEF4444),
+  }) {
+    final isSelected = _currentTabIndex == index;
+    return Expanded(
+      child: GestureDetector(
+        key: ValueKey('hod_tab_$index'),
+        behavior: HitTestBehavior.opaque,
+        onTap: () => setState(() => _currentTabIndex = index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                isSelected ? activeIcon : icon,
+                size: 16,
+                color: isSelected ? const Color(0xFF0F172A) : const Color(0xFF64748B),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                  color: isSelected ? const Color(0xFF0F172A) : const Color(0xFF64748B),
+                ),
+              ),
+              if (badgeCount > 0) ...[
+                const SizedBox(width: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: badgeColor,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '$badgeCount',
+                    style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTab0Overview(Map<String, dynamic> stats, List<Map<String, dynamic>> defaulters) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Quick Action Bar
+        _buildQuickActionToolbar(),
+        const SizedBox(height: 18),
+
+        // Department Attendance Overview KPIs
+        _buildSectionTitle('Department Live Statistics (627 Students)'),
+        const SizedBox(height: 10),
+        _buildDepartmentKPIs(),
+        const SizedBox(height: 18),
+
+        // Low Attendance (<75%) Alert Section
+        if (defaulters.isNotEmpty) ...[
+          _buildLowAttendanceAlertCard(defaulters),
+          const SizedBox(height: 18),
+        ],
+
+        // Weekly Daily Attendance Trend Graph
+        _buildWeeklyTrendGraphSection(),
+        const SizedBox(height: 18),
+
+        // End of Month / Monthly Attendance Progression Graph
+        _buildMonthlyProgressionSection(),
+      ],
+    );
+  }
+
+  Widget _buildQuickActionToolbar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                '⚡ Executive Quick Actions',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF0F172A)),
+              ),
+              Text(
+                'Instant HOD Operations',
+                style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _quickActionButton(
+                  icon: Icons.receipt_long_rounded,
+                  title: 'Issue Pink Slip',
+                  subtitle: 'Movement / OD pass',
+                  color: const Color(0xFFEC4899),
+                  onTap: _showIssuePinkSlipModal,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _quickActionButton(
+                  icon: Icons.campaign_rounded,
+                  title: 'Broadcast Notice',
+                  subtitle: 'Advisors & CRs',
+                  color: const Color(0xFF6366F1),
+                  onTap: _showBroadcastNoticeModal,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _quickActionButton(
+                  icon: Icons.mark_chat_unread_rounded,
+                  title: 'Parent Intimation',
+                  subtitle: 'SMS / WhatsApp notice',
+                  color: const Color(0xFF059669),
+                  onTap: _showParentNoticeGeneratorModal,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _quickActionButton(
+                  icon: Icons.fact_check_rounded,
+                  title: 'Daily Muster Roll',
+                  subtitle: '10 Sections & Proofs',
+                  color: const Color(0xFF0284C7),
+                  onTap: () => AttendanceReportViewerDialog.show(
+                    context,
+                    year: _selectedYear,
+                    section: _selectedSection,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _quickActionButton({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0F172A)),
+                  ),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTab1Sections(Map<String, dynamic> stats) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Browse All 10 Sections (627 Students)'),
+        const SizedBox(height: 10),
+        _buildYearSelector(),
+        const SizedBox(height: 8),
+        _buildSectionSelector(),
+        const SizedBox(height: 12),
+        _buildActiveSectionCard(stats),
+        const SizedBox(height: 18),
+        _buildAbsenteesAndODSection(),
+      ],
+    );
+  }
+
+  Widget _buildTab2Approvals() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildApprovalHeader(),
+        const SizedBox(height: 12),
+        _buildApprovalQueue(),
+      ],
+    );
+  }
+
+  Widget _buildTab3Progression(List<PromotionRequest> pendingPromotions) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildPromotionApprovalSection(),
+        const SizedBox(height: 20),
+        _buildAlumniRetentionSection(),
+      ],
+    );
+  }
+
+  void _showBroadcastNoticeModal() {
+    final titleCtrl = TextEditingController(text: 'Urgent: Department Attendance & IA Review');
+    final msgCtrl = TextEditingController(
+      text: 'All Section Advisors and Class Representatives are requested to verify today\'s attendance muster rolls and submit defaulter lists to the HOD office by 4:00 PM.',
+    );
+    String audience = 'All 10 Sections (627 Students)';
+    String priority = 'High Priority';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 20,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+            ),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF6366F1).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.campaign_rounded, color: Color(0xFF6366F1), size: 20),
+                          ),
+                          const SizedBox(width: 10),
+                          const Text(
+                            'Broadcast Department Notice',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Target Audience
+                  const Text('Target Audience', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                  const SizedBox(height: 4),
+                  DropdownButtonFormField<String>(
+                    initialValue: audience,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'All 10 Sections (627 Students)', child: Text('📢 All 10 Sections (627 Students)', style: TextStyle(fontSize: 12))),
+                      DropdownMenuItem(value: 'All Section Advisors (10 Faculty)', child: Text('👨‍🏫 All Section Advisors (10 Faculty)', style: TextStyle(fontSize: 12))),
+                      DropdownMenuItem(value: 'Class Representatives (CRs)', child: Text('⭐ Class Representatives (CRs)', style: TextStyle(fontSize: 12))),
+                      DropdownMenuItem(value: 'II Year Only (2025 Batch)', child: Text('📘 II Year Only (Sec A, B, C, D)', style: TextStyle(fontSize: 12))),
+                      DropdownMenuItem(value: 'III Year Only (2024 Batch)', child: Text('📗 III Year Only (Sec A, B, C, D)', style: TextStyle(fontSize: 12))),
+                      DropdownMenuItem(value: 'IV Year Only (2023 Batch)', child: Text('📙 IV Year Only (Sec A, B)', style: TextStyle(fontSize: 12))),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) setModalState(() => audience = val);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Priority Level
+                  const Text('Notice Priority & Category', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                  const SizedBox(height: 4),
+                  DropdownButtonFormField<String>(
+                    initialValue: priority,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'High Priority', child: Text('🚨 Urgent / High Priority Alert', style: TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.bold))),
+                      DropdownMenuItem(value: 'Academic Circular', child: Text('📝 Academic Circular & Assessment', style: TextStyle(fontSize: 12))),
+                      DropdownMenuItem(value: 'Attendance Intimation', child: Text('⏱️ Attendance & Defaulter Notice', style: TextStyle(fontSize: 12))),
+                      DropdownMenuItem(value: 'Symposium & Events', child: Text('🏆 Symposium & Hackathon Guidelines', style: TextStyle(fontSize: 12))),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) setModalState(() => priority = val);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Preset Templates
+                  const Text('Quick Notice Templates', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                  const SizedBox(height: 4),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        ActionChip(
+                          label: const Text('Attendance Defaulters', style: TextStyle(fontSize: 11)),
+                          onPressed: () {
+                            setModalState(() {
+                              titleCtrl.text = '⚠️ Low Attendance (<75%) Parent Call';
+                              msgCtrl.text = 'All students with attendance below 75% are directed to meet their Section Advisor along with their parents on Friday.';
+                            });
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        ActionChip(
+                          label: const Text('IA Mark Sheets', style: TextStyle(fontSize: 11)),
+                          onPressed: () {
+                            setModalState(() {
+                              titleCtrl.text = '📊 IA-1 Marks Submission';
+                              msgCtrl.text = 'Course coordinators and section advisors are advised to upload IA-1 assessment rubrics by tomorrow evening.';
+                            });
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        ActionChip(
+                          label: const Text('Hackathon / OD Proofs', style: TextStyle(fontSize: 11)),
+                          onPressed: () {
+                            setModalState(() {
+                              titleCtrl.text = '🏆 OD Certificates & Hackathon Proofs';
+                              msgCtrl.text = 'Submit participation certificates and registration proof for symposiums to the HOD portal for On-Duty leave credit.';
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Notice Title
+                  const Text('Notice Title', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: titleCtrl,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    ),
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Notice Content
+                  const Text('Notice Body / Instructions', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: msgCtrl,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                      contentPadding: const EdgeInsets.all(10),
+                    ),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Broadcast Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        final title = titleCtrl.text.trim();
+                        final msg = msgCtrl.text.trim();
+                        if (title.isEmpty || msg.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Please enter notice title and message body.')),
+                          );
+                          return;
+                        }
+
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Row(
+                              children: [
+                                const Icon(Icons.send_rounded, color: Colors.white, size: 18),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text('📢 Notice "$title" broadcasted successfully to $audience!'),
+                                ),
+                              ],
+                            ),
+                            backgroundColor: const Color(0xFF6366F1),
+                            duration: const Duration(seconds: 4),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF6366F1),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      icon: const Icon(Icons.send_rounded, size: 18),
+                      label: const Text('Broadcast Notice to Department', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showParentNoticeGeneratorModal() {
+    final defaulters = MockDataService.getAllDepartmentDefaulters();
+    StudentModel selectedStudent = defaulters.isNotEmpty
+        ? (defaulters.first['student'] as StudentModel)
+        : StudentDirectoryData.allStudents.first;
+    double currentPct = defaulters.isNotEmpty
+        ? (defaulters.first['percentage'] as double)
+        : 72.4;
+    String noticeFormat = 'Bilingual Absent Alert (English / Tamil)';
+
+    final customMsgCtrl = TextEditingController();
+
+    void updateMessageText() {
+      if (noticeFormat.contains('Bilingual')) {
+        customMsgCtrl.text =
+            'Dear Parent, Your ward ${selectedStudent.name} (Roll: ${selectedStudent.rollNumber}, Yr ${selectedStudent.year}-${selectedStudent.section}) is absent today (07/09/2026). Kindly contact the Class Advisor.\n\n'
+            'அன்புள்ள பெற்றோருக்கு, உங்கள் மகன்/மகள் ${selectedStudent.name} இன்று கல்லூரிக்கு வரவில்லை. வகுப்பு ஆலோசகரை தொடர்பு கொள்ளவும். - HOD/AI&DS, VSBEC';
+      } else if (noticeFormat.contains('Low Attendance')) {
+        customMsgCtrl.text =
+            'VSB ENGINEERING COLLEGE - AI&DS DEPT\n'
+            'Official Notice: Attendance of ${selectedStudent.name} (${selectedStudent.rollNumber}) is currently ${currentPct.toStringAsFixed(1)}%, which is below the statutory Anna University minimum 75% requirement. Please meet the HOD immediately.';
+      } else {
+        customMsgCtrl.text =
+            'URGENT PARENT CALL:\n'
+            'Parents of ${selectedStudent.name} (${selectedStudent.rollNumber}, Sec ${selectedStudent.year}-${selectedStudent.section}) are requested to attend a special counseling meeting with HOD and Section Advisor on Friday at 10:30 AM.';
+      }
+    }
+
+    updateMessageText();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 20,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+            ),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF059669).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.mark_chat_unread_rounded, color: Color(0xFF059669), size: 20),
+                          ),
+                          const SizedBox(width: 10),
+                          const Text(
+                            'Parent SMS & WhatsApp Intimation',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Select Student
+                  const Text('Select Student (Defaulter / Absentee)', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                  const SizedBox(height: 4),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedStudent.rollNumber,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    items: StudentDirectoryData.allStudents.take(60).map((st) {
+                      return DropdownMenuItem<String>(
+                        value: st.rollNumber,
+                        child: Text('${st.name} (${st.rollNumber}) • Yr ${st.year}-${st.section}', style: const TextStyle(fontSize: 12)),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        final st = StudentDirectoryData.byRollNumber[val];
+                        if (st != null) {
+                          setModalState(() {
+                            selectedStudent = st;
+                            final d = defaulters.firstWhere(
+                              (item) => (item['student'] as StudentModel).rollNumber == st.rollNumber,
+                              orElse: () => {'percentage': 74.0},
+                            );
+                            currentPct = (d['percentage'] as num).toDouble();
+                            updateMessageText();
+                          });
+                        }
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Intimation Type
+                  const Text('Intimation Template Format', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                  const SizedBox(height: 4),
+                  DropdownButtonFormField<String>(
+                    initialValue: noticeFormat,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'Bilingual Absent Alert (English / Tamil)', child: Text('🚨 Today\'s Absent Alert (English / தமிழ்)', style: TextStyle(fontSize: 12))),
+                      DropdownMenuItem(value: 'Low Attendance (<75%) Warning Letter', child: Text('⚠️ Low Attendance (<75%) Warning', style: TextStyle(fontSize: 12))),
+                      DropdownMenuItem(value: 'Formal Parent Call for HOD Review', child: Text('📞 Urgent Parent-HOD Meeting Call', style: TextStyle(fontSize: 12))),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        setModalState(() {
+                          noticeFormat = val;
+                          updateMessageText();
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Generated Message Box
+                  const Text('Message Body Preview', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: customMsgCtrl,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                      contentPadding: const EdgeInsets.all(10),
+                    ),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Action Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('📋 Intimation message copied to clipboard!'),
+                                backgroundColor: Color(0xFF334155),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.copy_rounded, size: 16),
+                          label: const Text('Copy Text', style: TextStyle(fontSize: 12)),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFFCBD5E1)),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('📱 SMS & WhatsApp Intimation dispatched to parents of ${selectedStudent.name}!'),
+                                backgroundColor: const Color(0xFF047857),
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF059669),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          icon: const Icon(Icons.send_to_mobile_rounded, size: 16),
+                          label: const Text('Dispatch SMS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -480,18 +1307,39 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () => Navigator.pushNamed(context, '/attendance'),
-                icon: const Icon(Icons.edit_calendar_rounded, size: 16, color: Color(0xFF6366F1)),
-                label: Text('Open Full Attendance Register (Sec $_selectedSection)', style: const TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold, fontSize: 12.5)),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Color(0xFF6366F1)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => Navigator.pushNamed(context, '/attendance'),
+                    icon: const Icon(Icons.edit_calendar_rounded, size: 15, color: Color(0xFF6366F1)),
+                    label: Text('Edit Register (Sec $_selectedSection)', style: const TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold, fontSize: 11.5)),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFF6366F1)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => AttendanceReportViewerDialog.show(
+                      context,
+                      year: _selectedYear,
+                      section: _selectedSection,
+                    ),
+                    icon: const Icon(Icons.fact_check_rounded, size: 15),
+                    label: const Text('Inspect Reports & Proofs', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF6366F1),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -808,7 +1656,27 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
             else ...[
               // On-Duty students
               ...odList.map((r) {
-                final s = students.firstWhere((st) => st.id == r.studentId, orElse: () => students.first);
+                StudentModel? s;
+                for (final st in students) {
+                  if (st.id == r.studentId) {
+                    s = st;
+                    break;
+                  }
+                }
+                s ??= StudentDirectoryData.allStudents.cast<StudentModel?>().firstWhere(
+                  (st) => st?.id == r.studentId,
+                  orElse: () => StudentModel(
+                    id: r.studentId,
+                    rollNumber: '25243001',
+                    name: 'Student ${r.studentId}',
+                    department: 'AI&DS',
+                    year: _selectedYear,
+                    section: _selectedSection,
+                    batchYear: '${_selectedYear == 2 ? "2025" : _selectedYear == 3 ? "2024" : "2023"} BATCH',
+                    advisorId: 'adv_${_selectedYear}_$_selectedSection',
+                  ),
+                );
+                final student = s!;
                 return Container(
                   margin: const EdgeInsets.only(bottom: 6),
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -820,7 +1688,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                         children: [
                           const Icon(Icons.badge_rounded, size: 14, color: Color(0xFF2563EB)),
                           const SizedBox(width: 6),
-                          Text('${s.name} (${s.rollNumber})', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF1E40AF))),
+                          Text('${student.name} (${student.rollNumber})', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF1E40AF))),
                         ],
                       ),
                       Text(r.onDutyReason ?? 'On-Duty OD', style: const TextStyle(fontSize: 10, color: Color(0xFF2563EB), fontWeight: FontWeight.w600)),
@@ -830,7 +1698,27 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               }),
               // Absentees
               ...absentees.map((r) {
-                final s = students.firstWhere((st) => st.id == r.studentId, orElse: () => students.first);
+                StudentModel? s;
+                for (final st in students) {
+                  if (st.id == r.studentId) {
+                    s = st;
+                    break;
+                  }
+                }
+                s ??= StudentDirectoryData.allStudents.cast<StudentModel?>().firstWhere(
+                  (st) => st?.id == r.studentId,
+                  orElse: () => StudentModel(
+                    id: r.studentId,
+                    rollNumber: '25243001',
+                    name: 'Student ${r.studentId}',
+                    department: 'AI&DS',
+                    year: _selectedYear,
+                    section: _selectedSection,
+                    batchYear: '${_selectedYear == 2 ? "2025" : _selectedYear == 3 ? "2024" : "2023"} BATCH',
+                    advisorId: 'adv_${_selectedYear}_$_selectedSection',
+                  ),
+                );
+                final student = s!;
                 return Container(
                   margin: const EdgeInsets.only(bottom: 6),
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -842,7 +1730,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                         children: [
                           const Icon(Icons.person_off_rounded, size: 14, color: Color(0xFFDC2626)),
                           const SizedBox(width: 6),
-                          Text('${s.name} (${s.rollNumber})', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF991B1B))),
+                          Text('${student.name} (${student.rollNumber})', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF991B1B))),
                         ],
                       ),
                       const Text('Absent (Uninformed)', style: TextStyle(fontSize: 10, color: Color(0xFFDC2626), fontWeight: FontWeight.w600)),
@@ -858,23 +1746,59 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
   }
 
   Widget _buildDepartmentKPIs() {
+    final leaves = MockDataService.leaveRequests;
+    final totalSlips = leaves.length;
+    final approvedSlips = leaves.where((l) => l.letterStatus == LetterStatus.approved).length;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         children: [
           Row(
             children: [
-              Expanded(child: _miniKPICard('Dept Attendance', '${MockDataService.attendancePercentage.toStringAsFixed(1)}%', '${MockDataService.presentToday}/${MockDataService.totalStrength} Present', Icons.pie_chart_outline_rounded, const Color(0xFF6366F1))),
+              Expanded(
+                child: _miniKPICard(
+                  'Dept Attendance',
+                  '${MockDataService.attendancePercentage.toStringAsFixed(1)}%',
+                  '${MockDataService.presentToday}/${MockDataService.totalStrength} Present',
+                  Icons.pie_chart_outline_rounded,
+                  const Color(0xFF6366F1),
+                ),
+              ),
               const SizedBox(width: 12),
-              Expanded(child: _miniKPICard('Total Students', '${MockDataService.totalStrength}', '10 AIDS Sections (622)', Icons.groups_rounded, const Color(0xFF0284C7))),
+              Expanded(
+                child: _miniKPICard(
+                  'Total Students',
+                  '${MockDataService.totalStrength}',
+                  '10 AIDS Sections (627)',
+                  Icons.groups_rounded,
+                  const Color(0xFF0284C7),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: _miniKPICard('Awaiting HOD', '$_awaitingCount', 'Digital Signature', Icons.hourglass_bottom_rounded, AppColors.pendingOrange)),
+              Expanded(
+                child: _miniKPICard(
+                  'Awaiting HOD Sign',
+                  '$_awaitingCount',
+                  'Digital Signature Queue',
+                  Icons.hourglass_bottom_rounded,
+                  AppColors.pendingOrange,
+                ),
+              ),
               const SizedBox(width: 12),
-              Expanded(child: _miniKPICard('Defaulters (<75%)', '${MockDataService.getAllDepartmentDefaulters().length}', 'Notified to Advisors', Icons.flag_rounded, AppColors.absentRed)),
+              Expanded(
+                child: _miniKPICard(
+                  'Pink Slips / ODs',
+                  '$totalSlips Total',
+                  '$approvedSlips Signed & Active',
+                  Icons.receipt_long_rounded,
+                  const Color(0xFFEC4899),
+                ),
+              ),
             ],
           ),
         ],
@@ -885,19 +1809,29 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
   Widget _miniKPICard(String label, String value, String sub, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(label, style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+              Text(
+                label,
+                style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+              ),
               Icon(icon, size: 20, color: color),
             ],
           ),
           const SizedBox(height: 8),
-          Text(value, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+          ),
           const SizedBox(height: 2),
           Text(sub, style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8))),
         ],
@@ -908,24 +1842,105 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
   Widget _buildApprovalHeader() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Needs Your Final Signature ($_awaitingCount)', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF0F172A))),
-          TextButton(
-            onPressed: () {
-              setState(() {
-                for (final l in MockDataService.leaveRequests) {
-                  if (l.letterStatus == LetterStatus.forwarded || l.letterStatus == LetterStatus.submitted) {
-                    MockDataService.approveByHod(l.id);
-                  }
-                }
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('All pending requests approved by HOD! ⚡'), backgroundColor: Color(0xFF047857)),
-              );
-            },
-            child: const Text('Approve All', style: TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold)),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEC4899).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.receipt_long_rounded, color: Color(0xFFEC4899), size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Pink Slip & Digital Approval Central',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF0F172A)),
+                    ),
+                    Text(
+                      'Official Movement Passes, OD Endorsements & Digital Signatures',
+                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: _awaitingCount > 0 ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '$_awaitingCount Awaiting',
+                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _showIssuePinkSlipModal(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFEC4899),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: const Icon(Icons.add_circle_outline_rounded, size: 16),
+                  label: const Text('Issue Pink Slip', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _showExportRegisterDialog(),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF0F172A),
+                    side: const BorderSide(color: Color(0xFFCBD5E1)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: const Icon(Icons.print_outlined, size: 16),
+                  label: const Text('Export Register', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                ),
+              ),
+              if (_awaitingCount > 0) ...[
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: () {
+                    setState(() {
+                      for (final l in MockDataService.leaveRequests) {
+                        if (l.letterStatus == LetterStatus.forwarded || l.letterStatus == LetterStatus.submitted) {
+                          MockDataService.approveByHod(l.id, remarks: 'Bulk authorized by HOD ($_currentHodName)');
+                        }
+                      }
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('⚡ All pending Pink Slips & ODs signed and approved by HOD!'),
+                        backgroundColor: Color(0xFF047857),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.done_all_rounded, color: Color(0xFF059669)),
+                  tooltip: 'Batch Sign All',
+                  style: IconButton.styleFrom(
+                    backgroundColor: const Color(0xFFD1FAE5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       ),
@@ -933,129 +1948,1123 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
   }
 
   Widget _buildApprovalQueue() {
-    final leaves = MockDataService.leaveRequests;
+    var leaves = MockDataService.leaveRequests;
+
+    // Filter by Tab
+    if (_pinkSlipFilter == 'Awaiting') {
+      leaves = leaves.where((l) => l.letterStatus == LetterStatus.forwarded || l.letterStatus == LetterStatus.submitted).toList();
+    } else if (_pinkSlipFilter == 'Approved') {
+      leaves = leaves.where((l) => l.letterStatus == LetterStatus.approved).toList();
+    } else if (_pinkSlipFilter == 'OD') {
+      leaves = leaves.where((l) => l.isOnDuty).toList();
+    } else if (_pinkSlipFilter == 'Leaves') {
+      leaves = leaves.where((l) => !l.isOnDuty).toList();
+    } else if (_pinkSlipFilter == 'Rejected') {
+      leaves = leaves.where((l) => l.letterStatus == LetterStatus.rejected).toList();
+    }
+
+    // Filter by Query
+    if (_pinkSlipQuery.isNotEmpty) {
+      final q = _pinkSlipQuery.toLowerCase();
+      leaves = leaves.where((l) =>
+        l.studentName.toLowerCase().contains(q) ||
+        l.studentRollNumber.contains(q) ||
+        l.reason.toLowerCase().contains(q)
+      ).toList();
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
-        children: leaves.map((leave) {
-          final isPending = leave.letterStatus == LetterStatus.forwarded || leave.letterStatus == LetterStatus.submitted;
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Filter Chips Row
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildFilterChip('All', MockDataService.leaveRequests.length),
+                const SizedBox(width: 8),
+                _buildFilterChip('Awaiting', _awaitingCount),
+                const SizedBox(width: 8),
+                _buildFilterChip('Approved', MockDataService.leaveRequests.where((l) => l.letterStatus == LetterStatus.approved).length),
+                const SizedBox(width: 8),
+                _buildFilterChip('OD', MockDataService.leaveRequests.where((l) => l.isOnDuty).length),
+                const SizedBox(width: 8),
+                _buildFilterChip('Leaves', MockDataService.leaveRequests.where((l) => !l.isOnDuty).length),
+                const SizedBox(width: 8),
+                _buildFilterChip('Rejected', MockDataService.leaveRequests.where((l) => l.letterStatus == LetterStatus.rejected).length),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
 
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
+          // Search Bar
+          Container(
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: TextField(
+              controller: _pinkSlipSearchCtrl,
+              onChanged: (val) => setState(() => _pinkSlipQuery = val.trim()),
+              decoration: InputDecoration(
+                hintText: 'Search student name, roll number, or reason...',
+                hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                prefixIcon: const Icon(Icons.search_rounded, size: 18, color: Color(0xFF94A3B8)),
+                suffixIcon: _pinkSlipQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 16),
+                        onPressed: () {
+                          _pinkSlipSearchCtrl.clear();
+                          setState(() => _pinkSlipQuery = '');
+                        },
+                      )
+                    : null,
+                contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                border: InputBorder.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          if (leaves.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Center(
+                child: Column(
+                  children: [
+                    const Icon(Icons.filter_list_off_rounded, size: 36, color: Color(0xFF94A3B8)),
+                    const SizedBox(height: 8),
+                    Text(
+                      _pinkSlipQuery.isNotEmpty
+                          ? 'No pink slip records matching "$_pinkSlipQuery"'
+                          : 'No pink slip records found in this category.',
+                      style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            ...leaves.map((leave) => _buildPinkSlipCard(leave)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String label, int count) {
+    final isSelected = _pinkSlipFilter == label;
+    return GestureDetector(
+      onTap: () => setState(() => _pinkSlipFilter = label),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF0F172A) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: isSelected ? const Color(0xFF0F172A) : const Color(0xFFCBD5E1)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? Colors.white : const Color(0xFF475569),
+              ),
+            ),
+            const SizedBox(width: 5),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.white24 : const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '$count',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? Colors.white : const Color(0xFF64748B),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPinkSlipCard(LeaveModel leave) {
+    final isPending = leave.letterStatus == LetterStatus.forwarded || leave.letterStatus == LetterStatus.submitted;
+    final isApproved = leave.letterStatus == LetterStatus.approved;
+    final isRejected = leave.letterStatus == LetterStatus.rejected;
+    final isPresent = MockDataService.isStudentPresent(leave.studentRollNumber);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isPending ? const Color(0xFFFDE68A) : const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Top Badges Row
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: leave.isOnDuty ? const Color(0xFFEFF6FF) : const Color(0xFFFDF2F8),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      leave.isOnDuty ? Icons.card_membership_rounded : Icons.receipt_long_rounded,
+                      size: 12,
+                      color: leave.isOnDuty ? const Color(0xFF2563EB) : const Color(0xFFDB2777),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      leave.isOnDuty ? 'ON-DUTY OD PASS' : 'PINK SLIP / LEAVE PASS',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.bold,
+                        color: leave.isOnDuty ? const Color(0xFF2563EB) : const Color(0xFFDB2777),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: isApproved
+                      ? const Color(0xFFD1FAE5)
+                      : isRejected
+                          ? const Color(0xFFFEE2E2)
+                          : const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  leave.letterStatusDisplay.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.bold,
+                    color: isApproved
+                        ? const Color(0xFF047857)
+                        : isRejected
+                            ? const Color(0xFFDC2626)
+                            : const Color(0xFFD97706),
+                  ),
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${leave.leaveDate.day.toString().padLeft(2, '0')}/${leave.leaveDate.month.toString().padLeft(2, '0')}/${leave.leaveDate.year}',
+                style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Student Info Row
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: const Color(0xFF6366F1).withValues(alpha: 0.1),
+                child: Text(
+                  leave.studentName.isNotEmpty ? leave.studentName[0] : 'S',
+                  style: const TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      leave.studentName,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
+                    ),
+                    Text(
+                      'Roll: ${leave.studentRollNumber} • Class: Year ${leave.year ?? 2}-${leave.section ?? "B"}',
+                      style: const TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: isPresent ? const Color(0xFFF0FDF4) : const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: isPresent ? const Color(0xFFBBF7D0) : const Color(0xFFFECACA)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isPresent ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                      size: 11,
+                      color: isPresent ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      isPresent ? 'Present Today' : 'Absent Today',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: isPresent ? const Color(0xFF15803D) : const Color(0xFFB91C1C),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // Reason Box
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: leave.isOnDuty ? const Color(0xFFEFF6FF) : const Color(0xFFFDF2F8),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        leave.categoryDisplay.toUpperCase(),
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: leave.isOnDuty ? const Color(0xFF2563EB) : const Color(0xFFDB2777)),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: leave.letterStatus == LetterStatus.approved
-                            ? const Color(0xFFD1FAE5)
-                            : leave.letterStatus == LetterStatus.rejected
-                                ? const Color(0xFFFEE2E2)
-                                : const Color(0xFFFEF3C7),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        leave.letterStatusDisplay,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: leave.letterStatus == LetterStatus.approved
-                              ? const Color(0xFF047857)
-                              : leave.letterStatus == LetterStatus.rejected
-                                  ? const Color(0xFFDC2626)
-                                  : const Color(0xFFD97706),
-                        ),
-                      ),
-                    ),
-                    const Spacer(),
-                    Text('${leave.leaveDate.day}/${leave.leaveDate.month}/${leave.leaveDate.year}', style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                    const Icon(Icons.info_outline_rounded, size: 13, color: Color(0xFF64748B)),
+                    const SizedBox(width: 4),
+                    const Text('Reason / Movement Purpose:', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
                   ],
                 ),
-                const SizedBox(height: 10),
-                Text(leave.studentName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                Text('Roll: ${leave.studentRollNumber} • Class: Year ${leave.year ?? 2} - Sec ${leave.section ?? "B"}', style: const TextStyle(color: Colors.grey, fontSize: 11)),
-                const SizedBox(height: 6),
-                Text('Reason: ${leave.reason}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-                if (leave.advisorRemarks != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text('Advisor Endorsement: ${leave.advisorRemarks}', style: const TextStyle(fontSize: 11, color: Color(0xFF475569))),
-                  ),
-                if (leave.hodRemarks != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text('HOD Remarks: ${leave.hodRemarks}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF047857))),
-                  ),
-                if (leave.hasAttachment) ...[
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFE2E8F0))),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.picture_as_pdf_rounded, color: Colors.red, size: 20),
-                        const SizedBox(width: 8),
-                        Expanded(child: Text('${leave.attachmentFileName}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)))),
-                        InkWell(
-                          onTap: () {
-                            showDialog(
-                              context: context,
-                              builder: (ctx) => LetterAttachmentViewerDialog(
-                                leave: leave,
-                                onApproveByHod: (remarks) => setState(() => MockDataService.approveByHod(leave.id, remarks: remarks)),
-                                onRejectByHod: (remarks) => setState(() => MockDataService.rejectByHod(leave.id, remarks: remarks)),
-                              ),
-                            );
-                          },
-                          child: const Text('Inspect Proof', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF6366F1))),
-                        ),
-                      ],
+                const SizedBox(height: 2),
+                Text(
+                  leave.reason,
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF1E293B)),
+                ),
+              ],
+            ),
+          ),
+
+          // Advisor Endorsement Note
+          if (leave.advisorRemarks != null) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFDBEAFE)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.verified_outlined, size: 14, color: Color(0xFF2563EB)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Advisor Endorsement: ${leave.advisorRemarks}',
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF1E40AF)),
                     ),
                   ),
                 ],
-                const SizedBox(height: 12),
-                if (isPending)
+              ),
+            ),
+          ],
+
+          // HOD Digital Signature Seal (if approved)
+          if (isApproved) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFBBF7D0)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.verified_user_rounded, size: 14, color: Color(0xFF16A34A)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Digitally Signed by HOD: ${leave.hodRemarks ?? "Officially authorized and recorded in department register."}',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF15803D)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // Attached Proof Document (if any)
+          if (leave.hasAttachment) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.picture_as_pdf_rounded, color: Colors.red, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${leave.attachmentFileName}',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => LetterAttachmentViewerDialog(
+                          leave: leave,
+                          onApproveByHod: (remarks) => setState(() => MockDataService.approveByHod(leave.id, remarks: remarks)),
+                          onRejectByHod: (remarks) => setState(() => MockDataService.rejectByHod(leave.id, remarks: remarks)),
+                        ),
+                      );
+                    },
+                    child: const Text(
+                      'Inspect Proof',
+                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF6366F1)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 10),
+          // Action Buttons
+          Row(
+            children: [
+              OutlinedButton.icon(
+                onPressed: () => _showPinkSlipVoucherDialog(leave),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF475569),
+                  side: const BorderSide(color: Color(0xFFCBD5E1)),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                icon: const Icon(Icons.remove_red_eye_outlined, size: 14),
+                label: const Text('View Voucher', style: TextStyle(fontSize: 11)),
+              ),
+              const Spacer(),
+              if (isPending) ...[
+                OutlinedButton(
+                  onPressed: () => _showRejectRemarksDialog(leave),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.absentRed,
+                    side: const BorderSide(color: Color(0xFFFCA5A5)),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: const Text('✕ Reject', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: () => _showApproveWithRemarksDialog(leave),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF047857),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: const Text('✓ Sign & Approve', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ──────────────────── Pink Slip Helper Modals & Actions ────────────────────
+
+  void _showIssuePinkSlipModal() {
+    final nameCtrl = TextEditingController();
+    final rollCtrl = TextEditingController();
+    final reasonCtrl = TextEditingController();
+    final remarksCtrl = TextEditingController();
+    String passType = 'Pink Slip / Exit Pass';
+    int slipYear = _selectedYear;
+    String slipSection = _selectedSection;
+    StudentModel? selectedStudent;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 20,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+            ),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEC4899).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.receipt_long_rounded, color: Color(0xFFEC4899), size: 20),
+                          ),
+                          const SizedBox(width: 10),
+                          const Text(
+                            'Issue Official Pink Slip / OD',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Quick Student Picker from Section
+                  const Text('Select Student from Directory', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    hint: const Text('Search by Name / Roll Number', style: TextStyle(fontSize: 12)),
+                    items: StudentDirectoryData.allStudents.take(50).map((st) {
+                      return DropdownMenuItem<String>(
+                        value: st.rollNumber,
+                        child: Text('${st.name} (${st.rollNumber}) • Yr ${st.year}-${st.section}', style: const TextStyle(fontSize: 12)),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        final st = StudentDirectoryData.byRollNumber[val];
+                        if (st != null) {
+                          setModalState(() {
+                            selectedStudent = st;
+                            nameCtrl.text = st.name;
+                            rollCtrl.text = st.rollNumber;
+                            slipYear = st.year;
+                            slipSection = st.section;
+                          });
+                        }
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Manual Student Name and Roll
                   Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => setState(() => MockDataService.rejectByHod(leave.id)),
-                          style: OutlinedButton.styleFrom(foregroundColor: AppColors.absentRed, side: const BorderSide(color: Color(0xFFFCA5A5))),
-                          child: const Text('✕ Reject'),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Student Name', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                            const SizedBox(height: 4),
+                            TextField(
+                              controller: nameCtrl,
+                              decoration: InputDecoration(
+                                hintText: 'Student Name',
+                                filled: true,
+                                fillColor: const Color(0xFFF8FAFC),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              ),
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: ElevatedButton(
-                          onPressed: () => setState(() => MockDataService.approveByHod(leave.id)),
-                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF047857), foregroundColor: Colors.white),
-                          child: const Text('✓ Approve'),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Roll Number', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                            const SizedBox(height: 4),
+                            TextField(
+                              controller: rollCtrl,
+                              decoration: InputDecoration(
+                                hintText: 'e.g. 25243005',
+                                filled: true,
+                                fillColor: const Color(0xFFF8FAFC),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              ),
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-              ],
+                  const SizedBox(height: 12),
+
+                  // Pass Type
+                  const Text('Pass / Slip Category', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                  const SizedBox(height: 4),
+                  DropdownButtonFormField<String>(
+                    initialValue: passType,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'Pink Slip / Exit Pass', child: Text('🎫 Pink Slip / Campus Exit Pass', style: TextStyle(fontSize: 12))),
+                      DropdownMenuItem(value: 'On-Duty (OD) Pass', child: Text('🏆 On-Duty (OD) Official Pass', style: TextStyle(fontSize: 12))),
+                      DropdownMenuItem(value: 'Late Entry Pass', child: Text('⏱️ Late Gate Entry Pass', style: TextStyle(fontSize: 12))),
+                      DropdownMenuItem(value: 'Medical Emergency Pass', child: Text('🏥 Medical / Health Center Pass', style: TextStyle(fontSize: 12))),
+                      DropdownMenuItem(value: 'Academic Leave Slip', child: Text('📝 Academic Approved Leave', style: TextStyle(fontSize: 12))),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) setModalState(() => passType = val);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Reason
+                  const Text('Reason / Event Description', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: reasonCtrl,
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                      hintText: 'e.g. Hackathon participation, medical clinic visit, official lab contest...',
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                      contentPadding: const EdgeInsets.all(10),
+                    ),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // HOD Remarks
+                  const Text('HOD Authorization Remarks', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: remarksCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'e.g. Officially sanctioned by HOD. Valid for entry/exit.',
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    ),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Submit Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        final stName = nameCtrl.text.trim();
+                        final stRoll = rollCtrl.text.trim();
+                        final reason = reasonCtrl.text.trim().isEmpty ? 'Official Department Clearance' : reasonCtrl.text.trim();
+                        final remarks = remarksCtrl.text.trim().isEmpty ? 'Authorized by HOD ($_currentHodName)' : remarksCtrl.text.trim();
+
+                        if (stName.isEmpty || stRoll.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Please specify student name and roll number.')),
+                          );
+                          return;
+                        }
+
+                        final isOd = passType.contains('OD') || passType.contains('On-Duty');
+                        final newLeave = LeaveModel(
+                          id: 'slip_${DateTime.now().millisecondsSinceEpoch}',
+                          studentId: selectedStudent?.id ?? 'stu_$stRoll',
+                          studentName: stName,
+                          studentRollNumber: stRoll,
+                          category: isOd ? LeaveCategory.onDuty : LeaveCategory.leave,
+                          leaveType: LeaveType.informed,
+                          reason: '$passType: $reason',
+                          leaveDate: DateTime.now(),
+                          letterSubmitted: true,
+                          letterStatus: LetterStatus.approved,
+                          year: slipYear,
+                          section: slipSection,
+                          advisorRemarks: 'Recommended by Class Advisor',
+                          hodRemarks: remarks,
+                        );
+
+                        setState(() {
+                          MockDataService.submitLeaveRequest(newLeave);
+                          MockDataService.approveByHod(newLeave.id, remarks: remarks);
+                        });
+
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('🎉 Pink Slip issued and digitally authorized for $stName!'),
+                            backgroundColor: const Color(0xFF047857),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFEC4899),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      icon: const Icon(Icons.verified_rounded, size: 18),
+                      label: const Text('Issue & Digitally Authorize', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
-        }).toList(),
+        },
+      ),
+    );
+  }
+
+  void _showPinkSlipVoucherDialog(LeaveModel leave) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // College Header
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: const [
+                    Text(
+                      'VSB ENGINEERING COLLEGE',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'DEPARTMENT OF ARTIFICIAL INTELLIGENCE & DATA SCIENCE',
+                      style: TextStyle(color: Colors.white70, fontSize: 9, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Title Ribbon
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                decoration: BoxDecoration(
+                  color: leave.isOnDuty ? const Color(0xFFEFF6FF) : const Color(0xFFFDF2F8),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: leave.isOnDuty ? const Color(0xFFBFDBFE) : const Color(0xFFFBCFE8)),
+                ),
+                child: Text(
+                  leave.isOnDuty ? 'OFFICIAL ON-DUTY (OD) PASS' : 'OFFICIAL PINK SLIP / MOVEMENT VOUCHER',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: leave.isOnDuty ? const Color(0xFF1D4ED8) : const Color(0xFFBE185D),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Voucher Details Box
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  children: [
+                    _voucherRow('Voucher Serial', leave.id.toUpperCase()),
+                    const Divider(height: 12),
+                    _voucherRow('Student Name', leave.studentName),
+                    const Divider(height: 12),
+                    _voucherRow('Roll / Register No', leave.studentRollNumber),
+                    const Divider(height: 12),
+                    _voucherRow('Class & Section', 'Year ${leave.year ?? 2} - Sec ${leave.section ?? "B"} (AI&DS)'),
+                    const Divider(height: 12),
+                    _voucherRow('Date Valid', '${leave.leaveDate.day}/${leave.leaveDate.month}/${leave.leaveDate.year}'),
+                    const Divider(height: 12),
+                    _voucherRow('Reason / Activity', leave.reason),
+                    if (leave.advisorRemarks != null) ...[
+                      const Divider(height: 12),
+                      _voucherRow('Advisor Sign', 'Verified (${leave.advisorRemarks})'),
+                    ],
+                    const Divider(height: 12),
+                    _voucherRow(
+                      'HOD Authority',
+                      leave.letterStatus == LetterStatus.approved
+                          ? '✓ Digitally Signed by $_currentHodName'
+                          : 'Pending Signature',
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Security QR Stamp Simulation
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFF0F172A), width: 1.5),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Icon(Icons.qr_code_2_rounded, size: 36, color: Color(0xFF0F172A)),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('SECURE QR VALIDATION', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
+                      Text('Dept Authenticated Code: VSB-${leave.studentRollNumber}', style: const TextStyle(fontSize: 9, color: Color(0xFF64748B))),
+                      const Text('Status: Official Gate / OD Clearance', style: TextStyle(fontSize: 9, color: Color(0xFF059669), fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Close'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('🖨️ Pink Slip sent to Department Network Printer!'),
+                            backgroundColor: Color(0xFF0284C7),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0F172A),
+                        foregroundColor: Colors.white,
+                      ),
+                      icon: const Icon(Icons.print_rounded, size: 16),
+                      label: const Text('Print Voucher', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _voucherRow(String key, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 110,
+          child: Text(key, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showExportRegisterDialog() {
+    final leaves = MockDataService.leaveRequests;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          constraints: const BoxConstraints(maxWidth: 480, maxHeight: 600),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: const [
+                      Icon(Icons.menu_book_rounded, color: Color(0xFF0284C7), size: 22),
+                      SizedBox(width: 8),
+                      Text(
+                        'Pink Slip Register',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const Text(
+                'AI&DS Department Official Movement & OD Log Register',
+                style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+              ),
+              const SizedBox(height: 12),
+
+              Expanded(
+                child: ListView.separated(
+                  itemCount: leaves.length,
+                  separatorBuilder: (_, _) => const Divider(height: 1),
+                  itemBuilder: (context, i) {
+                    final l = leaves[i];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 14,
+                            backgroundColor: l.isOnDuty ? const Color(0xFFEFF6FF) : const Color(0xFFFDF2F8),
+                            child: Text('${i + 1}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('${l.studentName} (${l.studentRollNumber})', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                Text('Yr ${l.year}-${l.section} • ${l.reason}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B))),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: l.letterStatus == LetterStatus.approved ? const Color(0xFFD1FAE5) : const Color(0xFFFEF3C7),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              l.letterStatusDisplay,
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                color: l.letterStatus == LetterStatus.approved ? const Color(0xFF047857) : const Color(0xFFD97706),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('📊 Exported register as CSV!'), backgroundColor: Color(0xFF059669)),
+                        );
+                      },
+                      icon: const Icon(Icons.table_chart_outlined, size: 16),
+                      label: const Text('Export CSV', style: TextStyle(fontSize: 12)),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('📄 Pink Slip Register exported as official signed PDF!'), backgroundColor: Color(0xFF0F172A)),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F172A), foregroundColor: Colors.white),
+                      icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
+                      label: const Text('Export PDF', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showApproveWithRemarksDialog(LeaveModel leave) {
+    final remarksCtrl = TextEditingController(text: 'Officially approved by HOD ($_currentHodName)');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Digital Signature & Endorsement', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Approving movement / OD for ${leave.studentName} (${leave.studentRollNumber}).', style: const TextStyle(fontSize: 12, color: Color(0xFF475569))),
+            const SizedBox(height: 10),
+            TextField(
+              controller: remarksCtrl,
+              decoration: const InputDecoration(
+                labelText: 'HOD Remarks',
+                border: OutlineInputBorder(),
+              ),
+              style: const TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                MockDataService.approveByHod(leave.id, remarks: remarksCtrl.text.trim());
+              });
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('✓ Digitally signed and approved for ${leave.studentName}!'),
+                  backgroundColor: const Color(0xFF047857),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF047857), foregroundColor: Colors.white),
+            child: const Text('Sign & Approve'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showRejectRemarksDialog(LeaveModel leave) {
+    final remarksCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Return / Reject Slip', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFFDC2626))),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Rejecting request for ${leave.studentName} (${leave.studentRollNumber}).', style: const TextStyle(fontSize: 12, color: Color(0xFF475569))),
+            const SizedBox(height: 10),
+            TextField(
+              controller: remarksCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Reason for rejection / return',
+                hintText: 'e.g. Insufficient documentation, low attendance threshold...',
+                border: OutlineInputBorder(),
+              ),
+              style: const TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              final remarks = remarksCtrl.text.trim().isEmpty ? 'Rejected by HOD' : remarksCtrl.text.trim();
+              setState(() {
+                MockDataService.rejectByHod(leave.id, remarks: remarks);
+              });
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Request returned/rejected for ${leave.studentName}.'),
+                  backgroundColor: const Color(0xFFDC2626),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626), foregroundColor: Colors.white),
+            child: const Text('Confirm Rejection'),
+          ),
+        ],
       ),
     );
   }
@@ -1246,6 +3255,43 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
             ),
           ],
           const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => PromotionDossierViewerDialog.show(
+                context,
+                promotion: prom,
+                onHodApprove: (r) {
+                  setState(() {
+                    MockDataService.hodApprovePromotion(prom.id, hodName: _currentHodName, remarks: r);
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('🎉 Approved! Batch successfully promoted to ${prom.toYearRoman}.'),
+                      backgroundColor: const Color(0xFF059669),
+                    ),
+                  );
+                },
+                onHodReject: (r) {
+                  setState(() {
+                    MockDataService.hodRejectPromotion(prom.id, remarks: r);
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Promotion request returned for review.'), backgroundColor: Colors.orange),
+                  );
+                },
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF0284C7),
+                side: const BorderSide(color: Color(0xFFBAE6FD)),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              icon: const Icon(Icons.folder_open_rounded, size: 16),
+              label: const Text('Inspect Batch Dossier & Credit Proofs', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            ),
+          ),
+          const SizedBox(height: 8),
           if (isPending)
             Row(
               children: [

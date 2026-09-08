@@ -41,6 +41,24 @@ class AttendanceRecord {
   bool get isAbsent => status == AttendanceStatus.absent;
   bool get isOnDuty => status == AttendanceStatus.onDuty;
 
+  String get punchInFormatted {
+    if (biometricPunchIn == null) return 'No Punch';
+    final h = biometricPunchIn!.hour;
+    final m = biometricPunchIn!.minute.toString().padLeft(2, '0');
+    final period = h >= 12 ? 'PM' : 'AM';
+    final displayH = h > 12 ? h - 12 : (h == 0 ? 12 : h);
+    return '${displayH.toString().padLeft(2, '0')}:$m $period';
+  }
+
+  String get punchOutFormatted {
+    if (biometricPunchOut == null) return 'Pending (04:30 PM)';
+    final h = biometricPunchOut!.hour;
+    final m = biometricPunchOut!.minute.toString().padLeft(2, '0');
+    final period = h >= 12 ? 'PM' : 'AM';
+    final displayH = h > 12 ? h - 12 : (h == 0 ? 12 : h);
+    return '${displayH.toString().padLeft(2, '0')}:$m $period';
+  }
+
   String get statusDisplay {
     switch (status) {
       case AttendanceStatus.present:

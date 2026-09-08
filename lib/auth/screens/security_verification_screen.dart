@@ -600,7 +600,7 @@ class _SecurityVerificationScreenState extends State<SecurityVerificationScreen>
                         const SizedBox(height: 8),
                         _buildSecurityFeatureRow(
                           icon: Icons.storage_rounded,
-                          title: '622 Student Data Vault Protection',
+                          title: '627 Student Data Vault Protection',
                           desc: 'Full-grade AES-256 encryption on all student attendance, OD, and promotion records.',
                         ),
                       ],
