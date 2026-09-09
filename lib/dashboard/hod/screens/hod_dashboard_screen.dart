@@ -9,7 +9,6 @@ import '../../../core/services/auth_service.dart';
 import '../../../core/services/mock_data_service.dart';
 import '../../../core/data/student_directory_data.dart';
 import '../../../core/widgets/smart_pro_logo.dart';
-import '../../../chatbot/widgets/jarvis_fab.dart';
 import '../../shared/widgets/letter_attachment_viewer_dialog.dart';
 import '../../shared/widgets/storage_management_dialog.dart';
 import '../../shared/widgets/promotion_dossier_viewer_dialog.dart';
@@ -104,7 +103,6 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      floatingActionButton: const JarvisFAB(),
       body: SafeArea(
         child: ValueListenableBuilder<int>(
           valueListenable: MockDataService.changeNotifier,

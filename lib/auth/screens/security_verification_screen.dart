@@ -16,10 +16,10 @@ class SecurityVerificationScreen extends StatefulWidget {
 
 class _SecurityVerificationScreenState extends State<SecurityVerificationScreen>
     with SingleTickerProviderStateMixin {
-  bool _isAuthenticating = false;
-  bool _isSuccess = false;
-  String? _errorMessage;
-  int _authStep = 0; // 0: Ready, 1: Scanning, 2: Key Verified, 3: Success
+  final bool _isAuthenticating = false;
+  final bool _isSuccess = false;
+  final String? _errorMessage = null;
+  final int _authStep = 0; // 0: Ready, 1: Scanning, 2: Key Verified, 3: Success
 
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
@@ -41,6 +41,19 @@ class _SecurityVerificationScreenState extends State<SecurityVerificationScreen>
     } else {
       _pulseController.value = 1.0;
     }
+
+    // Biometric gate disabled: Automatically proceed directly to dashboard
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final authService = AuthService();
+      if (authService.pendingUser != null) {
+        authService.loginDirectly(authService.pendingUser!);
+      } else if (authService.currentUser == null) {
+        authService.loginDirectly(AuthService.overallHod);
+      }
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, authService.dashboardRoute);
+      }
+    });
   }
 
   @override
@@ -51,55 +64,14 @@ class _SecurityVerificationScreenState extends State<SecurityVerificationScreen>
   }
 
   Future<void> _triggerBiometricAuth({bool isFaceId = false}) async {
-    if (_isAuthenticating || _isSuccess) return;
-
     final authService = AuthService();
-    if (authService.isLockedOut) {
-      setState(() {
-        _errorMessage =
-            'Security Lock Active. Please wait ${authService.remainingLockoutSeconds}s before retrying.';
-      });
-      return;
+    if (authService.pendingUser != null) {
+      authService.loginDirectly(authService.pendingUser!);
+    } else if (authService.currentUser == null) {
+      authService.loginDirectly(AuthService.overallHod);
     }
-
-    setState(() {
-      _isAuthenticating = true;
-      _errorMessage = null;
-      _authStep = 1; // Scanning
-    });
-
-    // Realistic scanning phase
-    await Future.delayed(const Duration(milliseconds: 700));
-    if (!mounted) return;
-
-    setState(() {
-      _authStep = 2; // Keystore verification
-    });
-
-    await Future.delayed(const Duration(milliseconds: 600));
-    if (!mounted) return;
-
-    final success = await authService.verifyBiometric();
-
-    if (!mounted) return;
-
-    if (success) {
-      setState(() {
-        _isAuthenticating = false;
-        _isSuccess = true;
-        _authStep = 3; // Success
-      });
-
-      await Future.delayed(const Duration(milliseconds: 700));
-      if (!mounted) return;
-
+    if (mounted) {
       Navigator.pushReplacementNamed(context, authService.dashboardRoute);
-    } else {
-      setState(() {
-        _isAuthenticating = false;
-        _authStep = 0;
-        _errorMessage = 'Biometric sensor validation failed. Please try again.';
-      });
     }
   }
 
@@ -485,7 +457,7 @@ class _SecurityVerificationScreenState extends State<SecurityVerificationScreen>
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              _errorMessage!,
+                              _errorMessage,
                               style: const TextStyle(
                                 color: AppColors.absentRed,
                                 fontSize: 12,

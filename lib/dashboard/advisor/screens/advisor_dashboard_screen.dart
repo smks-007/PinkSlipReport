@@ -11,7 +11,6 @@ import '../../../core/data/student_directory_data.dart';
 import '../../../core/widgets/smart_pro_logo.dart';
 import '../../shared/widgets/create_pink_slip_dialog.dart';
 import '../../shared/widgets/storage_management_dialog.dart';
-import '../../shared/widgets/role_ai_agent_sheet.dart';
 import '../../shared/widgets/letter_attachment_viewer_dialog.dart';
 import '../../shared/widgets/promotion_dossier_viewer_dialog.dart';
 import '../../shared/widgets/attendance_report_viewer_dialog.dart';
@@ -82,32 +81,13 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      floatingActionButton: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          FloatingActionButton.extended(
-            heroTag: 'fab_issue_pink_slip',
-            onPressed: () => _openCreatePinkSlipDialog(),
-            icon: const Icon(Icons.note_add_rounded, size: 18),
-            label: const Text('Issue Pink Slip', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-            backgroundColor: const Color(0xFFEA580C),
-            foregroundColor: Colors.white,
-          ),
-          const SizedBox(height: 10),
-          FloatingActionButton.extended(
-            heroTag: 'fab_section_ai_agent',
-            backgroundColor: const Color(0xFF0F172A),
-            foregroundColor: Colors.white,
-            elevation: 6,
-            icon: const Icon(Icons.bolt_rounded, color: Color(0xFFFBBF24), size: 20),
-            label: const Text(
-              'Section AI-Agent',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 0.3),
-            ),
-            onPressed: () => RoleAiAgentSheet.show(context, user: _currentAdvisor),
-          ),
-        ],
+      floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'fab_issue_pink_slip',
+        onPressed: () => _openCreatePinkSlipDialog(),
+        icon: const Icon(Icons.note_add_rounded, size: 18),
+        label: const Text('Issue Pink Slip', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+        backgroundColor: const Color(0xFFEA580C),
+        foregroundColor: Colors.white,
       ),
       body: SafeArea(
         child: ValueListenableBuilder<int>(
@@ -800,59 +780,6 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         children: [
-          // Section AI-Agent Co-Pilot Banner
-          InkWell(
-            onTap: () => RoleAiAgentSheet.show(context, user: _currentAdvisor),
-            borderRadius: BorderRadius.circular(14),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF0F172A), Color(0xFF1E1B4B), Color(0xFF312E81)],
-                ),
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF312E81).withValues(alpha: 0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF6366F1).withValues(alpha: 0.25),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFF67E8F9), width: 1),
-                    ),
-                    child: const Icon(Icons.bolt_rounded, color: Color(0xFFFBBF24), size: 20),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text(
-                          '⚡ Section AI-Agent Co-Pilot',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                        ),
-                        SizedBox(height: 2),
-                        Text(
-                          'Batch OD Forwarding • <75% Defaulter Scan • Turnout Brief',
-                          style: TextStyle(color: Color(0xFFA5B4FC), fontSize: 10.5),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFF67E8F9), size: 14),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
 
           // Primary Pink Slip Forwarder Action Banner
           InkWell(

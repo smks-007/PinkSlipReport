@@ -74,7 +74,7 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
       _isLoading = true;
     });
 
-    final success = await authService.preAuthenticate(
+    final success = await authService.signInDirect(
       _usernameCtrl.text,
       _passwordCtrl.text,
     );
@@ -85,7 +85,7 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
     });
 
     if (success) {
-      Navigator.pushNamed(context, '/security-verification');
+      Navigator.pushReplacementNamed(context, authService.dashboardRoute);
     }
   }
 

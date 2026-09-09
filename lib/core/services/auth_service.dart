@@ -706,6 +706,21 @@ class AuthService extends ChangeNotifier {
     return true;
   }
 
+  /// Direct login bypassing 2FA / Biometric verification screen
+  Future<bool> signInDirect(String email, String password) async {
+    final success = await preAuthenticate(email, password);
+    if (success) {
+      _currentUser = _pendingUser ?? overallHod;
+      _pendingUser = null;
+      _failedAttempts = 0;
+      _lockoutUntil = null;
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    }
+    return false;
+  }
+
   /// Direct Login (for quick demo switcher)
   void loginDirectly(UserModel user) {
     _currentUser = user;
