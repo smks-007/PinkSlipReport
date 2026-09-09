@@ -271,15 +271,11 @@ class MockDataService {
     final idx = list.indexWhere((r) => r.id == updated.id || r.studentId == updated.studentId);
     if (idx != -1) {
       list[idx] = updated;
-<<<<<<< Updated upstream
-      _attendanceCache[key] = list;
-      _notifyUpdate();
-=======
     } else {
       list.add(updated);
->>>>>>> Stashed changes
     }
     _attendanceCache[key] = list;
+    _notifyUpdate();
   }
 
   /// Create Pink Slip issued by Class Advisor and synchronize attendance (Mark Present or Absent)
@@ -337,7 +333,8 @@ class MockDataService {
       id: 'att-${student.id}-${date.year}${date.month}${date.day}',
       studentId: student.id,
       date: date,
-      isPresent: markPresent,
+      status: markPresent ? AttendanceStatus.present : AttendanceStatus.absent,
+      onDutyReason: category == LeaveCategory.onDuty ? reason : null,
       source: markPresent ? 'pink_slip_od' : 'pink_slip_absent',
       recordedBy: '$advisorName (Class Advisor Pink Slip)',
       createdAt: DateTime.now(),

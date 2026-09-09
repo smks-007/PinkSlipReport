@@ -387,7 +387,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-<<<<<<< Updated upstream
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _markAllAbsent,
@@ -399,40 +398,18 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
-=======
+                  ),
+                ),
+                const SizedBox(width: 8),
                 ElevatedButton.icon(
                   onPressed: () => _openCreatePinkSlipDialog(),
                   icon: const Icon(Icons.receipt_long_rounded, size: 14),
-                  label: const Text('Issue Pink Slip', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  label: const Text('Issue Pink Slip', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFEA580C),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFBFDBFE)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.edit_calendar_rounded, size: 14, color: Color(0xFF2563EB)),
-                      const SizedBox(width: 4),
-                      Text(
-                        _formattedDate,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1E40AF),
-                        ),
-                      ),
-                    ],
->>>>>>> Stashed changes
                   ),
                 ),
               ],
@@ -498,22 +475,16 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                         gender: student.gender,
                         status: record.status,
                         source: record.source,
-<<<<<<< Updated upstream
                         onDutyReason: record.onDutyReason,
+                        recordedBy: record.recordedBy,
+                        punchIn: record.biometricPunchIn,
                         onSetPresent: () => _setStatus(recordIdx, AttendanceStatus.present),
                         onSetAbsent: () => _setStatus(recordIdx, AttendanceStatus.absent),
                         onSetOnDuty: () => _showOnDutyDialog(recordIdx, student),
-=======
-                        recordedBy: record.recordedBy,
-                        punchIn: record.biometricPunchIn,
                         onPinkSlip: () => _openCreatePinkSlipDialog(
                           student: student,
                           markPresent: !record.isPresent,
                         ),
-                        onToggle: () => _toggleAttendance(
-                          _records.indexWhere((r) => r.id == record.id),
-                        ),
->>>>>>> Stashed changes
                       );
                     },
                   ),
@@ -762,17 +733,13 @@ class _AttendanceTile extends StatelessWidget {
   final String gender;
   final AttendanceStatus status;
   final String source;
-<<<<<<< Updated upstream
   final String? onDutyReason;
+  final String? recordedBy;
+  final DateTime? punchIn;
   final VoidCallback onSetPresent;
   final VoidCallback onSetAbsent;
   final VoidCallback onSetOnDuty;
-=======
-  final String? recordedBy;
-  final DateTime? punchIn;
-  final VoidCallback onToggle;
   final VoidCallback? onPinkSlip;
->>>>>>> Stashed changes
 
   const _AttendanceTile({
     required this.indexNumber,
@@ -781,17 +748,13 @@ class _AttendanceTile extends StatelessWidget {
     required this.gender,
     required this.status,
     required this.source,
-<<<<<<< Updated upstream
     this.onDutyReason,
+    this.recordedBy,
+    this.punchIn,
     required this.onSetPresent,
     required this.onSetAbsent,
     required this.onSetOnDuty,
-=======
-    this.recordedBy,
-    this.punchIn,
-    required this.onToggle,
     this.onPinkSlip,
->>>>>>> Stashed changes
   });
 
   @override
@@ -882,22 +845,6 @@ class _AttendanceTile extends StatelessWidget {
             ),
           ),
 
-<<<<<<< Updated upstream
-          // 3-Way Selector (P, A, OD)
-          Container(
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _optionButton('P', isPresent, const Color(0xFF047857), onSetPresent),
-                _optionButton('A', isAbsent, const Color(0xFFDC2626), onSetAbsent),
-                _optionButton('OD', isOnDuty, const Color(0xFF2563EB), onSetOnDuty),
-              ],
-=======
           // Pink Slip Button
           if (onPinkSlip != null) ...[
             InkWell(
@@ -930,39 +877,20 @@ class _AttendanceTile extends StatelessWidget {
             ),
           ],
 
-          // Toggle Button
-          GestureDetector(
-            onTap: onToggle,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: isPresent ? AppColors.statusApproved : AppColors.statusRejected,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: (isPresent ? AppColors.statusApproved : AppColors.statusRejected).withValues(alpha: 0.3),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    isPresent ? Icons.check_circle_rounded : Icons.cancel_rounded,
-                    size: 14,
-                    color: Colors.white,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    isPresent ? 'Present' : 'Absent',
-                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
->>>>>>> Stashed changes
+          // 3-Way Selector (P, A, OD)
+          Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _optionButton('P', isPresent, const Color(0xFF047857), onSetPresent),
+                _optionButton('A', isAbsent, const Color(0xFFDC2626), onSetAbsent),
+                _optionButton('OD', isOnDuty, const Color(0xFF2563EB), onSetOnDuty),
+              ],
             ),
           ),
         ],

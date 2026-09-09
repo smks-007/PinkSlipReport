@@ -131,7 +131,7 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
 
-      await tester.pumpWidget(const MyApp());
+      await tester.pumpWidget(const SmartProApp());
       await tester.pump();
 
       // Verify SignIn screen elements
@@ -141,11 +141,7 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.text('DR. MANIVANNAN (Overall HOD)'),
-        findsOneWidget,
-      );
-      expect(
-        find.text('Mrs. Kavitha (I & II Yr HOD)'),
+        find.text('DR. MANIVANNAN (Ph.D.) - Department HOD'),
         findsOneWidget,
       );
       expect(find.text('🏛️ HOD Portal'), findsOneWidget);
