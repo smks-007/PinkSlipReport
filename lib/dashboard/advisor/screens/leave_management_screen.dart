@@ -5,6 +5,7 @@ import '../../../core/models/leave_model.dart';
 import '../../../core/models/user_model.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/mock_data_service.dart';
+import '../../shared/widgets/create_pink_slip_dialog.dart';
 import '../../shared/widgets/letter_attachment_viewer_dialog.dart';
 
 /// Leave Management screen for Advisors & HODs.
@@ -34,6 +35,18 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
       _leaves = all.where((l) => l.year == user.year && l.section == user.section).toList();
     } else {
       _leaves = List.from(all);
+    }
+  }
+
+  void _openCreatePinkSlipDialog() async {
+    final result = await showDialog<LeaveModel>(
+      context: context,
+      builder: (ctx) => const CreatePinkSlipDialog(),
+    );
+    if (result != null) {
+      setState(() {
+        _loadLeaves();
+      });
     }
   }
 
@@ -78,17 +91,38 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.pageBackground,
+      floatingActionButton: isAdvisor
+          ? FloatingActionButton.extended(
+              onPressed: _openCreatePinkSlipDialog,
+              icon: const Icon(Icons.note_add_rounded),
+              label: const Text('Issue Pink Slip'),
+              backgroundColor: const Color(0xFFEA580C),
+              foregroundColor: Colors.white,
+            )
+          : null,
       appBar: AppBar(
         backgroundColor: AppColors.pageBackground,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          if (isAdvisor)
+            TextButton.icon(
+              onPressed: _openCreatePinkSlipDialog,
+              icon: const Icon(Icons.note_add_rounded, size: 16),
+              label: const Text('+ Issue Slip', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFFEA580C),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+              ),
+            ),
+        ],
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Leave Management',
+              'Leave & Pink Slip Management',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,

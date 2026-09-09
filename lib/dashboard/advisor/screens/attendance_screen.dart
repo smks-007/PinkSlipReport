@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/data/student_directory_data.dart';
 import '../../../core/models/attendance_model.dart';
+import '../../../core/models/leave_model.dart';
 import '../../../core/models/student_model.dart';
 import '../../../core/models/user_model.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/mock_data_service.dart';
+import '../../shared/widgets/create_pink_slip_dialog.dart';
 
 /// Attendance screen for Advisors & HODs — supports 2026 Academic Calendar (Sep-Dec),
 /// date-wise manual attendance marking with Present, Absent, and On-Duty (OD) states.
@@ -34,6 +36,20 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       _selectedSection = user.section!;
     }
     _loadRecords();
+  }
+
+  void _openCreatePinkSlipDialog({StudentModel? student, bool? markPresent}) async {
+    final result = await showDialog<LeaveModel>(
+      context: context,
+      builder: (ctx) => CreatePinkSlipDialog(
+        initialStudent: student,
+        initialDate: _selectedDate,
+        initialMarkPresent: markPresent ?? false,
+      ),
+    );
+    if (result != null) {
+      _loadRecords();
+    }
   }
 
   @override
@@ -371,6 +387,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
+<<<<<<< Updated upstream
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _markAllAbsent,
@@ -382,6 +399,40 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
+=======
+                ElevatedButton.icon(
+                  onPressed: () => _openCreatePinkSlipDialog(),
+                  icon: const Icon(Icons.receipt_long_rounded, size: 14),
+                  label: const Text('Issue Pink Slip', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFEA580C),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFBFDBFE)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.edit_calendar_rounded, size: 14, color: Color(0xFF2563EB)),
+                      const SizedBox(width: 4),
+                      Text(
+                        _formattedDate,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1E40AF),
+                        ),
+                      ),
+                    ],
+>>>>>>> Stashed changes
                   ),
                 ),
               ],
@@ -447,10 +498,22 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                         gender: student.gender,
                         status: record.status,
                         source: record.source,
+<<<<<<< Updated upstream
                         onDutyReason: record.onDutyReason,
                         onSetPresent: () => _setStatus(recordIdx, AttendanceStatus.present),
                         onSetAbsent: () => _setStatus(recordIdx, AttendanceStatus.absent),
                         onSetOnDuty: () => _showOnDutyDialog(recordIdx, student),
+=======
+                        recordedBy: record.recordedBy,
+                        punchIn: record.biometricPunchIn,
+                        onPinkSlip: () => _openCreatePinkSlipDialog(
+                          student: student,
+                          markPresent: !record.isPresent,
+                        ),
+                        onToggle: () => _toggleAttendance(
+                          _records.indexWhere((r) => r.id == record.id),
+                        ),
+>>>>>>> Stashed changes
                       );
                     },
                   ),
@@ -699,10 +762,17 @@ class _AttendanceTile extends StatelessWidget {
   final String gender;
   final AttendanceStatus status;
   final String source;
+<<<<<<< Updated upstream
   final String? onDutyReason;
   final VoidCallback onSetPresent;
   final VoidCallback onSetAbsent;
   final VoidCallback onSetOnDuty;
+=======
+  final String? recordedBy;
+  final DateTime? punchIn;
+  final VoidCallback onToggle;
+  final VoidCallback? onPinkSlip;
+>>>>>>> Stashed changes
 
   const _AttendanceTile({
     required this.indexNumber,
@@ -711,10 +781,17 @@ class _AttendanceTile extends StatelessWidget {
     required this.gender,
     required this.status,
     required this.source,
+<<<<<<< Updated upstream
     this.onDutyReason,
     required this.onSetPresent,
     required this.onSetAbsent,
     required this.onSetOnDuty,
+=======
+    this.recordedBy,
+    this.punchIn,
+    required this.onToggle,
+    this.onPinkSlip,
+>>>>>>> Stashed changes
   });
 
   @override
@@ -805,6 +882,7 @@ class _AttendanceTile extends StatelessWidget {
             ),
           ),
 
+<<<<<<< Updated upstream
           // 3-Way Selector (P, A, OD)
           Container(
             padding: const EdgeInsets.all(2),
@@ -819,6 +897,72 @@ class _AttendanceTile extends StatelessWidget {
                 _optionButton('A', isAbsent, const Color(0xFFDC2626), onSetAbsent),
                 _optionButton('OD', isOnDuty, const Color(0xFF2563EB), onSetOnDuty),
               ],
+=======
+          // Pink Slip Button
+          if (onPinkSlip != null) ...[
+            InkWell(
+              onTap: onPinkSlip,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                margin: const EdgeInsets.only(right: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF7ED),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFFED7AA)),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.receipt_long_rounded, size: 12, color: Color(0xFFEA580C)),
+                    SizedBox(width: 3),
+                    Text(
+                      'Slip',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFEA580C),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+
+          // Toggle Button
+          GestureDetector(
+            onTap: onToggle,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: isPresent ? AppColors.statusApproved : AppColors.statusRejected,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: (isPresent ? AppColors.statusApproved : AppColors.statusRejected).withValues(alpha: 0.3),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isPresent ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                    size: 14,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    isPresent ? 'Present' : 'Absent',
+                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+>>>>>>> Stashed changes
             ),
           ),
         ],

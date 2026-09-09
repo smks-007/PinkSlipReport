@@ -8,7 +8,12 @@ import '../../../core/models/promotion_model.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/mock_data_service.dart';
 import '../../../core/data/student_directory_data.dart';
+<<<<<<< Updated upstream
 import '../../../core/widgets/smart_pro_logo.dart';
+=======
+import '../../shared/widgets/create_pink_slip_dialog.dart';
+import '../../shared/widgets/letter_attachment_viewer_dialog.dart';
+>>>>>>> Stashed changes
 import '../../shared/widgets/storage_management_dialog.dart';
 import '../../shared/widgets/role_ai_agent_sheet.dart';
 import '../../shared/widgets/letter_attachment_viewer_dialog.dart';
@@ -52,6 +57,19 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
     }
   }
 
+  void _openCreatePinkSlipDialog({StudentModel? student}) async {
+    final result = await showDialog<LeaveModel>(
+      context: context,
+      builder: (ctx) => CreatePinkSlipDialog(
+        initialStudent: student,
+        initialDate: DateTime.now(),
+      ),
+    );
+    if (result != null) {
+      setState(() {});
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final year = _currentAdvisor.year ?? 2;
@@ -67,6 +85,7 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
     final pendingPromotions = MockDataService.getPendingPromotionsForAdvisor(year, section);
 
     return Scaffold(
+<<<<<<< Updated upstream
       backgroundColor: const Color(0xFFF8FAFC),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: const Color(0xFF0F172A),
@@ -78,6 +97,15 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 0.3),
         ),
         onPressed: () => RoleAiAgentSheet.show(context, user: _currentAdvisor),
+=======
+      backgroundColor: AppColors.pageBackground,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _openCreatePinkSlipDialog(),
+        icon: const Icon(Icons.note_add_rounded),
+        label: const Text('Issue Pink Slip'),
+        backgroundColor: const Color(0xFFEA580C),
+        foregroundColor: Colors.white,
+>>>>>>> Stashed changes
       ),
       body: SafeArea(
         child: ValueListenableBuilder<int>(
@@ -1108,11 +1136,33 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                           ),
                         ),
                       ),
+<<<<<<< Updated upstream
                       const SizedBox(width: 8),
                       IconButton(
                         tooltip: 'Issue / Forward Pink Slip',
                         icon: const Icon(Icons.receipt_long_rounded, color: Color(0xFFEC4899), size: 18),
                         onPressed: () => _showForwardAbsenteePinkSlipModal(st),
+=======
+                      const SizedBox(width: 6),
+                      InkWell(
+                        onTap: () => _openCreatePinkSlipDialog(student: s),
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF7ED),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFFED7AA)),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.note_add_outlined, size: 12, color: Color(0xFFEA580C)),
+                              SizedBox(width: 2),
+                              Text('Slip', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFEA580C))),
+                            ],
+                          ),
+                        ),
+>>>>>>> Stashed changes
                       ),
                     ],
                   ),
@@ -1661,6 +1711,7 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+<<<<<<< Updated upstream
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -1762,6 +1813,25 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                 border: InputBorder.none,
               ),
             ),
+=======
+          Text('Section Pink Slips & Leave Requests', style: AppStyles.headingMedium.copyWith(fontSize: 16)),
+          Row(
+            children: [
+              TextButton.icon(
+                onPressed: () => _openCreatePinkSlipDialog(),
+                icon: const Icon(Icons.note_add_rounded, size: 14),
+                label: const Text('+ Issue Slip', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFFEA580C),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pushNamed(context, '/leave-management'),
+                child: Text('View All', style: AppStyles.linkText.copyWith(color: AppColors.primaryPurple, fontSize: 12)),
+              ),
+            ],
+>>>>>>> Stashed changes
           ),
         ],
       ),
@@ -2207,6 +2277,7 @@ class _PinkSlipTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+<<<<<<< Updated upstream
     final isPendingWithAdvisor = leave.letterStatus == LetterStatus.submitted;
     final isApproved = leave.letterStatus == LetterStatus.approved;
     final isRejected = leave.letterStatus == LetterStatus.rejected;
@@ -2392,6 +2463,67 @@ class _PinkSlipTile extends StatelessWidget {
             ],
           ),
         ],
+=======
+    return InkWell(
+      onTap: () {
+        showDialog(
+          context: context,
+          builder: (ctx) => LetterAttachmentViewerDialog(leave: leave),
+        );
+      },
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: _statusBgColor,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(_statusIcon, size: 18, color: _statusColor),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    leave.studentName,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${leave.studentRollNumber} • ${leave.reason}',
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: _statusBgColor,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                leave.letterStatusDisplay,
+                style: TextStyle(color: _statusColor, fontSize: 10, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+>>>>>>> Stashed changes
       ),
     );
   }

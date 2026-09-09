@@ -267,13 +267,88 @@ class MockDataService {
 
   static void updateAttendanceRecord(AttendanceRecord updated, {int year = 2, String section = 'B'}) {
     final key = _formatDateKey(updated.date, year, section);
-    final list = getAttendanceForDate(updated.date, year: year, section: section);
+    final list = List<AttendanceRecord>.from(getAttendanceForDate(updated.date, year: year, section: section));
     final idx = list.indexWhere((r) => r.id == updated.id || r.studentId == updated.studentId);
     if (idx != -1) {
       list[idx] = updated;
+<<<<<<< Updated upstream
       _attendanceCache[key] = list;
       _notifyUpdate();
+=======
+    } else {
+      list.add(updated);
+>>>>>>> Stashed changes
     }
+    _attendanceCache[key] = list;
+  }
+
+  /// Create Pink Slip issued by Class Advisor and synchronize attendance (Mark Present or Absent)
+  static LeaveModel createAdvisorPinkSlip({
+    required StudentModel student,
+    required DateTime date,
+    required bool markPresent,
+    required LeaveCategory category,
+    LeaveType leaveType = LeaveType.informed,
+    required String reason,
+    required String advisorName,
+    String? advisorId,
+    String? advisorRemarks,
+    String? attachmentFileName,
+    String? attachmentFileType,
+    String? attachmentFileSize,
+    int? year,
+    String? section,
+  }) {
+    final effectiveYear = year ?? student.year;
+    final effectiveSection = section ?? student.section;
+
+    final slip = LeaveModel(
+      id: 'ps-${DateTime.now().millisecondsSinceEpoch}',
+      studentId: student.id,
+      studentName: student.name,
+      studentRollNumber: student.rollNumber,
+      category: category,
+      section: effectiveSection,
+      year: effectiveYear,
+      batchYear: student.batchYear,
+      leaveDate: date,
+      leaveType: leaveType,
+      reason: reason,
+      letterSubmitted: true,
+      letterStatus: markPresent ? LetterStatus.approved : LetterStatus.forwarded,
+      attachmentFileName: attachmentFileName ?? (markPresent ? 'official_od_clearance.pdf' : 'advisor_signed_pink_slip.pdf'),
+      attachmentFileType: attachmentFileType ?? (markPresent ? 'On-Duty Clearance Letter' : 'Advisor Issued Pink Slip'),
+      attachmentFileSize: attachmentFileSize ?? '1.2 MB',
+      dateSubmittedToAdvisor: DateTime.now(),
+      advisorId: advisorId,
+      advisorRemarks: advisorRemarks ?? 'Official Pink Slip issued by Class Advisor $advisorName. Attendance marked as ${markPresent ? "PRESENT (OD)" : "ABSENT"}.',
+      dateReceivedByHod: markPresent ? DateTime.now() : null,
+      dateApprovedRejected: markPresent ? DateTime.now() : null,
+      hodRemarks: markPresent ? 'Sanctioned via Class Advisor Official OD Pink Slip' : null,
+      dueDays: 0,
+      totalLeavesTaken: markPresent ? 0 : 1,
+    );
+
+    // Save leave/slip to top of requests
+    _leaveRequests.insert(0, slip);
+
+    // Synchronize attendance record
+    final record = AttendanceRecord(
+      id: 'att-${student.id}-${date.year}${date.month}${date.day}',
+      studentId: student.id,
+      date: date,
+      isPresent: markPresent,
+      source: markPresent ? 'pink_slip_od' : 'pink_slip_absent',
+      recordedBy: '$advisorName (Class Advisor Pink Slip)',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      biometricPunchIn: markPresent ? DateTime(date.year, date.month, date.day, 8, 30) : null,
+      biometricPunchOut: markPresent ? DateTime(date.year, date.month, date.day, 16, 0) : null,
+    );
+
+    updateAttendanceRecord(record, year: effectiveYear, section: effectiveSection);
+
+    return slip;
   }
 
   static void markAllPresentForDate(DateTime date, {int year = 2, String section = 'B', String recordedBy = 'Class Advisor'}) {

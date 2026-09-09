@@ -52,12 +52,106 @@ void main() {
     expect(s4?.name, 'S. HARINI');
     expect(s4?.batchYear, '2023 BATCH');
     expect(s4?.section, 'B');
-
     // Verify today's attendance metrics
     expect(MockDataService.presentToday, 533);
     expect(MockDataService.absentToday, 94);
     expect(MockDataService.todaysAbsentRollNumbers.length, 94);
   });
+
+  test('AuthService has exactly 20 Class Representatives (1 Boy & 1 Girl for each of 10 sections)', () {
+    expect(AuthService.classRepresentatives.length, 20);
+
+    for (int yr in [2, 3, 4]) {
+      final sections = (yr == 4) ? ['A', 'B'] : ['A', 'B', 'C', 'D'];
+      for (final sec in sections) {
+        final crs = AuthService.classRepresentatives
+            .where((c) => c.year == yr && c.section == sec)
+            .toList();
+        expect(crs.length, 2, reason: 'Expected 2 CRs for Year $yr Sec $sec');
+        expect(crs.any((c) => c.gender == 'Boy'), isTrue);
+        expect(crs.any((c) => c.gender == 'Girl'), isTrue);
+      }
+    }
+  });
+
+  test('Leave & On-Duty File Attachment and Multi-Tier Approval Workflow', () {
+    final initialCount = MockDataService.leaveRequests.length;
+
+    // Student/CR submits a new OD request with file attachment
+    final newOd = LeaveModel(
+      id: 'test-od-001',
+      studentId: 'stu_098',
+      studentName: 'LITHEH HARI R',
+      studentRollNumber: '25243100',
+      category: LeaveCategory.onDuty,
+      section: 'B',
+      year: 2,
+      batchYear: '2025 BATCH',
+      leaveDate: DateTime.now(),
+      leaveType: LeaveType.informed,
+      reason: 'IEEE AI Conference Presentation',
+      letterSubmitted: true,
+      letterStatus: LetterStatus.submitted,
+      attachmentFileName: 'ieee_conference_invitation.pdf',
+      attachmentFileType: 'Conference Invitation',
+      attachmentFileSize: '1.5 MB',
+    );
+
+    MockDataService.submitLeaveRequest(newOd);
+    expect(MockDataService.leaveRequests.length, initialCount + 1);
+    expect(MockDataService.leaveRequests.first.hasAttachment, isTrue);
+
+    // Class Advisor reviews and forwards to HOD
+    final forwarded = MockDataService.forwardToHod(
+      'test-od-001',
+      advisorRemarks: 'Recommended by advisor',
+    );
+    expect(forwarded, isTrue);
+
+    final forwardedLeave = MockDataService.leaveRequests
+        .firstWhere((l) => l.id == 'test-od-001');
+    expect(forwardedLeave.letterStatus, LetterStatus.forwarded);
+
+    // HOD checks and approves
+    final approved = MockDataService.approveByHod(
+      'test-od-001',
+      remarks: 'Approved by HOD Dr. Manivannan',
+    );
+    expect(approved, isTrue);
+
+    final approvedLeave = MockDataService.leaveRequests
+        .firstWhere((l) => l.id == 'test-od-001');
+    expect(approvedLeave.letterStatus, LetterStatus.approved);
+  });
+
+  testWidgets(
+    'App renders PinkSlipReport SignIn with HOD and CR demo logins',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(800, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(const MyApp());
+      await tester.pump();
+
+      // Verify SignIn screen elements
+      expect(find.text('PinkSlipReport'), findsOneWidget);
+      expect(
+        find.text('V.S.B. Engineering College • Dept of AI & DS'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('DR. MANIVANNAN (Overall HOD)'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Mrs. Kavitha (I & II Yr HOD)'),
+        findsOneWidget,
+      );
+      expect(find.text('🏛️ HOD Portal'), findsOneWidget);
+      expect(find.text('👨‍🏫 Class Advisor'), findsOneWidget);
+    },
+  );
 
   test('All 10 Section Advisors and HODs have dedicated usernames and passwords', () {
     final advisors = AuthService.sectionAdvisors;
@@ -547,6 +641,56 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Academic Year Progression & Promotion Queue'), findsOneWidget);
     expect(find.text('Alumni Data Retention & Auto-Purge Manager'), findsOneWidget);
+  });
+
+  test('Class Advisor creates Pink Slip and synchronizes attendance (Mark Present & Absent)', () {
+    final student = StudentDirectoryData.allStudents.firstWhere((s) => s.rollNumber == '25243100');
+    final testDate = DateTime(2026, 9, 5);
+
+    // 1. Advisor creates a Pink Slip marking student ABSENT
+    final absentSlip = MockDataService.createAdvisorPinkSlip(
+      student: student,
+      date: testDate,
+      markPresent: false,
+      category: LeaveCategory.leave,
+      reason: 'Medical Leave - Viral Fever',
+      advisorName: 'Dr. M. Rajendiran',
+      advisorId: 'adv-2b',
+      year: 2,
+      section: 'B',
+    );
+
+    expect(absentSlip.studentRollNumber, '25243100');
+    expect(absentSlip.letterStatus, LetterStatus.forwarded);
+    expect(MockDataService.leaveRequests.first.id, absentSlip.id);
+
+    // Verify Attendance record updated to Absent
+    final recordsAbsent = MockDataService.getAttendanceForDate(testDate, year: 2, section: 'B');
+    final studentRecordAbsent = recordsAbsent.firstWhere((r) => r.studentId == student.id);
+    expect(studentRecordAbsent.isPresent, isFalse);
+    expect(studentRecordAbsent.source, 'pink_slip_absent');
+
+    // 2. Advisor creates a Pink Slip marking student PRESENT (On-Duty Clearance)
+    final presentSlip = MockDataService.createAdvisorPinkSlip(
+      student: student,
+      date: testDate,
+      markPresent: true,
+      category: LeaveCategory.onDuty,
+      reason: 'On-Duty: Anna University Symposium Clearance',
+      advisorName: 'Dr. M. Rajendiran',
+      advisorId: 'adv-2b',
+      year: 2,
+      section: 'B',
+    );
+
+    expect(presentSlip.category, LeaveCategory.onDuty);
+    expect(presentSlip.letterStatus, LetterStatus.approved);
+
+    // Verify Attendance record updated to Present
+    final recordsPresent = MockDataService.getAttendanceForDate(testDate, year: 2, section: 'B');
+    final studentRecordPresent = recordsPresent.firstWhere((r) => r.studentId == student.id);
+    expect(studentRecordPresent.isPresent, isTrue);
+    expect(studentRecordPresent.source, 'pink_slip_od');
   });
 }
 
