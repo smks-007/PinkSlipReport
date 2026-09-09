@@ -561,34 +561,6 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _quickActionButton(
-                  icon: Icons.mark_chat_unread_rounded,
-                  title: 'Parent Intimation',
-                  subtitle: 'SMS / WhatsApp notice',
-                  color: const Color(0xFF059669),
-                  onTap: _showParentNoticeGeneratorModal,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _quickActionButton(
-                  icon: Icons.fact_check_rounded,
-                  title: 'Daily Muster Roll',
-                  subtitle: '10 Sections & Proofs',
-                  color: const Color(0xFF0284C7),
-                  onTap: () => AttendanceReportViewerDialog.show(
-                    context,
-                    year: _selectedYear,
-                    section: _selectedSection,
-                  ),
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );
@@ -921,6 +893,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
     );
   }
 
+  // ignore: unused_element
   void _showParentNoticeGeneratorModal() {
     final defaulters = MockDataService.getAllDepartmentDefaulters();
     StudentModel selectedStudent = defaulters.isNotEmpty

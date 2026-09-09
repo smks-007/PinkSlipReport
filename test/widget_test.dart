@@ -619,8 +619,8 @@ void main() {
     expect(find.text('⚡ Executive Quick Actions'), findsOneWidget);
     expect(find.text('Issue Pink Slip'), findsOneWidget);
     expect(find.text('Broadcast Notice'), findsOneWidget);
-    expect(find.text('Parent Intimation'), findsOneWidget);
-    expect(find.text('Daily Muster Roll'), findsOneWidget);
+    expect(find.text('Parent Intimation'), findsNothing);
+    expect(find.text('Daily Muster Roll'), findsNothing);
 
     // Switch to Tab 1: Sections
     await tester.tap(find.byKey(const ValueKey('hod_tab_1')));
