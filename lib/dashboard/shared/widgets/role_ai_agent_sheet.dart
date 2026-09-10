@@ -11,7 +11,7 @@ class RoleAiAgentSheet extends StatefulWidget {
   const RoleAiAgentSheet({super.key, required this.user});
 
   static void show(BuildContext context, {UserModel? user}) {
-    final effectiveUser = user ?? AuthService().currentUser ?? AuthService.student;
+    final effectiveUser = user ?? AuthService().currentUser ?? AuthService.classRepresentatives.first;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,

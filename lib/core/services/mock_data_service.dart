@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../models/student_model.dart';
 import '../models/attendance_model.dart';
 import '../models/leave_model.dart';
 import '../models/promotion_model.dart';
 import '../data/student_directory_data.dart';
+import 'supabase_service.dart';
 
 /// Central Real-Time Database and Telemetry Service for SMART PRO.
 /// Provides 2026 Academic Calendar (Sep-Dec), Date-wise Attendance, Two-Tier HOD Approvals,
@@ -22,6 +23,109 @@ class MockDataService {
   // ──────────────────── Complete Directory (622 Students) ────────────────────
 
   static final List<StudentModel> _dynamicStudents = List.of(StudentDirectoryData.allStudents);
+
+  /// Synchronize all database records live from Supabase Cloud
+  static Future<void> syncFromSupabase() async {
+    final supabase = SupabaseService();
+    if (!supabase.isInitialized || supabase.client == null) return;
+
+    try {
+      // 1. Fetch Students from Supabase
+      final remoteStudents = await supabase.fetchStudents();
+      if (remoteStudents.isNotEmpty) {
+        final List<StudentModel> synced = [];
+        for (final r in remoteStudents) {
+          final roll = r['roll_number'] as String? ?? '';
+          final sectionId = r['section_id'] as String? ?? 'II-AIDS-A';
+          final parts = sectionId.split('-');
+          final yearRoman = parts.isNotEmpty ? parts[0] : 'II';
+          final secLetter = parts.length > 2 ? parts[2] : 'A';
+          int yr = 2;
+          if (yearRoman == 'I') {
+            yr = 1;
+          } else if (yearRoman == 'II') {
+            yr = 2;
+          } else if (yearRoman == 'III') {
+            yr = 3;
+          } else if (yearRoman == 'IV') {
+            yr = 4;
+          }
+
+          final userMap = r['users'] as Map<String, dynamic>?;
+          final name = userMap?['full_name'] as String? ?? 'Student $roll';
+          final batch = yr == 1 ? '2026 BATCH' : yr == 2 ? '2025 BATCH' : yr == 3 ? '2024 BATCH' : '2023 BATCH';
+
+          synced.add(StudentModel(
+            id: 'stu-$roll',
+            name: name,
+            rollNumber: roll,
+            year: yr,
+            section: secLetter,
+            department: 'AI&DS',
+            batchYear: batch,
+            advisorId: 'adv-${secLetter.toLowerCase()}',
+            totalLeavesTaken: (r['leaves_taken_ytd'] as int?) ?? 0,
+          ));
+        }
+        if (synced.isNotEmpty) {
+          _dynamicStudents.clear();
+          _dynamicStudents.addAll(synced);
+          if (kDebugMode) {
+            debugPrint('✅ Loaded ${synced.length} students live from Supabase Cloud database!');
+          }
+        }
+      }
+
+      // 2. Fetch Live Leave Slips from Supabase
+      final remoteSlips = await supabase.fetchLeaveSlips();
+      if (remoteSlips.isNotEmpty) {
+        final List<LeaveModel> syncedSlips = [];
+        for (final s in remoteSlips) {
+          final slipId = s['slip_id'].toString();
+          final fromStr = s['from_date'] as String?;
+          final fromDate = fromStr != null ? DateTime.tryParse(fromStr) ?? DateTime.now() : DateTime.now();
+
+          final statusStr = (s['status'] as String?)?.toUpperCase();
+          LetterStatus status = LetterStatus.submitted;
+          if (statusStr == 'APPROVED') {
+            status = LetterStatus.approved;
+          } else if (statusStr == 'PENDING_HOD') {
+            status = LetterStatus.forwarded;
+          } else if (statusStr == 'REJECTED') {
+            status = LetterStatus.rejected;
+          }
+
+          syncedSlips.add(LeaveModel(
+            id: 'slip-$slipId',
+            studentId: s['student_id'].toString(),
+            studentName: 'Student ${s['student_id']}',
+            studentRollNumber: s['student_id'].toString(),
+            leaveDate: fromDate,
+            reason: s['reason'] as String? ?? 'General Leave',
+            letterStatus: status,
+            advisorRemarks: s['advisor_remarks'] as String?,
+            hodRemarks: s['hod_remarks'] as String?,
+            leaveType: LeaveType.informed,
+            category: LeaveCategory.leave,
+            attachmentFileName: s['letter_document_url'] as String?,
+          ));
+        }
+        if (syncedSlips.isNotEmpty) {
+          _leaveRequests.clear();
+          _leaveRequests.addAll(syncedSlips);
+          if (kDebugMode) {
+            debugPrint('✅ Loaded ${syncedSlips.length} leave slips live from Supabase Cloud database!');
+          }
+        }
+      }
+
+      _notifyUpdate();
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Error syncing live data from Supabase: $e');
+      }
+    }
+  }
 
   /// All active students in the department
   static List<StudentModel> get allStudents => List.unmodifiable(_dynamicStudents.where((s) => !s.isPurged));
@@ -276,6 +380,18 @@ class MockDataService {
     }
     _attendanceCache[key] = list;
     _notifyUpdate();
+
+    // Persist to Supabase Cloud Database
+    final studentNumericId = int.tryParse(updated.studentId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+    if (studentNumericId > 0) {
+      SupabaseService().recordAttendance(
+        studentId: studentNumericId,
+        date: updated.date,
+        isPresent: updated.isPresent,
+        leaveType: updated.status.name.toUpperCase(),
+        punchMethod: updated.source,
+      );
+    }
   }
 
   /// Create Pink Slip issued by Class Advisor and synchronize attendance (Mark Present or Absent)
@@ -738,6 +854,17 @@ class MockDataService {
   static void submitLeaveRequest(LeaveModel newLeave) {
     _leaveRequests.insert(0, newLeave);
     _notifyUpdate();
+
+    // Persist to Supabase Cloud Database
+    final studentNumericId = int.tryParse(newLeave.studentRollNumber.replaceAll(RegExp(r'[^0-9]'), '')) ?? 1001;
+    SupabaseService().submitLeaveSlip(
+      studentId: studentNumericId,
+      reason: newLeave.reason,
+      fromDate: newLeave.leaveDate,
+      toDate: newLeave.leaveDate,
+      isOnDuty: newLeave.isOnDuty,
+      letterUrl: newLeave.attachmentFileName,
+    );
   }
 
   static bool forwardToHod(String leaveId, {String? advisorRemarks}) {
@@ -750,6 +877,14 @@ class MockDataService {
         advisorRemarks: advisorRemarks ?? item.advisorRemarks ?? 'Endorsed and forwarded to HOD for approval.',
       );
       _notifyUpdate();
+
+      // Persist status to Supabase
+      final numericSlipId = int.tryParse(leaveId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 1;
+      SupabaseService().updateLeaveSlipStatus(
+        slipId: numericSlipId,
+        status: 'PENDING_HOD',
+        remarks: advisorRemarks,
+      );
       return true;
     }
     return false;
@@ -765,6 +900,14 @@ class MockDataService {
         hodRemarks: remarks ?? 'Approved by Head of Department (AI&DS). Document verified.',
       );
       _notifyUpdate();
+
+      // Persist status to Supabase
+      final numericSlipId = int.tryParse(leaveId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 1;
+      SupabaseService().updateLeaveSlipStatus(
+        slipId: numericSlipId,
+        status: 'APPROVED',
+        remarks: remarks,
+      );
       return true;
     }
     return false;

@@ -1,4 +1,4 @@
--- PinkSlipReport: PostgreSQL Database DDL & Seed Script
+-- PinkSlipReport: PostgreSQL Database DDL & Seed Script (Production)
 CREATE TYPE user_role AS ENUM ('HOD', 'ADVISOR', 'STUDENT');
 CREATE TYPE leave_type AS ENUM ('INFORMED', 'UNINFORMED', 'OD', 'MEDICAL');
 CREATE TYPE slip_status AS ENUM ('SUBMITTED', 'PENDING_HOD', 'APPROVED', 'REJECTED');
@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS daily_attendance (
     in_time TIME,
     out_time TIME,
     punch_method punch_source DEFAULT 'BIOMETRIC_FINGERPRINT',
-    marked_by INT REFERENCES users(user_id),
+    marked_by INT NOT NULL REFERENCES users(user_id),
     marked_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT unique_student_daily_record UNIQUE (student_id, attendance_date)
@@ -91,7 +91,8 @@ CREATE TABLE IF NOT EXISTS leave_slips (
     advisor_remarks TEXT,
     hod_remarks TEXT,
     approved_by_hod_date TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS audit_logs (
@@ -104,6 +105,17 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     new_data JSONB,
     performed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- ──────────────────── INDEXES ────────────────────
+CREATE INDEX IF NOT EXISTS idx_attendance_date ON daily_attendance(attendance_date);
+CREATE INDEX IF NOT EXISTS idx_attendance_student ON daily_attendance(student_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_student_date ON daily_attendance(student_id, attendance_date);
+CREATE INDEX IF NOT EXISTS idx_leave_slips_student ON leave_slips(student_id);
+CREATE INDEX IF NOT EXISTS idx_leave_slips_status ON leave_slips(status);
+CREATE INDEX IF NOT EXISTS idx_leave_slips_created ON leave_slips(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_biometric_student_time ON biometric_punches(student_id, punch_timestamp);
+CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_logs(actor_id, performed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_students_section ON students(section_id);
 
 -- Seed Sections
 INSERT INTO sections (section_id, year, section_name, total_strength) VALUES

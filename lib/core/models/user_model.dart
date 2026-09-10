@@ -2,6 +2,8 @@
 enum UserRole { hod, advisor, student }
 
 /// Represents an authenticated user in the system.
+/// NOTE: No credentials (passwords, tokens) are stored in this model.
+/// All authentication is handled exclusively by Supabase Auth.
 class UserModel {
   final String id;
   final String name;
@@ -10,6 +12,7 @@ class UserModel {
   final String department;
   final String college;
   final String? classSection; // e.g., "II AI&DS - Section B"
+  final String? customUsername;
   final String? batchYear; // e.g., "2025 BATCH"
   final String? hodScope; // e.g., "1st & 2nd Year" or "Overall & 3rd/4th Year"
   final String? avatarUrl;
@@ -18,8 +21,6 @@ class UserModel {
   final String? gender; // 'Boy' or 'Girl'
   final int? year; // 2, 3, 4
   final String? section; // 'A', 'B', 'C', 'D'
-  final String? customUsername;
-  final String? customPassword;
 
   const UserModel({
     required this.id,
@@ -28,6 +29,7 @@ class UserModel {
     required this.role,
     required this.department,
     this.college = 'V.S.B. Engineering College',
+    this.customUsername,
     this.classSection,
     this.batchYear,
     this.hodScope,
@@ -37,12 +39,10 @@ class UserModel {
     this.gender,
     this.year,
     this.section,
-    this.customUsername,
-    this.customPassword,
   });
 
-  String get username => customUsername ?? (rollNumber ?? email.split('@').first);
-  String get password => customPassword ?? (rollNumber != null ? 'Stu@$rollNumber' : 'password123');
+  /// Display-safe username derived from official handle or email (no credentials stored)
+  String get username => customUsername ?? rollNumber ?? email.split('@').first;
 
   String get roleDisplayName {
     switch (role) {

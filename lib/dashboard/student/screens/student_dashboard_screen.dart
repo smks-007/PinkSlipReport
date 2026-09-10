@@ -198,9 +198,23 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
           IconButton(
             icon: const Icon(Icons.logout_rounded, color: Color(0xFF64748B)),
             tooltip: 'Sign Out',
-            onPressed: () {
-              AuthService().logout();
-              Navigator.pushReplacementNamed(context, '/sign-in');
+            onPressed: () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Sign Out'),
+                  content: const Text('Are you sure you want to sign out?'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                    TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sign Out', style: TextStyle(color: Color(0xFFEF4444)))),
+                  ],
+                ),
+              );
+              if (confirmed == true && mounted) {
+                await AuthService().logout();
+                if (!mounted) return;
+                Navigator.pushReplacementNamed(context, '/sign-in');
+              }
             },
           ),
         ],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/services/supabase_service.dart';
 
 /// Redesigned Smart Pro Credential Recovery Screen
 /// Matches the high-tech, modern visual aesthetic of the Smart Pro Portal.
@@ -37,14 +38,35 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     setState(() => _isLoading = true);
 
-    await Future.delayed(const Duration(milliseconds: 1000));
+    try {
+      final supabase = SupabaseService();
+      if (!supabase.isInitialized) {
+        if (!mounted) return;
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to connect to server. Please check your connection.'),
+            backgroundColor: Color(0xFFDC2626),
+          ),
+        );
+        return;
+      }
 
-    if (!mounted) return;
-    setState(() {
-      _isLoading = false;
-    });
+      await supabase.resetPassword(_emailCtrl.text.trim());
 
-    _showSuccessBottomSheet();
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      _showSuccessBottomSheet();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Password reset failed: ${e.toString().replaceAll('Exception: ', '')}'),
+          backgroundColor: const Color(0xFFDC2626),
+        ),
+      );
+    }
   }
 
   void _showSuccessBottomSheet() {

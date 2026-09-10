@@ -42,18 +42,6 @@ class _SecurityVerificationScreenState extends State<SecurityVerificationScreen>
       _pulseController.value = 1.0;
     }
 
-    // Biometric gate disabled: Automatically proceed directly to dashboard
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final authService = AuthService();
-      if (authService.pendingUser != null) {
-        authService.loginDirectly(authService.pendingUser!);
-      } else if (authService.currentUser == null) {
-        authService.loginDirectly(AuthService.overallHod);
-      }
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, authService.dashboardRoute);
-      }
-    });
   }
 
   @override
@@ -65,20 +53,18 @@ class _SecurityVerificationScreenState extends State<SecurityVerificationScreen>
 
   Future<void> _triggerBiometricAuth({bool isFaceId = false}) async {
     final authService = AuthService();
-    if (authService.pendingUser != null) {
-      authService.loginDirectly(authService.pendingUser!);
-    } else if (authService.currentUser == null) {
-      authService.loginDirectly(AuthService.overallHod);
-    }
     if (mounted) {
-      Navigator.pushReplacementNamed(context, authService.dashboardRoute);
+      Navigator.pushReplacementNamed(
+        context,
+        authService.isLoggedIn ? authService.dashboardRoute : '/sign-in',
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final authService = AuthService();
-    final user = authService.pendingUser ?? AuthService.overallHod;
+    final user = authService.currentUser ?? AuthService.overallHod;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
