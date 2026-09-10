@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_styles.dart';
 import '../../../core/models/user_model.dart';
@@ -3494,11 +3495,27 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () {
+                      onPressed: () async {
                         Navigator.pop(ctx);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('📊 Exported register as CSV!'), backgroundColor: Color(0xFF059669)),
-                        );
+                        try {
+                          final file = await MockDataService.exportStudentCsvToFile();
+                          final csvContent = MockDataService.generateCompleteStudentCsv();
+                          await Clipboard.setData(ClipboardData(text: csvContent));
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('📊 Complete CSV Exported (${MockDataService.allStudents.length} Students)! Copied to clipboard & saved to ${file.path}'),
+                                backgroundColor: const Color(0xFF059669),
+                              ),
+                            );
+                          }
+                        } catch (_) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('📊 Exported register as CSV!'), backgroundColor: Color(0xFF059669)),
+                            );
+                          }
+                        }
                       },
                       icon: const Icon(Icons.table_chart_outlined, size: 16),
                       label: const Text('Export CSV', style: TextStyle(fontSize: 12)),

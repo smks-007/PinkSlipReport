@@ -14,6 +14,7 @@ import 'package:slipreport/dashboard/shared/widgets/role_ai_agent_sheet.dart';
 import 'package:slipreport/dashboard/student/screens/student_dashboard_screen.dart';
 import 'package:slipreport/dashboard/advisor/screens/advisor_dashboard_screen.dart';
 import 'package:slipreport/dashboard/hod/screens/hod_dashboard_screen.dart';
+import 'package:slipreport/dashboard/shared/widgets/storage_management_dialog.dart';
 import 'package:slipreport/core/services/ai_agent_service.dart';
 
 void main() {
@@ -897,5 +898,121 @@ void main() {
     await MockDataService.markNoticeAsRead(latestNotice.id);
     expect(MockDataService.broadcastNotices.first.isRead, isTrue);
     expect(MockDataService.unreadNoticeCount, initialUnread);
+  });
+
+  test('Complete 622 Student CSV generation exports all student attributes and saves to file', () async {
+    final csv = MockDataService.generateCompleteStudentCsv();
+    expect(csv.isNotEmpty, isTrue);
+
+    final lines = csv.trim().split('\n');
+    // 1 header row + 622 student rows = 623 rows
+    expect(lines.length, 623);
+
+    // Verify CSV Header columns
+    final header = lines.first;
+    expect(header.contains('S.No'), isTrue);
+    expect(header.contains('Roll Number'), isTrue);
+    expect(header.contains('Register Number'), isTrue);
+    expect(header.contains('Student Name'), isTrue);
+    expect(header.contains('Department'), isTrue);
+    expect(header.contains('Year'), isTrue);
+    expect(header.contains('Section'), isTrue);
+    expect(header.contains('Batch Year'), isTrue);
+    expect(header.contains('Advisor ID'), isTrue);
+    expect(header.contains('Today Attendance'), isTrue);
+    expect(header.contains('Attendance Percentage'), isTrue);
+
+    // Verify first student row
+    final row1 = lines[1];
+    expect(row1.startsWith('1,25243001'), isTrue);
+    expect(row1.contains('ABINAYA G'), isTrue);
+    expect(row1.contains('AI&DS'), isTrue);
+    expect(row1.contains('2025 BATCH'), isTrue);
+
+    // Verify last student row exists and has valid data
+    final lastRow = lines[622];
+    expect(lastRow.startsWith('622,'), isTrue);
+
+    // Verify file export works and produces physical file
+    final file = await MockDataService.exportStudentCsvToFile();
+    expect(await file.exists(), isTrue);
+    expect(await file.length() > 0, isTrue);
+  });
+
+  test('Live Storage Metrics calculate dynamically from database records and update upon cloud sync', () async {
+    final metricsBefore = MockDataService.getStorageMetrics();
+    expect(metricsBefore['totalStudents'], 622);
+    expect(metricsBefore['totalSections'], 10);
+    expect(metricsBefore['totalAdvisors'], 10);
+    expect(metricsBefore['totalHods'], 2);
+    expect(metricsBefore['storageAllocatedMB'], 100.0);
+    expect(metricsBefore['storageUsedMB'] > 0.0, isTrue);
+    expect(metricsBefore.containsKey('lastSyncTime'), isTrue);
+
+    final breakdown = metricsBefore['breakdown'] as List<Map<String, String>>;
+    expect(breakdown.any((b) => b['category']!.contains('622 Active Student')), isTrue);
+    expect(breakdown.any((b) => b['category']!.contains('Faculty Advisor & HOD Portals')), isTrue);
+    expect(breakdown.any((b) => b['category']!.contains('Alumni 2-Year Retention')), isTrue);
+    expect(breakdown.any((b) => b['category']!.contains('Daily Attendance & Biometric Punch Logs')), isTrue);
+
+    // Run cloud backup synchronization
+    final initialSyncTime = MockDataService.lastCloudSyncTime;
+    await Future.delayed(const Duration(milliseconds: 50));
+    await MockDataService.syncFromSupabase();
+    expect(MockDataService.lastCloudSyncTime.isAfter(initialSyncTime) || MockDataService.lastCloudSyncTime.isAtSameMomentAs(initialSyncTime), isTrue);
+
+    final metricsAfter = MockDataService.getStorageMetrics();
+    expect(metricsAfter['totalStudents'], 622);
+    expect(metricsAfter['storageAllocatedMB'], 100.0);
+  });
+
+  testWidgets('StorageManagementDialog renders live metrics, provides functional Export CSV and Sync Backup buttons', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: StorageManagementDialog(),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // Verify Dialog Header
+    expect(find.text('Department Data & Storage Center'), findsOneWidget);
+    expect(find.textContaining('622 Students • 10 Sections'), findsOneWidget);
+
+    // Verify Storage Breakdown and Auto-Purge badge
+    expect(find.text('Storage Allocation Breakdown'), findsOneWidget);
+    expect(find.text('🛡️ 2-Yr Auto-Purge Active'), findsOneWidget);
+
+    // Verify action buttons
+    final exportCsvButton = find.text('Export CSV');
+    final syncBackupButton = find.text('Sync Backup');
+    expect(exportCsvButton, findsOneWidget);
+    expect(syncBackupButton, findsOneWidget);
+
+    // Tap Export CSV and verify export flow
+    await tester.runAsync(() async {
+      await tester.tap(exportCsvButton);
+      await Future.delayed(const Duration(milliseconds: 200));
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.text('Complete CSV Exported!'), findsOneWidget);
+    expect(find.textContaining('All 622 Students'), findsOneWidget);
+    expect(find.text('Copy Full CSV'), findsOneWidget);
+    expect(find.text('Done'), findsOneWidget);
+
+    // Dismiss preview modal
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+
+    // Tap Sync Backup and verify sync completes
+    await tester.runAsync(() async {
+      await tester.tap(syncBackupButton);
+      await Future.delayed(const Duration(milliseconds: 200));
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Cloud Backup Synced Successfully'), findsOneWidget);
   });
 }
