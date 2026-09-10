@@ -5,6 +5,7 @@ class StudentModel {
   final String id;
   final String name;
   final String rollNumber;
+  final String? registerNumber;
   final String department;
   final String section;
   final int year;
@@ -26,6 +27,7 @@ class StudentModel {
     required this.id,
     required this.name,
     required this.rollNumber,
+    this.registerNumber,
     required this.department,
     required this.section,
     required this.year,
@@ -69,6 +71,7 @@ class StudentModel {
     String? id,
     String? name,
     String? rollNumber,
+    String? registerNumber,
     String? department,
     String? section,
     int? year,
@@ -90,6 +93,7 @@ class StudentModel {
       id: id ?? this.id,
       name: name ?? this.name,
       rollNumber: rollNumber ?? this.rollNumber,
+      registerNumber: registerNumber ?? this.registerNumber,
       department: department ?? this.department,
       section: section ?? this.section,
       year: year ?? this.year,

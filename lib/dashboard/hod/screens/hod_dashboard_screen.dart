@@ -290,7 +290,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                 ),
                 const SizedBox(width: 8),
                 const Text(
-                  'AI&DS • 627 Students',
+                  'AI&DS • 622 Students',
                   style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.5),
                 ),
               ],
@@ -363,11 +363,11 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _microSummaryItem('Total Enrolled', '627', '10 Sections', const Color(0xFF6366F1)),
+            _microSummaryItem('Total Enrolled', '${MockDataService.totalStrength}', '10 Sections', const Color(0xFF6366F1)),
             Container(width: 1, height: 32, color: const Color(0xFFE2E8F0)),
-            _microSummaryItem('Present Today', '533', '85.0% Rate', const Color(0xFF10B981)),
+            _microSummaryItem('Present Today', '${MockDataService.presentToday}', '${MockDataService.attendancePercentage.toStringAsFixed(1)}% Rate', const Color(0xFF10B981)),
             Container(width: 1, height: 32, color: const Color(0xFFE2E8F0)),
-            _microSummaryItem('Absentees', '94', 'Uninformed/OD', const Color(0xFFEF4444)),
+            _microSummaryItem('Absentees', '${MockDataService.absentToday}', 'Uninformed/OD', const Color(0xFFEF4444)),
             Container(width: 1, height: 32, color: const Color(0xFFE2E8F0)),
             _microSummaryItem('Pending Slips', '$awaitingCount', 'HOD Action', const Color(0xFFF59E0B)),
           ],
@@ -512,7 +512,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
         const SizedBox(height: 18),
 
         // Department Attendance Overview KPIs
-        _buildSectionTitle('Department Live Statistics (627 Students)'),
+        _buildSectionTitle('Department Live Statistics (622 Students)'),
         const SizedBox(height: 10),
         _buildDepartmentKPIs(),
         const SizedBox(height: 18),
@@ -645,7 +645,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle('Browse All 10 Sections (627 Students)'),
+        _buildSectionTitle('Browse All 10 Sections (622 Students)'),
         const SizedBox(height: 10),
         _buildYearSelector(),
         const SizedBox(height: 8),
@@ -685,7 +685,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
     final msgCtrl = TextEditingController(
       text: 'All Section Advisors and Class Representatives are requested to verify today\'s attendance muster rolls and submit defaulter lists to the HOD office by 4:00 PM.',
     );
-    String audience = 'All 10 Sections (627 Students)';
+    String audience = 'All 10 Sections (622 Students)';
     String priority = 'High Priority';
 
     showModalBottomSheet(
@@ -750,7 +750,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     ),
                     items: const [
-                      DropdownMenuItem(value: 'All 10 Sections (627 Students)', child: Text('📢 All 10 Sections (627 Students)', style: TextStyle(fontSize: 12))),
+                      DropdownMenuItem(value: 'All 10 Sections (622 Students)', child: Text('📢 All 10 Sections (622 Students)', style: TextStyle(fontSize: 12))),
                       DropdownMenuItem(value: 'All Section Advisors (10 Faculty)', child: Text('👨‍🏫 All Section Advisors (10 Faculty)', style: TextStyle(fontSize: 12))),
                       DropdownMenuItem(value: 'Class Representatives (CRs)', child: Text('⭐ Class Representatives (CRs)', style: TextStyle(fontSize: 12))),
                       DropdownMenuItem(value: 'II Year Only (2025 Batch)', child: Text('📘 II Year Only (Sec A, B, C, D)', style: TextStyle(fontSize: 12))),
@@ -913,7 +913,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
     final defaulters = MockDataService.getAllDepartmentDefaulters();
     StudentModel selectedStudent = defaulters.isNotEmpty
         ? (defaulters.first['student'] as StudentModel)
-        : StudentDirectoryData.allStudents.first;
+        : MockDataService.allStudents.first;
     double currentPct = defaulters.isNotEmpty
         ? (defaulters.first['percentage'] as double)
         : 72.4;
@@ -1000,7 +1000,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     ),
-                    items: StudentDirectoryData.allStudents.take(60).map((st) {
+                    items: MockDataService.allStudents.take(60).map((st) {
                       return DropdownMenuItem<String>(
                         value: st.rollNumber,
                         child: Text('${st.name} (${st.rollNumber}) • Yr ${st.year}-${st.section}', style: const TextStyle(fontSize: 12)),
@@ -1651,7 +1651,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     break;
                   }
                 }
-                s ??= StudentDirectoryData.allStudents.cast<StudentModel?>().firstWhere(
+                s ??= MockDataService.allStudents.cast<StudentModel?>().firstWhere(
                   (st) => st?.id == r.studentId,
                   orElse: () => StudentModel(
                     id: r.studentId,
@@ -1693,7 +1693,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     break;
                   }
                 }
-                s ??= StudentDirectoryData.allStudents.cast<StudentModel?>().firstWhere(
+                s ??= MockDataService.allStudents.cast<StudentModel?>().firstWhere(
                   (st) => st?.id == r.studentId,
                   orElse: () => StudentModel(
                     id: r.studentId,
@@ -1758,7 +1758,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                 child: _miniKPICard(
                   'Total Students',
                   '${MockDataService.totalStrength}',
-                  '10 AIDS Sections (627)',
+                  '10 AIDS Sections (622)',
                   Icons.groups_rounded,
                   const Color(0xFF0284C7),
                 ),
@@ -2474,7 +2474,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     ),
                     hint: const Text('Search by Name / Roll Number', style: TextStyle(fontSize: 12)),
-                    items: StudentDirectoryData.allStudents.take(50).map((st) {
+                    items: MockDataService.allStudents.take(50).map((st) {
                       return DropdownMenuItem<String>(
                         value: st.rollNumber,
                         child: Text('${st.name} (${st.rollNumber}) • Yr ${st.year}-${st.section}', style: const TextStyle(fontSize: 12)),
@@ -2482,7 +2482,10 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     }).toList(),
                     onChanged: (val) {
                       if (val != null) {
-                        final st = StudentDirectoryData.byRollNumber[val];
+                        final st = MockDataService.allStudents.cast<StudentModel?>().firstWhere(
+                              (item) => item?.rollNumber == val,
+                              orElse: () => StudentDirectoryData.byRollNumber[val],
+                            );
                         if (st != null) {
                           setModalState(() {
                             selectedStudent = st;

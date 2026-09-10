@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../models/user_model.dart';
 import 'supabase_service.dart';
+import 'mock_data_service.dart';
 
 /// Manages authentication state and role-based access.
 /// All authentication is handled exclusively through Supabase Auth.
@@ -358,6 +359,16 @@ class AuthService extends ChangeNotifier {
         _failedAttempts = 0;
         _lockoutUntil = null;
         _lastActivity = DateTime.now();
+
+        // Trigger real-time sync with Supabase Cloud using authenticated JWT
+        try {
+          await MockDataService.syncFromSupabase();
+        } catch (e) {
+          if (kDebugMode) {
+            debugPrint('⚠️ Post-login sync warning: $e');
+          }
+        }
+
         _isLoading = false;
         notifyListeners();
         return null; // Success

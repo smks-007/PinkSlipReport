@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/data/student_directory_data.dart';
 import '../../../core/models/attendance_model.dart';
 import '../../../core/models/leave_model.dart';
 import '../../../core/models/student_model.dart';
@@ -277,7 +276,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     return _records.where((r) {
       final student = _sectionStudents.firstWhere(
         (s) => s.id == r.studentId,
-        orElse: () => StudentDirectoryData.allStudents.first,
+        orElse: () => MockDataService.allStudents.first,
       );
       return student.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           student.rollNumber.contains(_searchQuery);
@@ -464,7 +463,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       final record = _filteredRecords[index];
                       final student = _sectionStudents.firstWhere(
                         (s) => s.id == record.studentId,
-                        orElse: () => StudentDirectoryData.allStudents.first,
+                        orElse: () => MockDataService.allStudents.first,
                       );
                       final recordIdx = _records.indexWhere((r) => r.id == record.id);
 

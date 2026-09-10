@@ -18,18 +18,18 @@ import 'package:slipreport/core/services/ai_agent_service.dart';
 
 void main() {
   test('StudentDirectoryData contains all students across all 10 sections', () {
-    expect(StudentDirectoryData.allStudents.length, 627);
+    expect(StudentDirectoryData.allStudents.length, 622);
 
     // Verify all 10 sections exist and have correct student counts
     expect(StudentDirectoryData.bySection['2-A']?.length, 63);
     expect(StudentDirectoryData.bySection['2-B']?.length, 63);
     expect(StudentDirectoryData.bySection['2-C']?.length, 60);
-    expect(StudentDirectoryData.bySection['2-D']?.length, 66);
+    expect(StudentDirectoryData.bySection['2-D']?.length, 63);
     expect(StudentDirectoryData.bySection['3-A']?.length, 65);
     expect(StudentDirectoryData.bySection['3-B']?.length, 61);
-    expect(StudentDirectoryData.bySection['3-C']?.length, 61);
+    expect(StudentDirectoryData.bySection['3-C']?.length, 60);
     expect(StudentDirectoryData.bySection['3-D']?.length, 63);
-    expect(StudentDirectoryData.bySection['4-A']?.length, 60);
+    expect(StudentDirectoryData.bySection['4-A']?.length, 59);
     expect(StudentDirectoryData.bySection['4-B']?.length, 65);
 
     // Verify key students across years
@@ -54,8 +54,8 @@ void main() {
     expect(s4?.section, 'B');
     // Verify today's attendance metrics
     expect(MockDataService.presentToday, 533);
-    expect(MockDataService.absentToday, 94);
-    expect(MockDataService.todaysAbsentRollNumbers.length, 94);
+    expect(MockDataService.absentToday, 89);
+    expect(MockDataService.todaysAbsentRollNumbers.length, 89);
   });
 
   test('AuthService has exactly 20 Class Representatives (1 Boy & 1 Girl for each of 10 sections)', () {
@@ -659,7 +659,7 @@ void main() {
       expect(find.text('Pink Slip'), findsWidgets);
       expect(find.text('Pink Slip & OD Management'), findsOneWidget);
       expect(find.text('My Class (Yr 2-A)'), findsOneWidget);
-      expect(find.text('All 10 Sections (627)'), findsOneWidget);
+      expect(find.text('All 10 Sections (622)'), findsOneWidget);
 
       // Verify Class Roster section
       expect(find.textContaining('Class Roster (Yr 2-A)'), findsOneWidget);
@@ -703,7 +703,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('hod_tab_1')));
       await tester.pumpAndSettle();
       expect(
-        find.text('Browse All 10 Sections (627 Students)'),
+        find.text('Browse All 10 Sections (622 Students)'),
         findsOneWidget,
       );
 

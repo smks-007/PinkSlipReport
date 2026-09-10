@@ -42,8 +42,7 @@ CREATE TABLE IF NOT EXISTS students (
     roll_number VARCHAR(20) UNIQUE NOT NULL,
     register_number VARCHAR(20) UNIQUE NOT NULL,
     section_id VARCHAR(15) REFERENCES sections(section_id) ON DELETE RESTRICT,
-    guardian_name VARCHAR(100),
-    guardian_contact VARCHAR(20),
+    student_name VARCHAR(100) NOT NULL,
     leaves_taken_ytd INT DEFAULT 0,
     face_encoding TEXT
 );

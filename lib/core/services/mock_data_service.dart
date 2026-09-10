@@ -52,18 +52,25 @@ class MockDataService {
           }
 
           final userMap = r['users'] as Map<String, dynamic>?;
-          final name = userMap?['full_name'] as String? ?? 'Student $roll';
+          final studentNameFromTable = r['student_name'] as String?;
+          final name = (studentNameFromTable != null && studentNameFromTable.trim().isNotEmpty)
+              ? studentNameFromTable.trim()
+              : (userMap?['full_name'] as String?) ?? 'Student $roll';
           final batch = yr == 1 ? '2026 BATCH' : yr == 2 ? '2025 BATCH' : yr == 3 ? '2024 BATCH' : '2023 BATCH';
+
+          final advId = 'adv-$yr${secLetter.toLowerCase()}';
+          final regNo = r['register_number'] as String?;
 
           synced.add(StudentModel(
             id: 'stu-$roll',
             name: name,
             rollNumber: roll,
+            registerNumber: regNo,
             year: yr,
             section: secLetter,
             department: 'AI&DS',
             batchYear: batch,
-            advisorId: 'adv-${secLetter.toLowerCase()}',
+            advisorId: advId,
             totalLeavesTaken: (r['leaves_taken_ytd'] as int?) ?? 0,
           ));
         }
@@ -220,11 +227,8 @@ class MockDataService {
     '25243177', '25243178', '25243179', '25243180', '25243181', '25243182', '25243183', '25243184',
     '25243185', '25243186', '25243187', '25243188',
 
-    // II Year Section D (6 Absentees)
+    // II Year Section D (3 Absentees)
     '25243195', // SANTHOSH RAJ B
-    '25243201', // SHANMUGA SUNDARAM B
-    '25243211', // SRI HARISHKUMAR T
-    '25243226', // TAMILARASAN M
     '25243228', // THAMARAIKKANNAN S
     '25243242', // VIJAY M
 
@@ -242,16 +246,14 @@ class MockDataService {
     // III Year Section C (1 Absentee)
     '24243180', // SAKTHI BALAN M
 
-    // III Year Section D (2 Absentees)
-    '24243179', // SAKTHI B
+    // III Year Section D (1 Absentee)
     '24243240', // VELAVAN A
 
-    // IV Year Section A (7 Absentees)
+    // IV Year Section A (6 Absentees)
     '23243001', // S.AARTHI
     '23243020', // S.ELAMATHI
     '23243024', // V.GOKUL ANAND
     '23243025', // S.GOKUL KRISHNA
-    '23243026', // M.GOKUL
     '23243031', // S.HARI KRISHNA
     '23243036', // V.S HARINI
 
@@ -636,10 +638,10 @@ class MockDataService {
   /// Overall department monthly progression
   static List<Map<String, dynamic>> getOverallDepartmentMonthlyTrend() {
     return [
-      {'month': 'Sep 2026', 'percentage': 94.8, 'target': 95.0, 'totalStudents': 627},
-      {'month': 'Oct 2026', 'percentage': 95.3, 'target': 95.0, 'totalStudents': 627},
-      {'month': 'Nov 2026', 'percentage': 96.0, 'target': 95.0, 'totalStudents': 627},
-      {'month': 'Dec 2026', 'percentage': 95.5, 'target': 95.0, 'totalStudents': 627},
+      {'month': 'Sep 2026', 'percentage': 94.8, 'target': 95.0, 'totalStudents': 622},
+      {'month': 'Oct 2026', 'percentage': 95.3, 'target': 95.0, 'totalStudents': 622},
+      {'month': 'Nov 2026', 'percentage': 96.0, 'target': 95.0, 'totalStudents': 622},
+      {'month': 'Dec 2026', 'percentage': 95.5, 'target': 95.0, 'totalStudents': 622},
     ];
   }
 
@@ -1273,18 +1275,18 @@ class MockDataService {
     final purgedAlumni = _alumniArchive.where((a) => a.isPurged).length;
 
     return {
-      'totalStudents': allStudents.length, // 627
+      'totalStudents': allStudents.length, // 622
       'totalAdvisors': 10,
       'totalHods': 2,
       'totalSections': 10,
       'totalLeaveSlips': _leaveRequests.length,
-      'totalAttendanceRecords': 627 * 30, // 30 days of persistent records
+      'totalAttendanceRecords': 622 * 30, // 30 days of persistent records
       'activeAlumniUnder2YrRetention': activeAlumni,
       'purgedAlumniRecords': purgedAlumni,
       'storageAllocatedMB': 100.0,
       'storageUsedMB': 34.20,
       'breakdown': [
-        {'category': '627 Active Student Bio & Academic Data', 'size': '2.45 MB', 'records': '627 active'},
+        {'category': '622 Active Student Bio & Academic Data', 'size': '2.45 MB', 'records': '622 active'},
         {'category': 'Alumni 2-Year Retention Archive Vault', 'size': '1.85 MB', 'records': '$activeAlumni retained, $purgedAlumni auto-purged'},
         {'category': '10 Faculty Advisor & HOD Portals', 'size': '320 KB', 'records': '12 accounts'},
         {'category': 'Sep-Dec 2026 Attendance & Punch Logs', 'size': '6.40 MB', 'records': '18,660 logs'},

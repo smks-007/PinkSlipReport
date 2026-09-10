@@ -54,7 +54,7 @@ Department Leadership:
 - Junior Wing Head of Department (I & II Year): Mrs. V. Kavitha - kavitha.hod@vsb.ac.in
 
 Student & Section Topology:
-- Total Department Strength: 627 Students across 10 Active Sections
+- Total Department Strength: 622 Students across 10 Active Sections
 - IV Year (2023 Batch): 125 Students (Sec A: 60, Sec B: 65)
 - III Year (2024 Batch): 250 Students (Sec A: 65, Sec B: 61, Sec C: 61, Sec D: 63)
 - II Year (2025 Batch): 252 Students (Sec A: 63, Sec B: 63, Sec C: 60, Sec D: 66)

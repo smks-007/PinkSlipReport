@@ -447,7 +447,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                 ),
                                 SizedBox(height: 2),
                                 Text(
-                                  'To safeguard 627 AI&DS student records, passkey resets require approval from the Department IT Administrator or institutional 2FA.',
+                                  'To safeguard 622 AI&DS student records, passkey resets require approval from the Department IT Administrator or institutional 2FA.',
                                   style: TextStyle(
                                     fontSize: 11.5,
                                     color: Color(0xFF15803D),

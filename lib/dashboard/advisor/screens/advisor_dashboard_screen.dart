@@ -1686,7 +1686,7 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
               children: [
                 _buildSectionFilterChip('My Class', 'My Class (Yr ${_currentAdvisor.year ?? 2}-${_currentAdvisor.section ?? "A"})'),
                 const SizedBox(width: 8),
-                _buildSectionFilterChip('All 10 Sections', 'All 10 Sections (627)'),
+                _buildSectionFilterChip('All 10 Sections', 'All 10 Sections (622)'),
                 const SizedBox(width: 8),
                 _buildSectionFilterChip('II Year', 'II Year (A-D)'),
                 const SizedBox(width: 8),

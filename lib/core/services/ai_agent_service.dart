@@ -642,7 +642,7 @@ class AiAgentService {
     // ── SCENARIO B: Defaulter Audit & Intimation Notice Drafting ──
     else if (lower.contains('defaulter') || lower.contains('75%') || lower.contains('low attendance') || lower.contains('warning')) {
       steps.add(AgentStep(
-        thought: 'Executing department-wide statistical sweep across 627 students in all 10 sections to identify cumulative attendance falling below the 75% statutory threshold.',
+        thought: 'Executing department-wide statistical sweep across 622 students in all 10 sections to identify cumulative attendance falling below the 75% statutory threshold.',
         actionName: 'scanLowAttendanceDefaulters',
         actionInput: 'Threshold: < 75.0%',
         observation: 'Identified ${MockDataService.getAllDepartmentDefaulters().length} students requiring parental intimation & advisor review.',
@@ -732,18 +732,18 @@ class AiAgentService {
     // ── SCENARIO D: General Comprehensive Department Audit & Brief ──
     else {
       steps.add(AgentStep(
-        thought: 'Aggregating live telemetry across all 10 sections: 627 students, attendance registers, OD queue, timetable indices, and defaulters.',
+        thought: 'Aggregating live telemetry across all 10 sections: 622 students, attendance registers, OD queue, timetable indices, and defaulters.',
         actionName: 'aggregateDepartmentTelemetry',
-        actionInput: 'Department: AI & DS, Total Strength: 627',
+        actionInput: 'Department: AI & DS, Total Strength: 622',
         observation: 'Compiled: 533 Present (85.0%), 94 Absentees, ${MockDataService.pendingHodApprovals} Pending HOD Signatures.',
         timestamp: DateTime.now(),
       ));
 
-      actionsExecuted.add('Aggregated 627 student records across 10 sections');
+      actionsExecuted.add('Aggregated 622 student records across 10 sections');
       actionsExecuted.add('Verified Sep-Dec 2026 Academic Calendar attendance metrics');
 
       final summary = '📊 **Smart Pro AI-Agent: Comprehensive Department Executive Brief**\n\n'
-          '• **Total Department Strength**: **627 Students** (10 Sections)\n'
+          '• **Total Department Strength**: **622 Students** (10 Sections)\n'
           '• **Today\'s Attendance**: **533 Present (85.0%)** | **94 Absent (15.0%)**\n'
           '• **Section Highlights**:\n'
           '  - **III AIDS A**: 98.5% Turnout (1 Absent: Santhosh A)\n'

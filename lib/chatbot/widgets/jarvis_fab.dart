@@ -99,7 +99,7 @@ class _JarvisChatDrawerState extends State<_JarvisChatDrawer> with SingleTickerP
   final List<Map<String, String>> _messages = [
     {
       'sender': 'jarvis',
-      'text': '🤖 **Greetings Dr. HOD! I am Smart Pro AI Co-Pilot & Autonomous Agent**.\n\nI have complete trained memory of all **627 students** across all 10 sections (II, III & IV Year AI&DS), **10 Section Class Advisors**, the **2026 Academic Calendar (Sep-Dec)**, live attendance records, OD approvals, and <75% attendance defaulters.\n\n💡 *Tip: Give any student name or roll number (e.g. `25243001`, `25243100`, `24243007`, `23243034`) or switch to **Autonomous AI-Agent Mode** to execute administrative actions!*'
+      'text': '🤖 **Greetings Dr. HOD! I am Smart Pro AI Co-Pilot & Autonomous Agent**.\n\nI have complete trained memory of all **622 students** across all 10 sections (II, III & IV Year AI&DS), **10 Section Class Advisors**, the **2026 Academic Calendar (Sep-Dec)**, live attendance records, OD approvals, and <75% attendance defaulters.\n\n💡 *Tip: Give any student name or roll number (e.g. `25243001`, `25243100`, `24243007`, `23243034`) or switch to **Autonomous AI-Agent Mode** to execute administrative actions!*'
     }
   ];
   final _inputCtrl = TextEditingController();
@@ -665,7 +665,7 @@ class _JarvisChatDrawerState extends State<_JarvisChatDrawer> with SingleTickerP
                         ],
                       ),
                       const SizedBox(height: 2),
-                      const Text('HOD Executive Co-Pilot & Autonomous Agent • 627 Students Grounded',
+                      const Text('HOD Executive Co-Pilot & Autonomous Agent • 622 Students Grounded',
                           style: TextStyle(color: Color(0xFFA5B4FC), fontSize: 10)),
                     ],
                   ),
@@ -823,7 +823,7 @@ class _JarvisChatDrawerState extends State<_JarvisChatDrawer> with SingleTickerP
                             ),
                             icon: const Icon(Icons.bolt_rounded, size: 16, color: Color(0xFFFBBF24)),
                             label: const Text('⚡ Generate Full Executive Brief via AI-Agent', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                            onPressed: () => _triggerAgentFromChat('Generate daily department executive brief across 627 students and 10 sections'),
+                            onPressed: () => _triggerAgentFromChat('Generate daily department executive brief across 622 students and 10 sections'),
                           ),
                         ] else if (msg['text']!.contains('Pink Slip & Gate Pass Protocol')) ...[
                           const SizedBox(height: 10),
@@ -1030,10 +1030,10 @@ class _JarvisChatDrawerState extends State<_JarvisChatDrawer> with SingleTickerP
               Expanded(
                 child: _agentActionBtn(
                   title: 'Executive Brief',
-                  subtitle: '627-student telemetry',
+                  subtitle: '622-student telemetry',
                   icon: Icons.analytics_outlined,
                   color: const Color(0xFF2563EB),
-                  onTap: () => _runAgentGoal('Generate daily department executive brief across 627 students and 10 sections'),
+                  onTap: () => _runAgentGoal('Generate daily department executive brief across 622 students and 10 sections'),
                 ),
               ),
             ],

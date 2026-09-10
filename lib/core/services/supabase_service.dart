@@ -190,7 +190,7 @@ class SupabaseService {
     try {
       final res = await client!
           .from('students')
-          .select('student_id, roll_number, register_number, section_id, guardian_name, guardian_contact, leaves_taken_ytd, users!inner(full_name, email, phone_number, is_active)')
+          .select('student_id, roll_number, register_number, section_id, student_name, leaves_taken_ytd, users!inner(full_name, email, phone_number, is_active)')
           .order('roll_number');
       return List<Map<String, dynamic>>.from(res);
     } catch (e) {
