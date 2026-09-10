@@ -112,7 +112,7 @@ class AiAgentService {
         id: 'temp',
         studentId: student.id,
         date: DateTime(2026, 9, 7),
-        status: MockDataService.todaysAbsentRollNumbers.contains(student.rollNumber)
+        status: MockDataService.isStudentAbsent(student.rollNumber)
             ? AttendanceStatus.absent
             : AttendanceStatus.present,
         source: 'telemetry_sync',

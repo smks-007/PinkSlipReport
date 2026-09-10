@@ -330,4 +330,323 @@ class SupabaseService {
       return false;
     }
   }
+
+  // ──────────────────── ATTENDANCE WITH STUDENT DETAILS ────────────────────
+
+  /// Fetch attendance for a specific date joined with student details (roll, section, name)
+  Future<List<Map<String, dynamic>>> fetchAttendanceWithStudents(DateTime date) async {
+    if (!_isInitialized || client == null) return [];
+    try {
+      final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      final res = await client!
+          .from('daily_attendance')
+          .select('attendance_id, student_id, attendance_date, is_present, leave_type, punch_method, in_time, out_time, students!inner(roll_number, section_id, student_name)')
+          .eq('attendance_date', dateStr);
+      return List<Map<String, dynamic>>.from(res);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Supabase fetchAttendanceWithStudents error: $e');
+      }
+      return [];
+    }
+  }
+
+  /// Fetch all attendance records for a student across all dates (for defaulter calculation)
+  Future<List<Map<String, dynamic>>> fetchAllAttendanceForStudent(int studentId) async {
+    if (!_isInitialized || client == null) return [];
+    try {
+      final res = await client!
+          .from('daily_attendance')
+          .select('attendance_date, is_present, leave_type')
+          .eq('student_id', studentId)
+          .order('attendance_date');
+      return List<Map<String, dynamic>>.from(res);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Supabase fetchAllAttendanceForStudent error: $e');
+      }
+      return [];
+    }
+  }
+
+  /// Fetch all attendance records across all dates (bulk — for defaulter analysis)
+  Future<List<Map<String, dynamic>>> fetchAllAttendance() async {
+    if (!_isInitialized || client == null) return [];
+    try {
+      final res = await client!
+          .from('daily_attendance')
+          .select('student_id, attendance_date, is_present, leave_type')
+          .order('attendance_date');
+      return List<Map<String, dynamic>>.from(res);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Supabase fetchAllAttendance error: $e');
+      }
+      return [];
+    }
+  }
+
+  // ──────────────────── LEAVE SLIPS WITH STUDENT DETAILS ────────────────────
+
+  /// Fetch leave slips joined with student names and roll numbers
+  Future<List<Map<String, dynamic>>> fetchLeaveSlipsWithStudents() async {
+    if (!_isInitialized || client == null) return [];
+    try {
+      final res = await client!
+          .from('leave_slips')
+          .select('slip_id, student_id, reason, from_date, to_date, status, is_informed, letter_document_url, advisor_remarks, hod_remarks, created_at, students!inner(roll_number, section_id, student_name)')
+          .order('created_at', ascending: false);
+      return List<Map<String, dynamic>>.from(res);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Supabase fetchLeaveSlipsWithStudents error: $e');
+      }
+      return [];
+    }
+  }
+
+  /// Submit a leave slip AND mark the student absent in daily_attendance (pink slip auto-absent)
+  Future<bool> submitLeaveSlipAndMarkAbsent({
+    required int studentId,
+    required String reason,
+    required DateTime date,
+    required bool isOnDuty,
+    String? letterUrl,
+    String status = 'SUBMITTED',
+  }) async {
+    if (!_isInitialized || client == null) return false;
+    try {
+      final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+      // 1. Insert leave slip
+      await client!.from('leave_slips').insert({
+        'student_id': studentId,
+        'reason': reason,
+        'from_date': dateStr,
+        'to_date': dateStr,
+        'is_informed': true,
+        'letter_document_url': letterUrl,
+        'status': status,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+
+      // 2. Auto-mark absent in daily_attendance (pink slip logic)
+      if (!isOnDuty) {
+        await client!.from('daily_attendance').upsert({
+          'student_id': studentId,
+          'attendance_date': dateStr,
+          'is_present': false,
+          'leave_type': 'ABSENT',
+          'punch_method': 'PINK_SLIP_AUTO',
+          'marked_by': 1,
+          'updated_at': DateTime.now().toIso8601String(),
+        }, onConflict: 'student_id,attendance_date');
+      }
+
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Supabase submitLeaveSlipAndMarkAbsent error: $e');
+      }
+      return false;
+    }
+  }
+
+  // ──────────────────── PROMOTIONS ────────────────────
+
+  /// Fetch all promotion requests from Supabase
+  Future<List<Map<String, dynamic>>> fetchPromotions() async {
+    if (!_isInitialized || client == null) return [];
+    try {
+      final res = await client!
+          .from('promotions')
+          .select()
+          .order('created_at', ascending: false);
+      return List<Map<String, dynamic>>.from(res);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Supabase fetchPromotions error: $e');
+      }
+      return [];
+    }
+  }
+
+  /// Update promotion status in Supabase
+  Future<bool> updatePromotionStatus({
+    required int promotionId,
+    required String status,
+    String? advisorRemarks,
+    String? hodName,
+    String? hodRemarks,
+  }) async {
+    if (!_isInitialized || client == null) return false;
+    try {
+      final data = <String, dynamic>{'status': status};
+      if (advisorRemarks != null) data['advisor_remarks'] = advisorRemarks;
+      if (hodName != null) data['hod_name'] = hodName;
+      if (hodRemarks != null) data['hod_remarks'] = hodRemarks;
+      if (status == 'FORWARDED_TO_HOD') {
+        data['date_forwarded_by_advisor'] = DateTime.now().toIso8601String();
+      } else if (status == 'APPROVED_BY_HOD' || status == 'REJECTED') {
+        data['date_approved_by_hod'] = DateTime.now().toIso8601String();
+      }
+
+      await client!.from('promotions').update(data).eq('promotion_id', promotionId);
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Supabase updatePromotionStatus error: $e');
+      }
+      return false;
+    }
+  }
+
+  // ──────────────────── ALUMNI ARCHIVE ────────────────────
+
+  /// Fetch all alumni archive records from Supabase
+  Future<List<Map<String, dynamic>>> fetchAlumniArchive() async {
+    if (!_isInitialized || client == null) return [];
+    try {
+      final res = await client!
+          .from('alumni_archive')
+          .select()
+          .order('graduation_date', ascending: false);
+      return List<Map<String, dynamic>>.from(res);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Supabase fetchAlumniArchive error: $e');
+      }
+      return [];
+    }
+  }
+
+  /// Purge alumni record from Supabase after 2-year retention window
+  Future<bool> purgeAlumniRecord(int archiveId) async {
+    if (!_isInitialized || client == null) return false;
+    try {
+      await client!.from('alumni_archive').update({
+        'is_purged': true,
+        'purged_at': DateTime.now().toIso8601String(),
+      }).eq('archive_id', archiveId);
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Supabase purgeAlumniRecord error: $e');
+      }
+      return false;
+    }
+  }
+
+  // ──────────────────── ACADEMIC CALENDAR ────────────────────
+
+  /// Fetch all academic calendar events from Supabase
+  Future<List<Map<String, dynamic>>> fetchAcademicCalendar() async {
+    if (!_isInitialized || client == null) return [];
+    try {
+      final res = await client!
+          .from('academic_calendar')
+          .select()
+          .order('event_date');
+      return List<Map<String, dynamic>>.from(res);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Supabase fetchAcademicCalendar error: $e');
+      }
+      return [];
+    }
+  }
+
+  /// Add a new holiday/event to the academic calendar
+  Future<bool> addCalendarEvent({
+    required DateTime date,
+    required String eventType,
+    required String eventName,
+    required bool isWorkingDay,
+  }) async {
+    if (!_isInitialized || client == null) return false;
+    try {
+      final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      await client!.from('academic_calendar').upsert({
+        'event_date': dateStr,
+        'event_type': eventType,
+        'event_name': eventName,
+        'is_working_day': isWorkingDay,
+      }, onConflict: 'event_date');
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Supabase addCalendarEvent error: $e');
+      }
+      return false;
+    }
+  }
+
+  // ──────────────────── BROADCAST NOTICES ────────────────────
+
+  /// Fetch all broadcast notices from Supabase
+  Future<List<Map<String, dynamic>>> fetchBroadcastNotices() async {
+    if (!_isInitialized || client == null) return [];
+    try {
+      final res = await client!
+          .from('broadcast_notices')
+          .select()
+          .order('created_at', ascending: false);
+      return List<Map<String, dynamic>>.from(res);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Supabase fetchBroadcastNotices error: $e');
+      }
+      return [];
+    }
+  }
+
+  /// Submit a new department broadcast notice to Supabase
+  Future<bool> submitBroadcastNotice({
+    required String title,
+    required String message,
+    required String targetAudience,
+    required String priority,
+    String templateType = 'Others',
+    String senderName = 'HOD Dr. K. Manivannan',
+  }) async {
+    if (!_isInitialized || client == null) return false;
+    try {
+      await client!.from('broadcast_notices').insert({
+        'title': title,
+        'message': message,
+        'target_audience': targetAudience,
+        'priority': priority,
+        'template_type': templateType,
+        'sender_name': senderName,
+        'is_read': false,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+      if (kDebugMode) {
+        debugPrint('✅ [Supabase DB Log] Broadcast message logged to database: "$title" - "$message"');
+      }
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Supabase submitBroadcastNotice error: $e');
+      }
+      return false;
+    }
+  }
+
+  /// Mark a broadcast notice as read
+  Future<bool> markBroadcastNoticeRead(int noticeId) async {
+    if (!_isInitialized || client == null) return false;
+    try {
+      await client!
+          .from('broadcast_notices')
+          .update({'is_read': true})
+          .eq('notice_id', noticeId);
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Supabase markBroadcastNoticeRead error: $e');
+      }
+      return false;
+    }
+  }
 }

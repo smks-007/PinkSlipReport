@@ -5,6 +5,7 @@ import '../../../core/models/user_model.dart';
 import '../../../core/models/leave_model.dart';
 import '../../../core/models/student_model.dart';
 import '../../../core/models/promotion_model.dart';
+import '../../../core/models/notice_model.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/mock_data_service.dart';
 import '../../../core/data/student_directory_data.dart';
@@ -681,6 +682,8 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
   }
 
   void _showBroadcastNoticeModal() {
+    int modalTab = 0; // 0: Compose, 1: Broadcast Logs
+    String selectedTemplate = 'Attendance Defaulters';
     final titleCtrl = TextEditingController(text: 'Urgent: Department Attendance & IA Review');
     final msgCtrl = TextEditingController(
       text: 'All Section Advisors and Class Representatives are requested to verify today\'s attendance muster rolls and submit defaulter lists to the HOD office by 4:00 PM.',
@@ -694,7 +697,12 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
+          final broadcastLogs = MockDataService.broadcastNotices;
+
           return Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.85,
+            ),
             padding: EdgeInsets.only(
               left: 20,
               right: 20,
@@ -736,174 +744,555 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 14),
-
-                  // Target Audience
-                  const Text('Target Audience', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
-                  const SizedBox(height: 4),
-                  DropdownButtonFormField<String>(
-                    initialValue: audience,
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: 'All 10 Sections (622 Students)', child: Text('📢 All 10 Sections (622 Students)', style: TextStyle(fontSize: 12))),
-                      DropdownMenuItem(value: 'All Section Advisors (10 Faculty)', child: Text('👨‍🏫 All Section Advisors (10 Faculty)', style: TextStyle(fontSize: 12))),
-                      DropdownMenuItem(value: 'Class Representatives (CRs)', child: Text('⭐ Class Representatives (CRs)', style: TextStyle(fontSize: 12))),
-                      DropdownMenuItem(value: 'II Year Only (2025 Batch)', child: Text('📘 II Year Only (Sec A, B, C, D)', style: TextStyle(fontSize: 12))),
-                      DropdownMenuItem(value: 'III Year Only (2024 Batch)', child: Text('📗 III Year Only (Sec A, B, C, D)', style: TextStyle(fontSize: 12))),
-                      DropdownMenuItem(value: 'IV Year Only (2023 Batch)', child: Text('📙 IV Year Only (Sec A, B)', style: TextStyle(fontSize: 12))),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) setModalState(() => audience = val);
-                    },
-                  ),
                   const SizedBox(height: 12),
 
-                  // Priority Level
-                  const Text('Notice Priority & Category', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
-                  const SizedBox(height: 4),
-                  DropdownButtonFormField<String>(
-                    initialValue: priority,
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  // Segmented Switcher: Compose vs Broadcast Logs
+                  Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    items: const [
-                      DropdownMenuItem(value: 'High Priority', child: Text('🚨 Urgent / High Priority Alert', style: TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.bold))),
-                      DropdownMenuItem(value: 'Academic Circular', child: Text('📝 Academic Circular & Assessment', style: TextStyle(fontSize: 12))),
-                      DropdownMenuItem(value: 'Attendance Intimation', child: Text('⏱️ Attendance & Defaulter Notice', style: TextStyle(fontSize: 12))),
-                      DropdownMenuItem(value: 'Symposium & Events', child: Text('🏆 Symposium & Hackathon Guidelines', style: TextStyle(fontSize: 12))),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) setModalState(() => priority = val);
-                    },
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Preset Templates
-                  const Text('Quick Notice Templates', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
-                  const SizedBox(height: 4),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.all(3),
                     child: Row(
                       children: [
-                        ActionChip(
-                          label: const Text('Attendance Defaulters', style: TextStyle(fontSize: 11)),
-                          onPressed: () {
-                            setModalState(() {
-                              titleCtrl.text = '⚠️ Low Attendance (<75%) Parent Call';
-                              msgCtrl.text = 'All students with attendance below 75% are directed to meet their Section Advisor along with their parents on Friday.';
-                            });
-                          },
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setModalState(() => modalTab = 0),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: modalTab == 0 ? Colors.white : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                                boxShadow: modalTab == 0
+                                    ? [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: 0.05),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 2),
+                                        )
+                                      ]
+                                    : null,
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.edit_note_rounded,
+                                    size: 16,
+                                    color: modalTab == 0 ? const Color(0xFF6366F1) : const Color(0xFF64748B),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Compose Notice',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: modalTab == 0 ? const Color(0xFF0F172A) : const Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         ),
-                        const SizedBox(width: 8),
-                        ActionChip(
-                          label: const Text('IA Mark Sheets', style: TextStyle(fontSize: 11)),
-                          onPressed: () {
-                            setModalState(() {
-                              titleCtrl.text = '📊 IA-1 Marks Submission';
-                              msgCtrl.text = 'Course coordinators and section advisors are advised to upload IA-1 assessment rubrics by tomorrow evening.';
-                            });
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        ActionChip(
-                          label: const Text('Hackathon / OD Proofs', style: TextStyle(fontSize: 11)),
-                          onPressed: () {
-                            setModalState(() {
-                              titleCtrl.text = '🏆 OD Certificates & Hackathon Proofs';
-                              msgCtrl.text = 'Submit participation certificates and registration proof for symposiums to the HOD portal for On-Duty leave credit.';
-                            });
-                          },
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setModalState(() => modalTab = 1),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: modalTab == 1 ? Colors.white : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                                boxShadow: modalTab == 1
+                                    ? [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: 0.05),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 2),
+                                        )
+                                      ]
+                                    : null,
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.history_rounded,
+                                    size: 16,
+                                    color: modalTab == 1 ? const Color(0xFF6366F1) : const Color(0xFF64748B),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Broadcast Logs (${broadcastLogs.length})',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: modalTab == 1 ? const Color(0xFF0F172A) : const Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
 
-                  // Notice Title
-                  const Text('Notice Title', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
-                  const SizedBox(height: 4),
-                  TextField(
-                    controller: titleCtrl,
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  if (modalTab == 0) ...[
+                    // Target Audience
+                    const Text('Target Audience', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                    const SizedBox(height: 4),
+                    DropdownButtonFormField<String>(
+                      initialValue: audience,
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'All 10 Sections (622 Students)', child: Text('📢 All 10 Sections (622 Students)', style: TextStyle(fontSize: 12))),
+                        DropdownMenuItem(value: 'All Section Advisors (10 Faculty)', child: Text('👨‍🏫 All Section Advisors (10 Faculty)', style: TextStyle(fontSize: 12))),
+                        DropdownMenuItem(value: 'Class Representatives (CRs)', child: Text('⭐ Class Representatives (CRs)', style: TextStyle(fontSize: 12))),
+                        DropdownMenuItem(value: 'II Year Only (2025 Batch)', child: Text('📘 II Year Only (Sec A, B, C, D)', style: TextStyle(fontSize: 12))),
+                        DropdownMenuItem(value: 'III Year Only (2024 Batch)', child: Text('📗 III Year Only (Sec A, B, C, D)', style: TextStyle(fontSize: 12))),
+                        DropdownMenuItem(value: 'IV Year Only (2023 Batch)', child: Text('📙 IV Year Only (Sec A, B)', style: TextStyle(fontSize: 12))),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) setModalState(() => audience = val);
+                      },
                     ),
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 12),
+                    const SizedBox(height: 12),
 
-                  // Notice Content
-                  const Text('Notice Body / Instructions', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
-                  const SizedBox(height: 4),
-                  TextField(
-                    controller: msgCtrl,
-                    maxLines: 3,
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                      contentPadding: const EdgeInsets.all(10),
+                    // Priority Level
+                    const Text('Notice Priority & Category', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                    const SizedBox(height: 4),
+                    DropdownButtonFormField<String>(
+                      initialValue: priority,
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'High Priority', child: Text('🚨 Urgent / High Priority Alert', style: TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.bold))),
+                        DropdownMenuItem(value: 'Academic Circular', child: Text('📝 Academic Circular & Assessment', style: TextStyle(fontSize: 12))),
+                        DropdownMenuItem(value: 'Attendance Intimation', child: Text('⏱️ Attendance & Defaulter Notice', style: TextStyle(fontSize: 12))),
+                        DropdownMenuItem(value: 'Symposium & Events', child: Text('🏆 Symposium & Hackathon Guidelines', style: TextStyle(fontSize: 12))),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) setModalState(() => priority = val);
+                      },
                     ),
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 12),
 
-                  // Broadcast Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        final title = titleCtrl.text.trim();
-                        final msg = msgCtrl.text.trim();
-                        if (title.isEmpty || msg.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Please enter notice title and message body.')),
+                    // Preset Templates
+                    const Text('Quick Notice Templates', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                    const SizedBox(height: 4),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          ActionChip(
+                            label: const Text('Attendance Defaulters', style: TextStyle(fontSize: 11)),
+                            onPressed: () {
+                              setModalState(() {
+                                selectedTemplate = 'Attendance Defaulters';
+                                titleCtrl.text = '⚠️ Low Attendance (<75%) Parent Call';
+                                msgCtrl.text = 'All students with attendance below 75% are directed to meet their Section Advisor along with their parents on Friday.';
+                              });
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          ActionChip(
+                            label: const Text('IA Mark Sheets', style: TextStyle(fontSize: 11)),
+                            onPressed: () {
+                              setModalState(() {
+                                selectedTemplate = 'IA Mark Sheets';
+                                titleCtrl.text = '📊 IA-1 Marks Submission';
+                                msgCtrl.text = 'Course coordinators and section advisors are advised to upload IA-1 assessment rubrics by tomorrow evening.';
+                              });
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          ActionChip(
+                            label: const Text('Hackathon / OD Proofs', style: TextStyle(fontSize: 11)),
+                            onPressed: () {
+                              setModalState(() {
+                                selectedTemplate = 'Hackathon / OD Proofs';
+                                titleCtrl.text = '🏆 OD Certificates & Hackathon Proofs';
+                                msgCtrl.text = 'Submit participation certificates and registration proof for symposiums to the HOD portal for On-Duty leave credit.';
+                              });
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          ActionChip(
+                            avatar: const Icon(Icons.edit_note_rounded, size: 16, color: Color(0xFF6366F1)),
+                            label: const Text('Others (Custom Notice)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF6366F1))),
+                            backgroundColor: const Color(0xFFEEF2FF),
+                            side: const BorderSide(color: Color(0xFF6366F1)),
+                            onPressed: () {
+                              setModalState(() {
+                                selectedTemplate = 'Others';
+                                titleCtrl.text = '';
+                                msgCtrl.text = '';
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Notice Title
+                    const Text('Notice Title', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: titleCtrl,
+                      decoration: InputDecoration(
+                        hintText: 'Enter notice headline / circular title...',
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      ),
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Notice Content
+                    const Text('Notice Body / Instructions', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: msgCtrl,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        hintText: 'Type instructions, deadlines, or remarks for advisors and students...',
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                        contentPadding: const EdgeInsets.all(10),
+                      ),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Broadcast Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final title = titleCtrl.text.trim();
+                          final msg = msgCtrl.text.trim();
+                          if (title.isEmpty || msg.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Please enter notice title and message body.')),
+                            );
+                            return;
+                          }
+
+                          Navigator.pop(ctx);
+
+                          // Broadcast to Supabase Database, notify advisors, and return message log
+                          final sentNotice = await MockDataService.broadcastNotice(
+                            title: title,
+                            message: msg,
+                            targetAudience: audience,
+                            priority: priority,
+                            templateType: selectedTemplate,
+                            senderName: 'HOD ($_currentHodName)',
                           );
-                          return;
-                        }
 
-                        Navigator.pop(ctx);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Row(
+                          if (context.mounted) {
+                            _showBroadcastLogDialog(sentNotice);
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF6366F1),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        icon: const Icon(Icons.send_rounded, size: 18),
+                        label: const Text('Broadcast Notice to Department', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      ),
+                    ),
+                  ] else ...[
+                    // Broadcast Logs / Sent History View
+                    if (broadcastLogs.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(32),
+                        alignment: Alignment.center,
+                        child: Column(
+                          children: const [
+                            Icon(Icons.history_toggle_off_rounded, size: 40, color: Color(0xFFCBD5E1)),
+                            SizedBox(height: 10),
+                            Text('No Broadcast Logs Recorded', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+                            SizedBox(height: 4),
+                            Text('Notices sent to department sections will be logged here.', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                          ],
+                        ),
+                      )
+                    else
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: broadcastLogs.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          final log = broadcastLogs[index];
+                          final isUrgent = log.isUrgent;
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Icon(Icons.send_rounded, color: Colors.white, size: 18),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text('📢 Notice "$title" broadcasted successfully to $audience!'),
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: isUrgent ? const Color(0xFFEF4444) : const Color(0xFF6366F1),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        log.priority.toUpperCase(),
+                                        style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Colors.white),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFE2E8F0),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        log.templateType,
+                                        style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    Text(
+                                      'ID: ${log.id}',
+                                      style: const TextStyle(fontSize: 9.5, color: Color(0xFF94A3B8), fontFamily: 'monospace'),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  log.title,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                                ),
+                                const SizedBox(height: 6),
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: const Color(0xFFCBD5E1)),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'RETURNED BROADCAST MESSAGE:',
+                                        style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Color(0xFF64748B), letterSpacing: 0.5),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        log.message,
+                                        style: const TextStyle(fontSize: 11.5, color: Color(0xFF1E293B), height: 1.3),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Audience: ${log.targetAudience}',
+                                      style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                                    ),
+                                    const Text(
+                                      '✓ Logged to Database',
+                                      style: TextStyle(fontSize: 10, color: Color(0xFF047857), fontWeight: FontWeight.w600),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
-                            backgroundColor: const Color(0xFF6366F1),
-                            duration: const Duration(seconds: 4),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF6366F1),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          );
+                        },
                       ),
-                      icon: const Icon(Icons.send_rounded, size: 18),
-                      label: const Text('Broadcast Notice to Department', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                    ),
-                  ),
+                  ],
                 ],
               ),
             ),
           );
         },
+      ),
+    );
+  }
+
+  /// Displays the full returned transmission receipt and message log to HOD
+  void _showBroadcastLogDialog(DepartmentNoticeModel sentNotice) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: const EdgeInsets.all(20),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 24),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        'Broadcast Log Receipt',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
+                      ),
+                      Text(
+                        'Message logged to database & returned',
+                        style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF6366F1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          sentNotice.priority.toUpperCase(),
+                          style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Colors.white),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        sentNotice.templateType,
+                        style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                      ),
+                      const Spacer(),
+                      Text(
+                        'ID: ${sentNotice.id}',
+                        style: const TextStyle(fontSize: 9.5, color: Color(0xFF94A3B8), fontFamily: 'monospace'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    sentNotice.title,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'RETURNED BROADCAST MESSAGE:',
+                          style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Color(0xFF64748B), letterSpacing: 0.5),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          sentNotice.message,
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF1E293B), height: 1.4),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.people_alt_rounded, size: 14, color: Color(0xFF6366F1)),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Audience: ${sentNotice.targetAudience}',
+                          style: const TextStyle(fontSize: 10.5, color: Color(0xFF475569)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.cloud_done_rounded, size: 14, color: Color(0xFF10B981)),
+                      const SizedBox(width: 6),
+                      const Expanded(
+                        child: Text(
+                          'Database Log: Saved to Supabase (broadcast_notices)',
+                          style: TextStyle(fontSize: 10, color: Color(0xFF047857), fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(ctx),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6366F1),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                child: const Text('Dismiss Log Receipt', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2408,6 +2797,9 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
     final rollCtrl = TextEditingController();
     final reasonCtrl = TextEditingController();
     final remarksCtrl = TextEditingController();
+    final searchCtrl = TextEditingController();
+    int filterYear = 0; // 0 = all
+    String filterSection = 'ALL';
     String passType = 'Pink Slip / Exit Pass';
     int slipYear = _selectedYear;
     String slipSection = _selectedSection;
@@ -2463,41 +2855,210 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   ),
                   const SizedBox(height: 14),
 
-                  // Quick Student Picker from Section
-                  const Text('Select Student from Directory', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
-                  const SizedBox(height: 6),
-                  DropdownButtonFormField<String>(
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    ),
-                    hint: const Text('Search by Name / Roll Number', style: TextStyle(fontSize: 12)),
-                    items: MockDataService.allStudents.take(50).map((st) {
-                      return DropdownMenuItem<String>(
-                        value: st.rollNumber,
-                        child: Text('${st.name} (${st.rollNumber}) • Yr ${st.year}-${st.section}', style: const TextStyle(fontSize: 12)),
-                      );
-                    }).toList(),
-                    onChanged: (val) {
-                      if (val != null) {
-                        final st = MockDataService.allStudents.cast<StudentModel?>().firstWhere(
-                              (item) => item?.rollNumber == val,
-                              orElse: () => StudentDirectoryData.byRollNumber[val],
-                            );
-                        if (st != null) {
-                          setModalState(() {
-                            selectedStudent = st;
-                            nameCtrl.text = st.name;
-                            rollCtrl.text = st.rollNumber;
-                            slipYear = st.year;
-                            slipSection = st.section;
-                          });
-                        }
-                      }
-                    },
+                  // Searchable Student Selector from All 622 Students
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Select Student (All 622 Students)',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                      ),
+                      if (selectedStudent != null)
+                        TextButton.icon(
+                          style: TextButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                          ),
+                          onPressed: () {
+                            setModalState(() {
+                              selectedStudent = null;
+                              nameCtrl.clear();
+                              rollCtrl.clear();
+                              searchCtrl.clear();
+                            });
+                          },
+                          icon: const Icon(Icons.refresh_rounded, size: 14, color: Color(0xFFEF4444)),
+                          label: const Text('Change Student', style: TextStyle(fontSize: 11, color: Color(0xFFEF4444), fontWeight: FontWeight.bold)),
+                        ),
+                    ],
                   ),
+                  const SizedBox(height: 6),
+
+                  if (selectedStudent != null) ...[
+                    // Selected Student Card
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFECFDF5),
+                        border: Border.all(color: const Color(0xFF10B981)),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle_rounded, color: Color(0xFF059669), size: 22),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${selectedStudent!.name} (${selectedStudent!.rollNumber})',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF065F46)),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Year ${selectedStudent!.year}-${selectedStudent!.section} • Reg: ${selectedStudent!.registerNumber} • ${selectedStudent!.batchYear}',
+                                  style: const TextStyle(fontSize: 11, color: Color(0xFF047857)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ] else ...[
+                    // Search Input Box
+                    TextField(
+                      controller: searchCtrl,
+                      decoration: InputDecoration(
+                        hintText: 'Search by Name, Roll No (e.g. 25243005), or Reg No...',
+                        prefixIcon: const Icon(Icons.search_rounded, size: 18, color: Color(0xFF64748B)),
+                        suffixIcon: searchCtrl.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear_rounded, size: 16),
+                                onPressed: () {
+                                  setModalState(() {
+                                    searchCtrl.clear();
+                                  });
+                                },
+                              )
+                            : null,
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                      style: const TextStyle(fontSize: 12),
+                      onChanged: (_) => setModalState(() {}),
+                    ),
+                    const SizedBox(height: 6),
+
+                    // Quick Year & Section Filters
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          ChoiceChip(
+                            label: const Text('All Years', style: TextStyle(fontSize: 10.5)),
+                            selected: filterYear == 0,
+                            onSelected: (_) => setModalState(() => filterYear = 0),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          const SizedBox(width: 4),
+                          ChoiceChip(
+                            label: const Text('II Year', style: TextStyle(fontSize: 10.5)),
+                            selected: filterYear == 2,
+                            onSelected: (_) => setModalState(() => filterYear = 2),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          const SizedBox(width: 4),
+                          ChoiceChip(
+                            label: const Text('III Year', style: TextStyle(fontSize: 10.5)),
+                            selected: filterYear == 3,
+                            onSelected: (_) => setModalState(() => filterYear = 3),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          const SizedBox(width: 4),
+                          ChoiceChip(
+                            label: const Text('IV Year', style: TextStyle(fontSize: 10.5)),
+                            selected: filterYear == 4,
+                            onSelected: (_) => setModalState(() => filterYear = 4),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text('|', style: TextStyle(color: Color(0xFFCBD5E1))),
+                          const SizedBox(width: 8),
+                          ChoiceChip(
+                            label: const Text('All Sec', style: TextStyle(fontSize: 10.5)),
+                            selected: filterSection == 'ALL',
+                            onSelected: (_) => setModalState(() => filterSection = 'ALL'),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          ...['A', 'B', 'C', 'D'].map((sec) => Padding(
+                            padding: const EdgeInsets.only(left: 4),
+                            child: ChoiceChip(
+                              label: Text('Sec $sec', style: const TextStyle(fontSize: 10.5)),
+                              selected: filterSection == sec,
+                              onSelected: (_) => setModalState(() => filterSection = sec),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          )),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+
+                    // Search Results List (From all 622 students)
+                    Builder(
+                      builder: (context) {
+                        final query = searchCtrl.text.trim().toLowerCase();
+                        final matches = MockDataService.allStudents.where((st) {
+                          if (filterYear != 0 && st.year != filterYear) return false;
+                          if (filterSection != 'ALL' && st.section != filterSection) return false;
+                          if (query.isEmpty) return true;
+                          return st.name.toLowerCase().contains(query) ||
+                              st.rollNumber.toLowerCase().contains(query) ||
+                              (st.registerNumber?.toLowerCase().contains(query) ?? false);
+                        }).toList();
+
+                        return Container(
+                          constraints: const BoxConstraints(maxHeight: 160),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: matches.isEmpty
+                              ? const Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.all(12),
+                                    child: Text('No students matching search criteria.', style: TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8))),
+                                  ),
+                                )
+                              : ListView.separated(
+                                  shrinkWrap: true,
+                                  itemCount: matches.length > 50 && query.isEmpty ? 50 : matches.length,
+                                  separatorBuilder: (_, _) => const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                                  itemBuilder: (context, index) {
+                                    final st = matches[index];
+                                    return ListTile(
+                                      dense: true,
+                                      visualDensity: VisualDensity.compact,
+                                      title: Text(
+                                        '${st.name} (${st.rollNumber})',
+                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                      ),
+                                      subtitle: Text(
+                                        'Year ${st.year}-${st.section} • Reg: ${st.registerNumber} • ${st.batchYear}',
+                                        style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+                                      ),
+                                      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Color(0xFFEC4899)),
+                                      onTap: () {
+                                        setModalState(() {
+                                          selectedStudent = st;
+                                          nameCtrl.text = st.name;
+                                          rollCtrl.text = st.rollNumber;
+                                          slipYear = st.year;
+                                          slipSection = st.section;
+                                        });
+                                      },
+                                    );
+                                  },
+                                ),
+                        );
+                      },
+                    ),
+                  ],
                   const SizedBox(height: 12),
 
                   // Manual Student Name and Roll

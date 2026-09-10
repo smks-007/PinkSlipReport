@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
+
 import '../models/student_model.dart';
 import '../models/attendance_model.dart';
 import '../models/leave_model.dart';
 import '../models/promotion_model.dart';
+import '../models/notice_model.dart';
 import '../data/student_directory_data.dart';
 import 'supabase_service.dart';
 
@@ -22,7 +24,9 @@ class MockDataService {
 
   // ──────────────────── Complete Directory (622 Students) ────────────────────
 
-  static final List<StudentModel> _dynamicStudents = List.of(StudentDirectoryData.allStudents);
+  static final List<StudentModel> _dynamicStudents = List.of(
+    StudentDirectoryData.allStudents,
+  );
 
   /// Synchronize all database records live from Supabase Cloud
   static Future<void> syncFromSupabase() async {
@@ -53,44 +57,58 @@ class MockDataService {
 
           final userMap = r['users'] as Map<String, dynamic>?;
           final studentNameFromTable = r['student_name'] as String?;
-          final name = (studentNameFromTable != null && studentNameFromTable.trim().isNotEmpty)
+          final name =
+              (studentNameFromTable != null &&
+                  studentNameFromTable.trim().isNotEmpty)
               ? studentNameFromTable.trim()
               : (userMap?['full_name'] as String?) ?? 'Student $roll';
-          final batch = yr == 1 ? '2026 BATCH' : yr == 2 ? '2025 BATCH' : yr == 3 ? '2024 BATCH' : '2023 BATCH';
+          final batch = yr == 1
+              ? '2026 BATCH'
+              : yr == 2
+              ? '2025 BATCH'
+              : yr == 3
+              ? '2024 BATCH'
+              : '2023 BATCH';
 
           final advId = 'adv-$yr${secLetter.toLowerCase()}';
           final regNo = r['register_number'] as String?;
 
-          synced.add(StudentModel(
-            id: 'stu-$roll',
-            name: name,
-            rollNumber: roll,
-            registerNumber: regNo,
-            year: yr,
-            section: secLetter,
-            department: 'AI&DS',
-            batchYear: batch,
-            advisorId: advId,
-            totalLeavesTaken: (r['leaves_taken_ytd'] as int?) ?? 0,
-          ));
+          synced.add(
+            StudentModel(
+              id: 'stu-$roll',
+              name: name,
+              rollNumber: roll,
+              registerNumber: regNo,
+              year: yr,
+              section: secLetter,
+              department: 'AI&DS',
+              batchYear: batch,
+              advisorId: advId,
+              totalLeavesTaken: (r['leaves_taken_ytd'] as int?) ?? 0,
+            ),
+          );
         }
         if (synced.isNotEmpty) {
           _dynamicStudents.clear();
           _dynamicStudents.addAll(synced);
           if (kDebugMode) {
-            debugPrint('✅ Loaded ${synced.length} students live from Supabase Cloud database!');
+            debugPrint(
+              '✅ Loaded ${synced.length} students live from Supabase Cloud database!',
+            );
           }
         }
       }
 
-      // 2. Fetch Live Leave Slips from Supabase
-      final remoteSlips = await supabase.fetchLeaveSlips();
+      // 2. Fetch Live Leave Slips from Supabase (with student details)
+      final remoteSlips = await supabase.fetchLeaveSlipsWithStudents();
       if (remoteSlips.isNotEmpty) {
         final List<LeaveModel> syncedSlips = [];
         for (final s in remoteSlips) {
           final slipId = s['slip_id'].toString();
           final fromStr = s['from_date'] as String?;
-          final fromDate = fromStr != null ? DateTime.tryParse(fromStr) ?? DateTime.now() : DateTime.now();
+          final fromDate = fromStr != null
+              ? DateTime.tryParse(fromStr) ?? DateTime.now()
+              : DateTime.now();
 
           final statusStr = (s['status'] as String?)?.toUpperCase();
           LetterStatus status = LetterStatus.submitted;
@@ -102,27 +120,223 @@ class MockDataService {
             status = LetterStatus.rejected;
           }
 
-          syncedSlips.add(LeaveModel(
-            id: 'slip-$slipId',
-            studentId: s['student_id'].toString(),
-            studentName: 'Student ${s['student_id']}',
-            studentRollNumber: s['student_id'].toString(),
-            leaveDate: fromDate,
-            reason: s['reason'] as String? ?? 'General Leave',
-            letterStatus: status,
-            advisorRemarks: s['advisor_remarks'] as String?,
-            hodRemarks: s['hod_remarks'] as String?,
-            leaveType: LeaveType.informed,
-            category: LeaveCategory.leave,
-            attachmentFileName: s['letter_document_url'] as String?,
-          ));
+          // Resolve student name and roll from joined student data
+          final studentData = s['students'] as Map<String, dynamic>?;
+          final studentName =
+              studentData?['student_name'] as String? ??
+              'Student ${s['student_id']}';
+          final rollNumber =
+              studentData?['roll_number'] as String? ??
+              s['student_id'].toString();
+          final sectionId = studentData?['section_id'] as String? ?? '';
+          final parts = sectionId.split('-');
+          final yearRoman = parts.isNotEmpty ? parts[0] : 'II';
+          final secLetter = parts.length > 2 ? parts[2] : 'A';
+          int yr = 2;
+          if (yearRoman == 'III') yr = 3;
+          if (yearRoman == 'IV') yr = 4;
+
+          syncedSlips.add(
+            LeaveModel(
+              id: 'slip-$slipId',
+              studentId: s['student_id'].toString(),
+              studentName: studentName,
+              studentRollNumber: rollNumber,
+              leaveDate: fromDate,
+              reason: s['reason'] as String? ?? 'General Leave',
+              letterStatus: status,
+              advisorRemarks: s['advisor_remarks'] as String?,
+              hodRemarks: s['hod_remarks'] as String?,
+              leaveType: LeaveType.informed,
+              category: LeaveCategory.leave,
+              attachmentFileName: s['letter_document_url'] as String?,
+              section: secLetter,
+              year: yr,
+            ),
+          );
         }
         if (syncedSlips.isNotEmpty) {
           _leaveRequests.clear();
           _leaveRequests.addAll(syncedSlips);
           if (kDebugMode) {
-            debugPrint('✅ Loaded ${syncedSlips.length} leave slips live from Supabase Cloud database!');
+            debugPrint(
+              '✅ Loaded ${syncedSlips.length} leave slips live from Supabase Cloud database!',
+            );
           }
+        }
+      }
+
+      // 3. Fetch Live Attendance for today and populate cache
+      final today = DateTime.now();
+      final todayRecords = await supabase.fetchAttendanceWithStudents(today);
+      if (todayRecords.isNotEmpty) {
+        _syncAttendanceFromDB(todayRecords, today);
+        if (kDebugMode) {
+          debugPrint(
+            '✅ Loaded ${todayRecords.length} attendance records for today from Supabase!',
+          );
+        }
+      }
+      // Also fetch Sep 7 and Sep 8 attendance (the dates with seed data)
+      for (final seedDate in [DateTime(2026, 9, 7), DateTime(2026, 9, 8)]) {
+        final records = await supabase.fetchAttendanceWithStudents(seedDate);
+        if (records.isNotEmpty) {
+          _syncAttendanceFromDB(records, seedDate);
+        }
+      }
+
+      // 4. Fetch Academic Calendar from Supabase
+      final calendarRows = await supabase.fetchAcademicCalendar();
+      if (calendarRows.isNotEmpty) {
+        _collegeHolidays.clear();
+        for (final row in calendarRows) {
+          final dateStr = row['event_date'] as String? ?? '';
+          final name = row['event_name'] as String? ?? 'Holiday';
+          final isWorking = row['is_working_day'] as bool? ?? true;
+          if (!isWorking) {
+            _collegeHolidays[dateStr] = name;
+          }
+        }
+        if (kDebugMode) {
+          debugPrint(
+            '✅ Loaded ${_collegeHolidays.length} calendar holidays from Supabase!',
+          );
+        }
+      }
+
+      // 5. Fetch Promotions from Supabase
+      final remotePromotions = await supabase.fetchPromotions();
+      if (remotePromotions.isNotEmpty) {
+        final List<PromotionRequest> syncedProms = [];
+        for (final p in remotePromotions) {
+          final statusStr =
+              (p['status'] as String?)?.toUpperCase() ?? 'PENDING_ADVISOR';
+          PromotionApprovalStatus promStatus =
+              PromotionApprovalStatus.pendingAdvisorReview;
+          if (statusStr == 'FORWARDED_TO_HOD') {
+            promStatus = PromotionApprovalStatus.forwardedToHod;
+          } else if (statusStr == 'APPROVED_BY_HOD') {
+            promStatus = PromotionApprovalStatus.approvedByHod;
+          } else if (statusStr == 'REJECTED') {
+            promStatus = PromotionApprovalStatus.rejected;
+          }
+
+          final fromYear = p['from_year'] as int? ?? 2;
+          final section = p['section'] as String? ?? 'A';
+          final sKey = '$fromYear-$section';
+
+          syncedProms.add(
+            PromotionRequest(
+              id: 'prom-${p['promotion_id']}',
+              fromYear: fromYear,
+              toYear: p['to_year'] as int? ?? fromYear + 1,
+              section: section,
+              batchYear: p['batch_year'] as String? ?? '',
+              semesterCompleted: p['semester_completed'] as int? ?? 0,
+              semesterEndDate:
+                  DateTime.tryParse(p['semester_end_date']?.toString() ?? '') ??
+                  DateTime(2026, 8, 30),
+              graceTransitionDays: p['grace_transition_days'] as int? ?? 7,
+              eligiblePromotionDate:
+                  DateTime.tryParse(
+                    p['eligible_promotion_date']?.toString() ?? '',
+                  ) ??
+                  DateTime(2026, 9, 7),
+              studentIds:
+                  StudentDirectoryData.bySection[sKey]
+                      ?.map((s) => s.id)
+                      .toList() ??
+                  [],
+              totalStudents: p['total_students'] as int? ?? 60,
+              status: promStatus,
+              advisorName: p['advisor_name'] as String?,
+              advisorRemarks: p['advisor_remarks'] as String?,
+              dateForwardedByAdvisor: DateTime.tryParse(
+                p['date_forwarded_by_advisor']?.toString() ?? '',
+              ),
+              hodName: p['hod_name'] as String?,
+              hodRemarks: p['hod_remarks'] as String?,
+              dateApprovedByHod: DateTime.tryParse(
+                p['date_approved_by_hod']?.toString() ?? '',
+              ),
+              createdAt:
+                  DateTime.tryParse(p['created_at']?.toString() ?? '') ??
+                  DateTime.now(),
+            ),
+          );
+        }
+        _promotionRequests.clear();
+        _promotionRequests.addAll(syncedProms);
+        if (kDebugMode) {
+          debugPrint(
+            '✅ Loaded ${syncedProms.length} promotion requests from Supabase!',
+          );
+        }
+      }
+
+      // 6. Fetch Alumni Archive from Supabase
+      final remoteAlumni = await supabase.fetchAlumniArchive();
+      if (remoteAlumni.isNotEmpty) {
+        final List<AlumniRetentionRecord> syncedAlumni = [];
+        for (final a in remoteAlumni) {
+          syncedAlumni.add(
+            AlumniRetentionRecord(
+              studentId: 'alum_${a['archive_id']}',
+              studentName: a['student_name'] as String? ?? '',
+              rollNumber: a['roll_number'] as String? ?? '',
+              section: a['section'] as String? ?? 'A',
+              batchYear: a['batch_year'] as String? ?? '',
+              graduationDate:
+                  DateTime.tryParse(a['graduation_date']?.toString() ?? '') ??
+                  DateTime(2026, 6, 15),
+              retentionPeriodYears: a['retention_period_years'] as int? ?? 2,
+              retentionExpiryDate:
+                  DateTime.tryParse(
+                    a['retention_expiry_date']?.toString() ?? '',
+                  ) ??
+                  DateTime(2028, 6, 15),
+              isPurged: a['is_purged'] as bool? ?? false,
+              purgedAt: DateTime.tryParse(a['purged_at']?.toString() ?? ''),
+              cumulativeAttendance:
+                  (a['cumulative_attendance'] as num?)?.toDouble() ?? 0.0,
+              totalODsAttended: a['total_ods_attended'] as int? ?? 0,
+            ),
+          );
+        }
+        _alumniArchive.clear();
+        _alumniArchive.addAll(syncedAlumni);
+        if (kDebugMode) {
+          debugPrint(
+            '✅ Loaded ${syncedAlumni.length} alumni records from Supabase!',
+          );
+        }
+      }
+
+      // 7. Compute defaulters from real attendance data
+      final allAttendance = await supabase.fetchAllAttendance();
+      if (allAttendance.isNotEmpty) {
+        _allAttendanceRecords.clear();
+        _allAttendanceRecords.addAll(allAttendance);
+        if (kDebugMode) {
+          debugPrint(
+            '✅ Loaded ${allAttendance.length} total attendance records for defaulter computation!',
+          );
+        }
+      }
+
+      // 8. Fetch Broadcast Notices from Supabase
+      final remoteNotices = await supabase.fetchBroadcastNotices();
+      if (remoteNotices.isNotEmpty) {
+        final List<DepartmentNoticeModel> syncedNotices = [];
+        for (final n in remoteNotices) {
+          syncedNotices.add(DepartmentNoticeModel.fromMap(n));
+        }
+        _broadcastNotices.clear();
+        _broadcastNotices.addAll(syncedNotices);
+        if (kDebugMode) {
+          debugPrint(
+            '✅ Loaded ${_broadcastNotices.length} broadcast notices from Supabase!',
+          );
         }
       }
 
@@ -134,30 +348,97 @@ class MockDataService {
     }
   }
 
+  /// Internal: sync DB attendance rows into local _attendanceCache
+  static void _syncAttendanceFromDB(
+    List<Map<String, dynamic>> dbRows,
+    DateTime date,
+  ) {
+    // Group by section
+    final Map<String, List<Map<String, dynamic>>> bySection = {};
+    for (final row in dbRows) {
+      final studentData = row['students'] as Map<String, dynamic>?;
+      final sectionId = studentData?['section_id'] as String? ?? '';
+      bySection.putIfAbsent(sectionId, () => []).add(row);
+    }
+
+    for (final entry in bySection.entries) {
+      final sectionId = entry.key;
+      final rows = entry.value;
+      final parts = sectionId.split('-');
+      final yearRoman = parts.isNotEmpty ? parts[0] : 'II';
+      final secLetter = parts.length > 2 ? parts[2] : 'A';
+      int yr = 2;
+      if (yearRoman == 'III') yr = 3;
+      if (yearRoman == 'IV') yr = 4;
+
+      final key = _formatDateKey(date, yr, secLetter);
+      final records = rows.map((row) {
+        final studentData = row['students'] as Map<String, dynamic>?;
+        final rollNumber = studentData?['roll_number'] as String? ?? '';
+        final isPresent = row['is_present'] as bool? ?? true;
+        final leaveType = (row['leave_type'] as String?)?.toUpperCase() ?? '';
+
+        AttendanceStatus status;
+        if (isPresent) {
+          status = AttendanceStatus.present;
+        } else if (leaveType == 'ON_DUTY' || leaveType == 'OD') {
+          status = AttendanceStatus.onDuty;
+        } else {
+          status = AttendanceStatus.absent;
+        }
+
+        return AttendanceRecord(
+          id: 'att-${row['attendance_id']}-$rollNumber',
+          studentId: 'stu-$rollNumber',
+          date: date,
+          status: status,
+          source: row['punch_method'] as String? ?? 'database',
+          recordedBy: 'Supabase Cloud',
+          createdAt: date,
+        );
+      }).toList();
+
+      _attendanceCache[key] = records;
+    }
+  }
+
+  /// All bulk attendance records for defaulter computation
+  static final List<Map<String, dynamic>> _allAttendanceRecords = [];
+
   /// All active students in the department
-  static List<StudentModel> get allStudents => List.unmodifiable(_dynamicStudents.where((s) => !s.isPurged));
+  static List<StudentModel> get allStudents =>
+      List.unmodifiable(_dynamicStudents.where((s) => !s.isPurged));
 
   static List<StudentModel> getStudentsBySection(int year, String section) {
     return _dynamicStudents
-        .where((s) => s.year == year && s.section == section && !s.isPurged && s.academicStatus != StudentAcademicStatus.graduated)
+        .where(
+          (s) =>
+              s.year == year &&
+              s.section == section &&
+              !s.isPurged &&
+              s.academicStatus != StudentAcademicStatus.graduated,
+        )
         .toList();
   }
 
   static int get totalStrength => allStudents.length;
-  
+
   static int get presentToday {
     int total = 0;
     for (int yr = 2; yr <= 4; yr++) {
       final sections = yr == 4 ? ['A', 'B'] : ['A', 'B', 'C', 'D'];
       for (final sec in sections) {
-        total += getSectionPresent(yr, sec, DateTime(2026, 9, 7)) + getSectionOnDuty(yr, sec, DateTime(2026, 9, 7));
+        total +=
+            getSectionPresent(yr, sec, DateTime(2026, 9, 7)) +
+            getSectionOnDuty(yr, sec, DateTime(2026, 9, 7));
       }
     }
     return total;
   }
 
   static int get absentToday => totalStrength - presentToday;
-  static double get attendancePercentage => totalStrength > 0 ? (presentToday / totalStrength) * 100 : 0.0;
+  static double get attendancePercentage =>
+      totalStrength > 0 ? (presentToday / totalStrength) * 100 : 0.0;
 
   static int getSectionStrength(int year, String section) {
     final list = getStudentsBySection(year, section);
@@ -166,23 +447,39 @@ class MockDataService {
 
   static int getSectionAbsent(int year, String section, [DateTime? date]) {
     final targetDate = date ?? DateTime(2026, 9, 7);
-    final records = getAttendanceForDate(targetDate, year: year, section: section);
+    final records = getAttendanceForDate(
+      targetDate,
+      year: year,
+      section: section,
+    );
     return records.where((r) => r.isAbsent).length;
   }
 
   static int getSectionPresent(int year, String section, [DateTime? date]) {
     final targetDate = date ?? DateTime(2026, 9, 7);
-    final records = getAttendanceForDate(targetDate, year: year, section: section);
+    final records = getAttendanceForDate(
+      targetDate,
+      year: year,
+      section: section,
+    );
     return records.where((r) => r.isPresent).length;
   }
 
   static int getSectionOnDuty(int year, String section, [DateTime? date]) {
     final targetDate = date ?? DateTime(2026, 9, 7);
-    final records = getAttendanceForDate(targetDate, year: year, section: section);
+    final records = getAttendanceForDate(
+      targetDate,
+      year: year,
+      section: section,
+    );
     return records.where((r) => r.isOnDuty).length;
   }
 
-  static double getSectionAttendancePercentage(int year, String section, [DateTime? date]) {
+  static double getSectionAttendancePercentage(
+    int year,
+    String section, [
+    DateTime? date,
+  ]) {
     final str = getSectionStrength(year, section);
     if (str == 0) return 100.0;
     final pres = getSectionPresent(year, section, date);
@@ -191,85 +488,66 @@ class MockDataService {
     return ((pres + od) / str) * 100;
   }
 
+  // ──────────────────── Today's Absentees (Synced with Supabase & Live Advisor Actions) ────────────────────
+
+  static final Set<String> _dynamicAbsentRollNumbers = <String>{};
+
+  /// Set of today's absent roll numbers (read-only view)
+  static Set<String> get todaysAbsentRollNumbers =>
+      Set.unmodifiable(_dynamicAbsentRollNumbers);
+
   /// Check whether a student is present today (including On-Duty)
   static bool isStudentPresent(String rollNumber) {
-    return !todaysAbsentRollNumbers.contains(rollNumber);
+    return !isStudentAbsent(rollNumber);
   }
 
-  /// Check whether a student is absent today
+  /// Check whether a student is absent today (using DB cache, dynamic absentees, and leave slips)
   static bool isStudentAbsent(String rollNumber) {
-    return todaysAbsentRollNumbers.contains(rollNumber);
+    if (_dynamicAbsentRollNumbers.contains(rollNumber)) return true;
+    final today = DateTime.now();
+    final hasAbsentLeave = _leaveRequests.any(
+      (l) =>
+          l.studentRollNumber == rollNumber &&
+          l.category == LeaveCategory.leave &&
+          l.leaveDate.day == today.day &&
+          l.leaveDate.month == today.month &&
+          l.leaveDate.year == today.year,
+    );
+    return hasAbsentLeave;
   }
-
-  // ──────────────────── Official Today's Absentee Database ────────────────────
-
-  static const Set<String> todaysAbsentRollNumbers = {
-    // II Year Section A (6 Absentees)
-    '25243006', // AKHIL M
-    '25243010', // ARSHAD S
-    '25243022', // BHARATH M
-    '25243035', // DHARSAN S
-    '25243039', // DHARUN K
-    '25243041', // DHIVAKAR S
-
-    // II Year Section B (3 Absentees)
-    '25243096', // LAKSHAYAA S
-    '25243100', // LITHESH HARI R
-    '25243128', // MUGESHDHARAN M
-
-    // II Year Section C (60 Absentees - Full Section Absent)
-    '25243129', '25243130', '25243131', '25243132', '25243133', '25243134', '25243135', '25243136',
-    '25243137', '25243138', '25243139', '25243140', '25243141', '25243142', '25243143', '25243144',
-    '25243145', '25243146', '25243147', '25243148', '25243149', '25243150', '25243151', '25243152',
-    '25243153', '25243154', '25243155', '25243156', '25243157', '25243158', '25243159', '25243160',
-    '25243161', '25243162', '25243163', '25243164', '25243165', '25243166', '25243167', '25243168',
-    '25243169', '25243170', '25243171', '25243172', '25243173', '25243174', '25243175', '25243176',
-    '25243177', '25243178', '25243179', '25243180', '25243181', '25243182', '25243183', '25243184',
-    '25243185', '25243186', '25243187', '25243188',
-
-    // II Year Section D (3 Absentees)
-    '25243195', // SANTHOSH RAJ B
-    '25243228', // THAMARAIKKANNAN S
-    '25243242', // VIJAY M
-
-    // III Year Section A (1 Absentee)
-    '24243302', // SANTHOSH A
-
-    // III Year Section B (6 Absentees)
-    '24243079', // KAVIN SHARVESH R
-    '24243081', // KAVIYA D
-    '24243084', // KAVYA SHREE TV
-    '24243095', // LALITHA M
-    '24243097', // LOGESH S
-    '24243101', // MAHALAKSHMI K
-
-    // III Year Section C (1 Absentee)
-    '24243180', // SAKTHI BALAN M
-
-    // III Year Section D (1 Absentee)
-    '24243240', // VELAVAN A
-
-    // IV Year Section A (6 Absentees)
-    '23243001', // S.AARTHI
-    '23243020', // S.ELAMATHI
-    '23243024', // V.GOKUL ANAND
-    '23243025', // S.GOKUL KRISHNA
-    '23243031', // S.HARI KRISHNA
-    '23243036', // V.S HARINI
-
-    // IV Year Section B (2 Absentees)
-    '23243092', // P. ROOBALAKSHMI
-    '23243117', // K. THARANI KUMAR
-  };
 
   // ──────────────────── 2026 Academic Calendar (Sep - Dec) ────────────────────
 
   /// Academic term calendar months
   static const List<Map<String, dynamic>> academicMonths2026 = [
-    {'month': 9, 'year': 2026, 'name': 'September 2026', 'short': 'Sep 26', 'days': 30},
-    {'month': 10, 'year': 2026, 'name': 'October 2026', 'short': 'Oct 26', 'days': 31},
-    {'month': 11, 'year': 2026, 'name': 'November 2026', 'short': 'Nov 26', 'days': 30},
-    {'month': 12, 'year': 2026, 'name': 'December 2026', 'short': 'Dec 26', 'days': 31},
+    {
+      'month': 9,
+      'year': 2026,
+      'name': 'September 2026',
+      'short': 'Sep 26',
+      'days': 30,
+    },
+    {
+      'month': 10,
+      'year': 2026,
+      'name': 'October 2026',
+      'short': 'Oct 26',
+      'days': 31,
+    },
+    {
+      'month': 11,
+      'year': 2026,
+      'name': 'November 2026',
+      'short': 'Nov 26',
+      'days': 30,
+    },
+    {
+      'month': 12,
+      'year': 2026,
+      'name': 'December 2026',
+      'short': 'Dec 26',
+      'days': 31,
+    },
   ];
 
   /// Get list of working academic dates for a specific month in 2026
@@ -294,75 +572,71 @@ class MockDataService {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}_${year}_$section';
   }
 
-  static List<AttendanceRecord> getAttendanceForDate(DateTime date, {int year = 2, String section = 'B'}) {
+  static List<AttendanceRecord> getAttendanceForDate(
+    DateTime date, {
+    int year = 2,
+    String section = 'B',
+  }) {
     final key = _formatDateKey(date, year, section);
     if (_attendanceCache.containsKey(key)) {
       return _attendanceCache[key]!;
     }
 
-    // Generate initial records for this section and date
+    // No cached data — return records from students list with all marked present (default)
+    // Real data is populated by syncFromSupabase(); if no DB record exists, default to all-present
     final targetStudents = getStudentsBySection(year, section);
     final advName = _getAdvisorName(year, section);
-    final isToday = (date.year == 2026 && date.month == 9 && date.day == 7) ||
-        (date.year == DateTime.now().year && date.month == DateTime.now().month && date.day == DateTime.now().day);
-    final isPastDate = date.isBefore(DateTime(2026, 9, 7, 23, 59));
 
-    final records = targetStudents.asMap().entries.map((entry) {
-      final idx = entry.key;
-      final s = entry.value;
+    // Check leave requests for OD status and Absent status
+    final records = targetStudents.map((s) {
+      final hasOd = _leaveRequests.any(
+        (l) =>
+            l.studentRollNumber == s.rollNumber &&
+            l.category == LeaveCategory.onDuty &&
+            l.leaveDate.day == date.day &&
+            l.leaveDate.month == date.month &&
+            l.leaveDate.year == date.year,
+      );
 
-      AttendanceStatus status;
+      final hasAbsentLeave = _leaveRequests.any(
+        (l) =>
+            l.studentRollNumber == s.rollNumber &&
+            l.category == LeaveCategory.leave &&
+            l.leaveDate.day == date.day &&
+            l.leaveDate.month == date.month &&
+            l.leaveDate.year == date.year,
+      );
+
+      final isExplicitlyAbsent =
+          _dynamicAbsentRollNumbers.contains(s.rollNumber) &&
+          (date.day == DateTime(2026, 9, 7).day ||
+              (date.day == DateTime.now().day &&
+                  date.month == DateTime.now().month));
+
+      AttendanceStatus status = AttendanceStatus.present;
       String? odReason;
-
-      if (isToday) {
-        if (todaysAbsentRollNumbers.contains(s.rollNumber)) {
-          status = AttendanceStatus.absent;
-        } else {
-          // Check if student has active registered OD
-          final hasOd = _leaveRequests.any((l) =>
+      if (hasOd) {
+        status = AttendanceStatus.onDuty;
+        final req = _leaveRequests.firstWhere(
+          (l) =>
               l.studentRollNumber == s.rollNumber &&
-              l.category == LeaveCategory.onDuty &&
-              l.leaveDate.day == date.day &&
-              l.leaveDate.month == date.month &&
-              l.leaveDate.year == date.year);
-
-          if (hasOd) {
-            status = AttendanceStatus.onDuty;
-            final req = _leaveRequests.firstWhere((l) => l.studentRollNumber == s.rollNumber && l.category == LeaveCategory.onDuty);
-            odReason = req.reason;
-          } else {
-            status = AttendanceStatus.present;
-          }
-        }
-      } else {
-        // Realistic pseudo-random distribution for past/future working calendar days
-        final hash = (s.id.hashCode + date.day * 7 + date.month * 13).abs();
-        if (hash % 29 == 4) {
-          status = AttendanceStatus.onDuty;
-          odReason = 'Technical Symposium / Sports OD';
-        } else if (hash % 19 == 7 || (idx % 22 == 5 && date.day % 3 == 0)) {
-          status = AttendanceStatus.absent;
-        } else {
-          status = AttendanceStatus.present;
-        }
+              l.category == LeaveCategory.onDuty,
+        );
+        odReason = req.reason;
+      } else if (hasAbsentLeave || isExplicitlyAbsent) {
+        status = AttendanceStatus.absent;
       }
-
-      final hash = (s.id.hashCode + date.day * 7 + date.month * 13).abs();
 
       return AttendanceRecord(
         id: 'att-${s.id}-${date.year}${date.month}${date.day}',
         studentId: s.id,
         date: date,
         status: status,
-        biometricPunchIn: status == AttendanceStatus.present
-            ? DateTime(date.year, date.month, date.day, 8, 30 + (hash % 18))
-            : null,
-        biometricPunchOut: status == AttendanceStatus.present
-            ? DateTime(date.year, date.month, date.day, 16, 0 + (hash % 30))
-            : null,
-        source: isToday ? 'live_biometric_sync' : (isPastDate ? 'manual_verified' : 'biometric'),
+        source: isExplicitlyAbsent
+            ? 'database_absent'
+            : (hasAbsentLeave ? 'leave_slip_absent' : 'default_present'),
         recordedBy: advName,
-        onDutyReason: status == AttendanceStatus.onDuty ? (odReason ?? 'Official OD') : null,
+        onDutyReason: odReason,
         createdAt: date,
       );
     }).toList();
@@ -371,10 +645,18 @@ class MockDataService {
     return records;
   }
 
-  static void updateAttendanceRecord(AttendanceRecord updated, {int year = 2, String section = 'B'}) {
+  static void updateAttendanceRecord(
+    AttendanceRecord updated, {
+    int year = 2,
+    String section = 'B',
+  }) {
     final key = _formatDateKey(updated.date, year, section);
-    final list = List<AttendanceRecord>.from(getAttendanceForDate(updated.date, year: year, section: section));
-    final idx = list.indexWhere((r) => r.id == updated.id || r.studentId == updated.studentId);
+    final list = List<AttendanceRecord>.from(
+      getAttendanceForDate(updated.date, year: year, section: section),
+    );
+    final idx = list.indexWhere(
+      (r) => r.id == updated.id || r.studentId == updated.studentId,
+    );
     if (idx != -1) {
       list[idx] = updated;
     } else {
@@ -384,7 +666,8 @@ class MockDataService {
     _notifyUpdate();
 
     // Persist to Supabase Cloud Database
-    final studentNumericId = int.tryParse(updated.studentId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+    final studentNumericId =
+        int.tryParse(updated.studentId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
     if (studentNumericId > 0) {
       SupabaseService().recordAttendance(
         studentId: studentNumericId,
@@ -429,16 +712,30 @@ class MockDataService {
       leaveType: leaveType,
       reason: reason,
       letterSubmitted: true,
-      letterStatus: markPresent ? LetterStatus.approved : LetterStatus.forwarded,
-      attachmentFileName: attachmentFileName ?? (markPresent ? 'official_od_clearance.pdf' : 'advisor_signed_pink_slip.pdf'),
-      attachmentFileType: attachmentFileType ?? (markPresent ? 'On-Duty Clearance Letter' : 'Advisor Issued Pink Slip'),
+      letterStatus: markPresent
+          ? LetterStatus.approved
+          : LetterStatus.forwarded,
+      attachmentFileName:
+          attachmentFileName ??
+          (markPresent
+              ? 'official_od_clearance.pdf'
+              : 'advisor_signed_pink_slip.pdf'),
+      attachmentFileType:
+          attachmentFileType ??
+          (markPresent
+              ? 'On-Duty Clearance Letter'
+              : 'Advisor Issued Pink Slip'),
       attachmentFileSize: attachmentFileSize ?? '1.2 MB',
       dateSubmittedToAdvisor: DateTime.now(),
       advisorId: advisorId,
-      advisorRemarks: advisorRemarks ?? 'Official Pink Slip issued by Class Advisor $advisorName. Attendance marked as ${markPresent ? "PRESENT (OD)" : "ABSENT"}.',
+      advisorRemarks:
+          advisorRemarks ??
+          'Official Pink Slip issued by Class Advisor $advisorName. Attendance marked as ${markPresent ? "PRESENT (OD)" : "ABSENT"}.',
       dateReceivedByHod: markPresent ? DateTime.now() : null,
       dateApprovedRejected: markPresent ? DateTime.now() : null,
-      hodRemarks: markPresent ? 'Sanctioned via Class Advisor Official OD Pink Slip' : null,
+      hodRemarks: markPresent
+          ? 'Sanctioned via Class Advisor Official OD Pink Slip'
+          : null,
       dueDays: 0,
       totalLeavesTaken: markPresent ? 0 : 1,
     );
@@ -446,7 +743,7 @@ class MockDataService {
     // Save leave/slip to top of requests
     _leaveRequests.insert(0, slip);
 
-    // Synchronize attendance record
+    // Synchronize attendance record locally
     final record = AttendanceRecord(
       id: 'att-${student.id}-${date.year}${date.month}${date.day}',
       studentId: student.id,
@@ -457,16 +754,50 @@ class MockDataService {
       recordedBy: '$advisorName (Class Advisor Pink Slip)',
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
-      biometricPunchIn: markPresent ? DateTime(date.year, date.month, date.day, 8, 30) : null,
-      biometricPunchOut: markPresent ? DateTime(date.year, date.month, date.day, 16, 0) : null,
+      biometricPunchIn: markPresent
+          ? DateTime(date.year, date.month, date.day, 8, 30)
+          : null,
+      biometricPunchOut: markPresent
+          ? DateTime(date.year, date.month, date.day, 16, 0)
+          : null,
     );
 
-    updateAttendanceRecord(record, year: effectiveYear, section: effectiveSection);
+    updateAttendanceRecord(
+      record,
+      year: effectiveYear,
+      section: effectiveSection,
+    );
+
+    // Update dynamic absentee set
+    if (markPresent) {
+      _dynamicAbsentRollNumbers.remove(student.rollNumber);
+    } else {
+      _dynamicAbsentRollNumbers.add(student.rollNumber);
+    }
+
+    // ── PINK SLIP AUTO-ABSENT: Persist to Supabase Cloud Database ──
+    final studentNumericId =
+        int.tryParse(student.rollNumber.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+    if (studentNumericId > 0) {
+      SupabaseService().submitLeaveSlipAndMarkAbsent(
+        studentId: studentNumericId,
+        reason: reason,
+        date: date,
+        isOnDuty: markPresent,
+        letterUrl: attachmentFileName,
+        status: markPresent ? 'APPROVED' : 'SUBMITTED',
+      );
+    }
 
     return slip;
   }
 
-  static void markAllPresentForDate(DateTime date, {int year = 2, String section = 'B', String recordedBy = 'Class Advisor'}) {
+  static void markAllPresentForDate(
+    DateTime date, {
+    int year = 2,
+    String section = 'B',
+    String recordedBy = 'Class Advisor',
+  }) {
     final key = _formatDateKey(date, year, section);
     final list = getAttendanceForDate(date, year: year, section: section);
     final updatedList = list.map((r) {
@@ -481,7 +812,12 @@ class MockDataService {
     _notifyUpdate();
   }
 
-  static void markAllAbsentForDate(DateTime date, {int year = 2, String section = 'B', String recordedBy = 'Class Advisor'}) {
+  static void markAllAbsentForDate(
+    DateTime date, {
+    int year = 2,
+    String section = 'B',
+    String recordedBy = 'Class Advisor',
+  }) {
     final key = _formatDateKey(date, year, section);
     final list = getAttendanceForDate(date, year: year, section: section);
     final updatedList = list.map((r) {
@@ -496,36 +832,41 @@ class MockDataService {
     _notifyUpdate();
   }
 
-  // ──────────────────── College Declared Holidays & Calendar Leaves ────────────────────
+  // ──────────────────── College Declared Holidays & Calendar Leaves (from Supabase) ────────────────────
 
-  static final Map<String, String> _collegeHolidays = {
-    '2026-09-04': 'Ganesh Chaturthi (State Holiday)',
-    '2026-09-16': 'Milad-un-Nabi (Govt Holiday)',
-    '2026-10-02': 'Gandhi Jayanti (National Holiday)',
-    '2026-10-19': 'Ayudha Puja (Festival Leave)',
-    '2026-10-20': 'Vijayadasami (Festival Holiday)',
-    '2026-11-08': 'Diwali Celebration (College Leave)',
-  };
+  // Populated from Supabase academic_calendar table during syncFromSupabase()
+  static final Map<String, String> _collegeHolidays = {};
 
   static bool isSunday(DateTime date) => date.weekday == DateTime.sunday;
 
   static bool isCollegeHoliday(DateTime date) {
-    final key = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    final key =
+        '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
     return _collegeHolidays.containsKey(key);
   }
 
   static String? getCollegeHolidayReason(DateTime date) {
-    final key = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    final key =
+        '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
     return _collegeHolidays[key];
   }
 
   static void declareCollegeHoliday(DateTime date, String reason) {
-    final key = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    final key =
+        '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
     _collegeHolidays[key] = reason;
     _notifyUpdate();
+    // Persist to Supabase
+    SupabaseService().addCalendarEvent(
+      date: date,
+      eventType: 'HOLIDAY',
+      eventName: reason,
+      isWorkingDay: false,
+    );
   }
 
-  static Map<String, String> get allCollegeHolidays => Map.unmodifiable(_collegeHolidays);
+  static Map<String, String> get allCollegeHolidays =>
+      Map.unmodifiable(_collegeHolidays);
 
   // ──────────────────── Analytics Graphs & Statistics ────────────────────
 
@@ -551,7 +892,9 @@ class MockDataService {
     for (final d in workingDays) {
       final isHoliday = isCollegeHoliday(d);
       final holidayReason = getCollegeHolidayReason(d);
-      final pct = isHoliday ? 0.0 : getSectionAttendancePercentage(year, section, d);
+      final pct = isHoliday
+          ? 0.0
+          : getSectionAttendancePercentage(year, section, d);
       final dayName = getDayAbbreviation(d.weekday);
 
       data.add({
@@ -606,7 +949,9 @@ class MockDataService {
       }
 
       final total = totalPres + totalOD + totalAbs;
-      final pct = isHoliday ? 0.0 : (total > 0 ? ((totalPres + totalOD) / total) * 100 : 94.5);
+      final pct = isHoliday
+          ? 0.0
+          : (total > 0 ? ((totalPres + totalOD) / total) * 100 : 94.5);
       final dayName = getDayAbbreviation(d.weekday);
 
       data.add({
@@ -625,47 +970,126 @@ class MockDataService {
     return data;
   }
 
-  /// Get monthly attendance progression across 2026 semester months (Sep, Oct, Nov, Dec 2026)
+  /// Get monthly attendance progression computed from real DB records
   static List<Map<String, dynamic>> getMonthlyTrend(int year, String section) {
-    return [
-      {'month': 'Sep 2026', 'percentage': 95.2, 'status': 'Active Month', 'classesHeld': 24},
-      {'month': 'Oct 2026', 'percentage': 94.6, 'status': 'Scheduled', 'classesHeld': 25},
-      {'month': 'Nov 2026', 'percentage': 96.1, 'status': 'Scheduled', 'classesHeld': 23},
-      {'month': 'Dec 2026', 'percentage': 95.8, 'status': 'Revision & Exams', 'classesHeld': 18},
-    ];
+    final months = [9, 10, 11, 12];
+    final monthNames = ['Sep 2026', 'Oct 2026', 'Nov 2026', 'Dec 2026'];
+    final List<Map<String, dynamic>> results = [];
+
+    for (int i = 0; i < months.length; i++) {
+      final workingDays = getDatesForMonth(months[i]);
+      int totalPresent = 0;
+      int totalRecords = 0;
+      int classesWithData = 0;
+
+      for (final d in workingDays) {
+        if (isCollegeHoliday(d)) continue;
+        final records = getAttendanceForDate(d, year: year, section: section);
+        if (records.isNotEmpty &&
+            records.any((r) => r.source != 'default_present')) {
+          classesWithData++;
+          totalPresent += records
+              .where((r) => r.isPresent || r.isOnDuty)
+              .length;
+          totalRecords += records.length;
+        }
+      }
+
+      final pct = totalRecords > 0 ? (totalPresent / totalRecords) * 100 : 0.0;
+      final status = months[i] == 9
+          ? 'Active Month'
+          : (months[i] == 12 ? 'Revision & Exams' : 'Scheduled');
+
+      results.add({
+        'month': monthNames[i],
+        'percentage': double.parse(pct.toStringAsFixed(1)),
+        'status': status,
+        'classesHeld': classesWithData,
+      });
+    }
+    return results;
   }
 
-  /// Overall department monthly progression
+  /// Overall department monthly progression computed from real DB records
   static List<Map<String, dynamic>> getOverallDepartmentMonthlyTrend() {
-    return [
-      {'month': 'Sep 2026', 'percentage': 94.8, 'target': 95.0, 'totalStudents': 622},
-      {'month': 'Oct 2026', 'percentage': 95.3, 'target': 95.0, 'totalStudents': 622},
-      {'month': 'Nov 2026', 'percentage': 96.0, 'target': 95.0, 'totalStudents': 622},
-      {'month': 'Dec 2026', 'percentage': 95.5, 'target': 95.0, 'totalStudents': 622},
-    ];
+    final months = [9, 10, 11, 12];
+    final monthNames = ['Sep 2026', 'Oct 2026', 'Nov 2026', 'Dec 2026'];
+    final List<Map<String, dynamic>> results = [];
+
+    for (int i = 0; i < months.length; i++) {
+      final workingDays = getDatesForMonth(months[i]);
+      int totalPresent = 0;
+      int totalRecords = 0;
+
+      for (final d in workingDays) {
+        if (isCollegeHoliday(d)) continue;
+        for (int yr = 2; yr <= 4; yr++) {
+          final sections = yr == 4 ? ['A', 'B'] : ['A', 'B', 'C', 'D'];
+          for (final sec in sections) {
+            final records = getAttendanceForDate(d, year: yr, section: sec);
+            if (records.isNotEmpty &&
+                records.any((r) => r.source != 'default_present')) {
+              totalPresent += records
+                  .where((r) => r.isPresent || r.isOnDuty)
+                  .length;
+              totalRecords += records.length;
+            }
+          }
+        }
+      }
+
+      final pct = totalRecords > 0 ? (totalPresent / totalRecords) * 100 : 0.0;
+
+      results.add({
+        'month': monthNames[i],
+        'percentage': double.parse(pct.toStringAsFixed(1)),
+        'target': 95.0,
+        'totalStudents': allStudents.length,
+      });
+    }
+    return results;
   }
 
-  // ──────────────────── Low Attendance Defaulter Alerts (< 75%) ────────────────────
+  // ──────────────────── Low Attendance Defaulter Alerts (< 75%) — Real Computation ────────────────────
 
   /// Get students with cumulative attendance less than 75% for a section
-  static List<Map<String, dynamic>> getDefaultersBySection(int year, String section) {
+  /// Computed from REAL daily_attendance records in Supabase
+  static List<Map<String, dynamic>> getDefaultersBySection(
+    int year,
+    String section,
+  ) {
     final students = getStudentsBySection(year, section);
     final List<Map<String, dynamic>> defaulters = [];
 
-    for (int i = 0; i < students.length; i++) {
-      final s = students[i];
-      // Realistic simulation: a small subset has low attendance (<75%)
-      final hash = (s.rollNumber.hashCode + year * 31 + section.hashCode).abs();
-      if (hash % 17 == 3 || (i == 4 && section == 'A') || (i == 13 && section == 'B')) {
-        final pct = 68.0 + (hash % 6);
+    if (_allAttendanceRecords.isEmpty) return defaulters;
+
+    for (final s in students) {
+      // Find matching student_id in _allAttendanceRecords
+      final numericId = int.tryParse(
+        s.rollNumber.replaceAll(RegExp(r'[^0-9]'), ''),
+      );
+      if (numericId == null) continue;
+
+      final studentRecords = _allAttendanceRecords
+          .where((r) => r['student_id'] == numericId)
+          .toList();
+      if (studentRecords.isEmpty) continue;
+
+      final totalDays = studentRecords.length;
+      final daysPresent = studentRecords
+          .where((r) => r['is_present'] == true)
+          .length;
+      final pct = totalDays > 0 ? (daysPresent / totalDays) * 100 : 100.0;
+
+      if (pct < 75.0) {
         defaulters.add({
           'student': s,
-          'percentage': pct,
-          'totalWorkingDays': 30,
-          'daysPresent': (30 * (pct / 100)).round(),
-          'daysAbsent': 30 - (30 * (pct / 100)).round(),
-          'dueSlips': s.dueLetters > 0 ? s.dueLetters : 2,
-          'advisorRemarks': 'Parent intimation required. Warning notice issued.',
+          'percentage': double.parse(pct.toStringAsFixed(1)),
+          'totalWorkingDays': totalDays,
+          'daysPresent': daysPresent,
+          'daysAbsent': totalDays - daysPresent,
+          'dueSlips': s.dueLetters > 0 ? s.dueLetters : 1,
+          'advisorRemarks': 'Attendance below 75%. Parent intimation required.',
         });
       }
     }
@@ -686,168 +1110,23 @@ class MockDataService {
 
   // ──────────────────── Leave & On-Duty (OD) Two-Tier Workflow ────────────────────
 
-  static final List<LeaveModel> _leaveRequests = [
-    // 1. II AIDS B: Lithesh Hari R (Leave with Parent Letter)
-    LeaveModel(
-      id: 'l-001',
-      studentId: 'stu_098',
-      studentName: 'LITHESH HARI R',
-      studentRollNumber: '25243100',
-      category: LeaveCategory.leave,
-      section: 'B',
-      year: 2,
-      batchYear: '2025 BATCH',
-      leaveDate: DateTime(2026, 9, 5),
-      leaveType: LeaveType.informed,
-      reason: 'Fees not paid (Family financial settlement discussion)',
-      letterSubmitted: true,
-      letterStatus: LetterStatus.submitted,
-      attachmentFileName: 'guardian_explanation_letter.pdf',
-      attachmentFileType: 'Parent Signed Letter',
-      attachmentFileSize: '1.4 MB',
-      dateSubmittedToAdvisor: DateTime(2026, 9, 5),
-      advisorRemarks: 'Parent met advisor in person. Genuine delay requested.',
-      dueDays: 2,
-      totalLeavesTaken: 3,
-    ),
+  // Leave requests — populated from Supabase during syncFromSupabase()
+  static final List<LeaveModel> _leaveRequests = [];
 
-    // 2. II AIDS B: Manikandan M (Medical Leave with Hospital Certificate - Approved)
-    LeaveModel(
-      id: 'l-002',
-      studentId: 'stu_111',
-      studentName: 'MANIKANDAN M',
-      studentRollNumber: '25243113',
-      category: LeaveCategory.leave,
-      section: 'B',
-      year: 2,
-      batchYear: '2025 BATCH',
-      leaveDate: DateTime(2026, 9, 4),
-      leaveType: LeaveType.informed,
-      reason: 'Severe viral fever & throat infection (OPD admission)',
-      letterSubmitted: true,
-      letterStatus: LetterStatus.approved,
-      attachmentFileName: 'medical_fitness_certificate.pdf',
-      attachmentFileType: 'Medical Certificate (GH)',
-      attachmentFileSize: '2.1 MB',
-      dateSubmittedToAdvisor: DateTime(2026, 9, 4),
-      dateReceivedByHod: DateTime(2026, 9, 5),
-      dateApprovedRejected: DateTime(2026, 9, 6),
-      advisorRemarks: 'Medical certificate verified from registered medical officer.',
-      hodRemarks: 'Approved by HOD Dr. Manivannan. Medical condonation granted.',
-      dueDays: 0,
-      totalLeavesTaken: 2,
-    ),
-
-    // 3. II AIDS B: Janani Y (On-Duty OD - Symposium at IIT Madras)
-    LeaveModel(
-      id: 'l-003',
-      studentId: 'stu_067',
-      studentName: 'JANANI Y',
-      studentRollNumber: '25243068',
-      category: LeaveCategory.onDuty,
-      section: 'B',
-      year: 2,
-      batchYear: '2025 BATCH',
-      leaveDate: DateTime(2026, 9, 6),
-      leaveType: LeaveType.informed,
-      reason: 'National Level Technical Symposium & AI Paper Presentation at IIT Madras',
-      letterSubmitted: true,
-      letterStatus: LetterStatus.forwarded,
-      attachmentFileName: 'iit_madras_symposium_invitation.pdf',
-      attachmentFileType: 'Official OD Invitation Letter',
-      attachmentFileSize: '1.8 MB',
-      dateSubmittedToAdvisor: DateTime(2026, 9, 6),
-      dateReceivedByHod: DateTime(2026, 9, 7),
-      advisorRemarks: 'Selected for final round paper presentation. Highly recommended for OD.',
-      dueDays: 1,
-      totalLeavesTaken: 1,
-    ),
-
-    // 4. II AIDS A: Adithyan S (On-Duty OD - State Level Cricket Tournament)
-    LeaveModel(
-      id: 'l-004',
-      studentId: 'stu_002',
-      studentName: 'ADITHYAN S',
-      studentRollNumber: '25243002',
-      category: LeaveCategory.onDuty,
-      section: 'A',
-      year: 2,
-      batchYear: '2025 BATCH',
-      leaveDate: DateTime(2026, 9, 3),
-      leaveType: LeaveType.informed,
-      reason: 'Anna University Zonal Cricket Tournament Championship match',
-      letterSubmitted: true,
-      letterStatus: LetterStatus.forwarded,
-      attachmentFileName: 'sports_board_od_letter.pdf',
-      attachmentFileType: 'Physical Education OD Proof',
-      attachmentFileSize: '920 KB',
-      dateSubmittedToAdvisor: DateTime(2026, 9, 3),
-      dateReceivedByHod: DateTime(2026, 9, 6),
-      advisorRemarks: 'Endorsed by College Physical Director. Regularize under sports quota.',
-      dueDays: 0,
-      totalLeavesTaken: 2,
-    ),
-
-    // 5. III AIDS A: Akash I (On-Duty OD - Smart India Hackathon)
-    LeaveModel(
-      id: 'l-005',
-      studentId: 'stu_256',
-      studentName: 'AKASH I',
-      studentRollNumber: '24243007',
-      category: LeaveCategory.onDuty,
-      section: 'A',
-      year: 3,
-      batchYear: '2024 BATCH',
-      leaveDate: DateTime(2026, 9, 7),
-      leaveType: LeaveType.informed,
-      reason: 'Smart India Hackathon (SIH) 2026 Grand Finale at Bengaluru Nodal Center',
-      letterSubmitted: true,
-      letterStatus: LetterStatus.forwarded,
-      attachmentFileName: 'sih_team_selection_letter.pdf',
-      attachmentFileType: 'Govt. OD Endorsement Letter',
-      attachmentFileSize: '3.4 MB',
-      dateSubmittedToAdvisor: DateTime(2026, 9, 7),
-      dateReceivedByHod: DateTime(2026, 9, 7),
-      advisorRemarks: 'Lead shortlisted finalist for SIH hardware-software category.',
-      dueDays: 0,
-      totalLeavesTaken: 1,
-    ),
-
-    // 6. IV AIDS B: S. Harini (Placement Drive On-Duty OD)
-    LeaveModel(
-      id: 'l-006',
-      studentId: 'stu_558',
-      studentName: 'S. HARINI',
-      studentRollNumber: '23243034',
-      category: LeaveCategory.onDuty,
-      section: 'B',
-      year: 4,
-      batchYear: '2023 BATCH',
-      leaveDate: DateTime(2026, 9, 6),
-      leaveType: LeaveType.informed,
-      reason: 'Off-campus recruitment final technical round at Zoho Corporation, Chennai',
-      letterSubmitted: true,
-      letterStatus: LetterStatus.forwarded,
-      attachmentFileName: 'zoho_interview_call_letter.pdf',
-      attachmentFileType: 'Placement Office Call Letter',
-      attachmentFileSize: '1.1 MB',
-      dateSubmittedToAdvisor: DateTime(2026, 9, 6),
-      dateReceivedByHod: DateTime(2026, 9, 7),
-      advisorRemarks: 'Placement cell verified the call letter. OD recommended.',
-      dueDays: 1,
-      totalLeavesTaken: 2,
-    ),
-  ];
-
-  static List<LeaveModel> get leaveRequests => List.unmodifiable(_leaveRequests);
+  static List<LeaveModel> get leaveRequests =>
+      List.unmodifiable(_leaveRequests);
 
   static List<LeaveModel> getLeavesForSection(int year, String section) {
-    return _leaveRequests.where((l) => l.year == year && l.section == section).toList();
+    return _leaveRequests
+        .where((l) => l.year == year && l.section == section)
+        .toList();
   }
 
   static List<LeaveModel> getPendingForHod({int? year}) {
     return _leaveRequests.where((l) {
-      final isPending = l.letterStatus == LetterStatus.forwarded || l.letterStatus == LetterStatus.submitted;
+      final isPending =
+          l.letterStatus == LetterStatus.forwarded ||
+          l.letterStatus == LetterStatus.submitted;
       if (year == null) return isPending;
       return isPending && l.year == year;
     }).toList();
@@ -858,7 +1137,11 @@ class MockDataService {
     _notifyUpdate();
 
     // Persist to Supabase Cloud Database
-    final studentNumericId = int.tryParse(newLeave.studentRollNumber.replaceAll(RegExp(r'[^0-9]'), '')) ?? 1001;
+    final studentNumericId =
+        int.tryParse(
+          newLeave.studentRollNumber.replaceAll(RegExp(r'[^0-9]'), ''),
+        ) ??
+        1001;
     SupabaseService().submitLeaveSlip(
       studentId: studentNumericId,
       reason: newLeave.reason,
@@ -876,12 +1159,16 @@ class MockDataService {
       _leaveRequests[index] = item.copyWith(
         letterStatus: LetterStatus.forwarded,
         dateReceivedByHod: DateTime.now(),
-        advisorRemarks: advisorRemarks ?? item.advisorRemarks ?? 'Endorsed and forwarded to HOD for approval.',
+        advisorRemarks:
+            advisorRemarks ??
+            item.advisorRemarks ??
+            'Endorsed and forwarded to HOD for approval.',
       );
       _notifyUpdate();
 
       // Persist status to Supabase
-      final numericSlipId = int.tryParse(leaveId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 1;
+      final numericSlipId =
+          int.tryParse(leaveId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 1;
       SupabaseService().updateLeaveSlipStatus(
         slipId: numericSlipId,
         status: 'PENDING_HOD',
@@ -899,12 +1186,15 @@ class MockDataService {
       _leaveRequests[index] = item.copyWith(
         letterStatus: LetterStatus.approved,
         dateApprovedRejected: DateTime.now(),
-        hodRemarks: remarks ?? 'Approved by Head of Department (AI&DS). Document verified.',
+        hodRemarks:
+            remarks ??
+            'Approved by Head of Department (AI&DS). Document verified.',
       );
       _notifyUpdate();
 
       // Persist status to Supabase
-      final numericSlipId = int.tryParse(leaveId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 1;
+      final numericSlipId =
+          int.tryParse(leaveId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 1;
       SupabaseService().updateLeaveSlipStatus(
         slipId: numericSlipId,
         status: 'APPROVED',
@@ -922,7 +1212,8 @@ class MockDataService {
       _leaveRequests[index] = item.copyWith(
         letterStatus: LetterStatus.rejected,
         dateApprovedRejected: DateTime.now(),
-        advisorRemarks: remarks ?? 'Returned to student by Class Advisor for correction.',
+        advisorRemarks:
+            remarks ?? 'Returned to student by Class Advisor for correction.',
       );
       _notifyUpdate();
       return true;
@@ -937,7 +1228,9 @@ class MockDataService {
       _leaveRequests[index] = item.copyWith(
         letterStatus: LetterStatus.rejected,
         dateApprovedRejected: DateTime.now(),
-        hodRemarks: remarks ?? 'Rejected by HOD. Insufficient supporting documentation.',
+        hodRemarks:
+            remarks ??
+            'Rejected by HOD. Insufficient supporting documentation.',
       );
       _notifyUpdate();
       return true;
@@ -950,83 +1243,48 @@ class MockDataService {
   // After Even Semester finishes, a 7-10 day transition grace period triggers a Promotion Request
   // sent to Class Advisor & HOD for approval. Once approved: 1st->2nd, 2nd->3rd, 3rd->4th, 4th->Alumni Archive.
 
-  static final List<PromotionRequest> _promotionRequests = [
-    // 1. II AIDS A: 2nd Sem completed, 8 days elapsed in grace period -> Pending Advisor Endorsement
-    PromotionRequest(
-      id: 'prom-001',
-      fromYear: 2,
-      toYear: 3,
-      section: 'A',
-      batchYear: '2025 BATCH',
-      semesterCompleted: 4,
-      semesterEndDate: DateTime(2026, 8, 30),
-      graceTransitionDays: 8,
-      eligiblePromotionDate: DateTime(2026, 9, 7),
-      studentIds: StudentDirectoryData.bySection['2-A']?.map((s) => s.id).toList() ?? [],
-      totalStudents: StudentDirectoryData.bySection['2-A']?.length ?? 62,
-      status: PromotionApprovalStatus.pendingAdvisorReview,
-      advisorName: 'Dr. D. Anandhan',
-      advisorRemarks: 'All 62 students have cleared practical assessments and attendance minimum (75%+ average). Ready to forward to HOD.',
-      createdAt: DateTime(2026, 8, 30),
-    ),
+  // Promotion requests — populated from Supabase during syncFromSupabase()
+  static final List<PromotionRequest> _promotionRequests = [];
 
-    // 2. III AIDS B: 2nd Sem completed, 9 days elapsed -> Forwarded to HOD for Final Signature
-    PromotionRequest(
-      id: 'prom-002',
-      fromYear: 3,
-      toYear: 4,
-      section: 'B',
-      batchYear: '2024 BATCH',
-      semesterCompleted: 6,
-      semesterEndDate: DateTime(2026, 8, 28),
-      graceTransitionDays: 10,
-      eligiblePromotionDate: DateTime(2026, 9, 7),
-      studentIds: StudentDirectoryData.bySection['3-B']?.map((s) => s.id).toList() ?? [],
-      totalStudents: StudentDirectoryData.bySection['3-B']?.length ?? 62,
-      status: PromotionApprovalStatus.forwardedToHod,
-      advisorName: 'Dr. R. Murugesan',
-      advisorRemarks: 'Verified 6th Semester credits, mini-project submissions, and Anna University exam registrations. Strongly recommended for final year promotion.',
-      dateForwardedByAdvisor: DateTime(2026, 9, 6),
-      createdAt: DateTime(2026, 8, 28),
-    ),
+  static List<PromotionRequest> get promotionRequests =>
+      List.unmodifiable(_promotionRequests);
 
-    // 3. IV AIDS A: 8th Sem Completed (Final Year) -> Forwarded to HOD for Graduation & Alumni Archival
-    PromotionRequest(
-      id: 'prom-003',
-      fromYear: 4,
-      toYear: 5, // 5 represents Graduation / Alumni Archive
-      section: 'A',
-      batchYear: '2023 BATCH',
-      semesterCompleted: 8,
-      semesterEndDate: DateTime(2026, 8, 26),
-      graceTransitionDays: 10,
-      eligiblePromotionDate: DateTime(2026, 9, 5),
-      studentIds: StudentDirectoryData.bySection['4-A']?.map((s) => s.id).toList() ?? [],
-      totalStudents: StudentDirectoryData.bySection['4-A']?.length ?? 60,
-      status: PromotionApprovalStatus.forwardedToHod,
-      advisorName: 'Mr. Muthuselvan',
-      advisorRemarks: 'Major project viva-voce completed with Anna University External Examiners. Placement drives concluded. Ready for graduation archival (2-Year data retention rule applies).',
-      dateForwardedByAdvisor: DateTime(2026, 9, 5),
-      createdAt: DateTime(2026, 8, 26),
-    ),
-  ];
+  /// Submit or initiate a promotion proposal (Advisor action)
+  static void submitPromotionRequest(PromotionRequest request) {
+    _promotionRequests.insert(0, request);
+    _notifyUpdate();
+  }
 
-  static List<PromotionRequest> get promotionRequests => List.unmodifiable(_promotionRequests);
-
-  static List<PromotionRequest> getPendingPromotionsForAdvisor(int year, String section) {
+  static List<PromotionRequest> getPendingPromotionsForAdvisor(
+    int year,
+    String section,
+  ) {
     return _promotionRequests
-        .where((p) => p.fromYear == year && p.section == section && p.status == PromotionApprovalStatus.pendingAdvisorReview)
+        .where(
+          (p) =>
+              p.fromYear == year &&
+              p.section == section &&
+              p.status == PromotionApprovalStatus.pendingAdvisorReview,
+        )
         .toList();
   }
 
   static List<PromotionRequest> getPendingPromotionsForHod() {
     return _promotionRequests
-        .where((p) => p.status == PromotionApprovalStatus.forwardedToHod || p.status == PromotionApprovalStatus.pendingAdvisorReview)
+        .where(
+          (p) =>
+              p.status == PromotionApprovalStatus.forwardedToHod ||
+              p.status == PromotionApprovalStatus.pendingAdvisorReview,
+        )
         .toList();
   }
 
   /// Class Advisor verifies and forwards promotion proposal to HOD
-  static bool advisorForwardPromotion(String requestId, {required String advisorName, required String remarks}) {
+  static bool advisorForwardPromotion(
+    String requestId, {
+    required String advisorName,
+    required String remarks,
+  }) {
     final idx = _promotionRequests.indexWhere((p) => p.id == requestId);
     if (idx != -1) {
       final cur = _promotionRequests[idx];
@@ -1037,13 +1295,25 @@ class MockDataService {
         dateForwardedByAdvisor: DateTime.now(),
       );
       _notifyUpdate();
+
+      // Persist to Supabase Database
+      final numericId = int.tryParse(requestId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 1;
+      SupabaseService().updatePromotionStatus(
+        promotionId: numericId,
+        status: 'FORWARDED_TO_HOD',
+        advisorRemarks: remarks,
+      );
       return true;
     }
     return false;
   }
 
   /// HOD approves promotion request -> changes student academic year and updates active database!
-  static bool hodApprovePromotion(String requestId, {required String hodName, required String remarks}) {
+  static bool hodApprovePromotion(
+    String requestId, {
+    required String hodName,
+    required String remarks,
+  }) {
     final idx = _promotionRequests.indexWhere((p) => p.id == requestId);
     if (idx != -1) {
       final req = _promotionRequests[idx];
@@ -1057,11 +1327,14 @@ class MockDataService {
       // Execute promotion logic on dynamic students
       for (int i = 0; i < _dynamicStudents.length; i++) {
         final stu = _dynamicStudents[i];
-        if (req.studentIds.contains(stu.id) || (stu.year == req.fromYear && stu.section == req.section)) {
+        if (req.studentIds.contains(stu.id) ||
+            (stu.year == req.fromYear && stu.section == req.section)) {
           if (req.isGraduation) {
             // 4th Year -> Graduated & transition to Alumni Archive
             final gradDate = DateTime(2026, 6, 15);
-            final expiryDate = gradDate.add(const Duration(days: 730)); // 2 years
+            final expiryDate = gradDate.add(
+              const Duration(days: 730),
+            ); // 2 years
             _dynamicStudents[i] = stu.copyWith(
               academicStatus: StudentAcademicStatus.graduated,
               year: 5,
@@ -1072,18 +1345,20 @@ class MockDataService {
             );
 
             // Add to alumni archive
-            _alumniArchive.add(AlumniRetentionRecord(
-              studentId: stu.id,
-              studentName: stu.name,
-              rollNumber: stu.rollNumber,
-              section: stu.section,
-              batchYear: stu.batchYear,
-              graduationDate: gradDate,
-              retentionPeriodYears: 2,
-              retentionExpiryDate: expiryDate,
-              cumulativeAttendance: 94.2,
-              totalODsAttended: 3,
-            ));
+            _alumniArchive.add(
+              AlumniRetentionRecord(
+                studentId: stu.id,
+                studentName: stu.name,
+                rollNumber: stu.rollNumber,
+                section: stu.section,
+                batchYear: stu.batchYear,
+                graduationDate: gradDate,
+                retentionPeriodYears: 2,
+                retentionExpiryDate: expiryDate,
+                cumulativeAttendance: 94.2,
+                totalODsAttended: 3,
+              ),
+            );
           } else {
             // Year 1->2, 2->3, 3->4
             final nextYear = req.toYear;
@@ -1098,6 +1373,15 @@ class MockDataService {
       }
 
       _notifyUpdate();
+
+      // Persist to Supabase Database
+      final numericId = int.tryParse(requestId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 1;
+      SupabaseService().updatePromotionStatus(
+        promotionId: numericId,
+        status: 'APPROVED_BY_HOD',
+        hodName: hodName,
+        hodRemarks: remarks,
+      );
       return true;
     }
     return false;
@@ -1114,6 +1398,14 @@ class MockDataService {
         dateApprovedByHod: DateTime.now(),
       );
       _notifyUpdate();
+
+      // Persist to Supabase Database
+      final numericId = int.tryParse(requestId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 1;
+      SupabaseService().updatePromotionStatus(
+        promotionId: numericId,
+        status: 'REJECTED',
+        hodRemarks: remarks,
+      );
       return true;
     }
     return false;
@@ -1123,97 +1415,17 @@ class MockDataService {
   // Rule: When 4th Year students graduate, records are archived for a minimum 2-year retention window.
   // After 2 years, student data is automatically purged from the active database.
 
-  static final List<AlumniRetentionRecord> _alumniArchive = [
-    // Batch 2020-2024: Graduated June 2024 -> 2-Year window expired (June 2026) -> Auto-purged!
-    AlumniRetentionRecord(
-      studentId: 'alum_001',
-      studentName: 'KAVIN KUMAR S',
-      rollNumber: '20243001',
-      section: 'A',
-      batchYear: '2024 BATCH',
-      graduationDate: DateTime(2024, 6, 15),
-      retentionPeriodYears: 2,
-      retentionExpiryDate: DateTime(2026, 6, 15),
-      isPurged: true,
-      purgedAt: DateTime(2026, 6, 16),
-      purgeAuditLog: 'Auto-Purged: 2-Year statutory data retention window completed on 15-06-2026. Data pruned from active storage in compliance with UGC/AICTE guidelines.',
-      cumulativeAttendance: 95.8,
-      totalODsAttended: 5,
-    ),
-    AlumniRetentionRecord(
-      studentId: 'alum_002',
-      studentName: 'MEENA K',
-      rollNumber: '20243002',
-      section: 'A',
-      batchYear: '2024 BATCH',
-      graduationDate: DateTime(2024, 6, 15),
-      retentionPeriodYears: 2,
-      retentionExpiryDate: DateTime(2026, 6, 15),
-      isPurged: true,
-      purgedAt: DateTime(2026, 6, 16),
-      purgeAuditLog: 'Auto-Purged: 2-Year statutory data retention window completed on 15-06-2026. Student bio & daily attendance purged.',
-      cumulativeAttendance: 91.2,
-      totalODsAttended: 2,
-    ),
+  // Alumni archive — populated from Supabase during syncFromSupabase()
+  static final List<AlumniRetentionRecord> _alumniArchive = [];
 
-    // Batch 2021-2025: Graduated June 2025 -> Expiry June 2027 (Active in 2-year retention window)
-    AlumniRetentionRecord(
-      studentId: 'alum_101',
-      studentName: 'SARAVANAN M',
-      rollNumber: '21243015',
-      section: 'A',
-      batchYear: '2025 BATCH',
-      graduationDate: DateTime(2025, 6, 15),
-      retentionPeriodYears: 2,
-      retentionExpiryDate: DateTime(2027, 6, 15),
-      isPurged: false,
-      cumulativeAttendance: 93.6,
-      totalODsAttended: 4,
-    ),
-    AlumniRetentionRecord(
-      studentId: 'alum_102',
-      studentName: 'PRIYA DHARSHINI R',
-      rollNumber: '21243016',
-      section: 'B',
-      batchYear: '2025 BATCH',
-      graduationDate: DateTime(2025, 6, 15),
-      retentionPeriodYears: 2,
-      retentionExpiryDate: DateTime(2027, 6, 15),
-      isPurged: false,
-      cumulativeAttendance: 96.1,
-      totalODsAttended: 6,
-    ),
+  static List<AlumniRetentionRecord> get alumniArchiveRecords =>
+      List.unmodifiable(_alumniArchive);
 
-    // Batch 2022-2026: Graduated June 2026 -> Expiry June 2028 (Full 2-year window active)
-    AlumniRetentionRecord(
-      studentId: 'alum_201',
-      studentName: 'VIGNESHWARAN K',
-      rollNumber: '22243050',
-      section: 'A',
-      batchYear: '2026 BATCH',
-      graduationDate: DateTime(2026, 6, 15),
-      retentionPeriodYears: 2,
-      retentionExpiryDate: DateTime(2028, 6, 15),
-      isPurged: false,
-      cumulativeAttendance: 94.4,
-      totalODsAttended: 3,
-    ),
-    AlumniRetentionRecord(
-      studentId: 'alum_202',
-      studentName: 'SOWMIYA T',
-      rollNumber: '22243051',
-      section: 'B',
-      batchYear: '2026 BATCH',
-      graduationDate: DateTime(2026, 6, 15),
-      retentionPeriodYears: 2,
-      retentionExpiryDate: DateTime(2028, 6, 15),
-      isPurged: false,
-      cumulativeAttendance: 92.8,
-      totalODsAttended: 5,
-    ),
-  ];
-
-  static List<AlumniRetentionRecord> get alumniArchiveRecords => List.unmodifiable(_alumniArchive);
+  /// Add alumni record (produced when batch graduates)
+  static void addAlumniRecord(AlumniRetentionRecord record) {
+    _alumniArchive.insert(0, record);
+    _notifyUpdate();
+  }
 
   /// Auto-purge trigger: scans all archived alumni records. If retention period (>= 2 years) is exceeded,
   /// automatically purges the student data from the active system and writes to the audit log.
@@ -1227,9 +1439,16 @@ class MockDataService {
         _alumniArchive[i] = rec.copyWith(
           isPurged: true,
           purgedAt: now,
-          purgeAuditLog: 'Auto-Purged on ${now.day}/${now.month}/${now.year}: Exceeded mandatory 2-Year retention window (${rec.retentionExpiryDate.day}/${rec.retentionExpiryDate.month}/${rec.retentionExpiryDate.year}). Successfully purged from active database.',
+          purgeAuditLog:
+              'Auto-Purged on ${now.day}/${now.month}/${now.year}: Exceeded mandatory 2-Year retention window (${rec.retentionExpiryDate.day}/${rec.retentionExpiryDate.month}/${rec.retentionExpiryDate.year}). Successfully purged from active database.',
         );
         purgedCount++;
+
+        // Persist purge to Supabase Database
+        final archiveId = int.tryParse(rec.studentId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+        if (archiveId > 0) {
+          SupabaseService().purgeAlumniRecord(archiveId);
+        }
       }
     }
 
@@ -1257,14 +1476,22 @@ class MockDataService {
 
   static String getDayAbbreviation(int weekday) {
     switch (weekday) {
-      case DateTime.monday: return 'Mon';
-      case DateTime.tuesday: return 'Tue';
-      case DateTime.wednesday: return 'Wed';
-      case DateTime.thursday: return 'Thu';
-      case DateTime.friday: return 'Fri';
-      case DateTime.saturday: return 'Sat';
-      case DateTime.sunday: return 'Sun';
-      default: return '';
+      case DateTime.monday:
+        return 'Mon';
+      case DateTime.tuesday:
+        return 'Tue';
+      case DateTime.wednesday:
+        return 'Wed';
+      case DateTime.thursday:
+        return 'Thu';
+      case DateTime.friday:
+        return 'Fri';
+      case DateTime.saturday:
+        return 'Sat';
+      case DateTime.sunday:
+        return 'Sun';
+      default:
+        return '';
     }
   }
 
@@ -1286,27 +1513,158 @@ class MockDataService {
       'storageAllocatedMB': 100.0,
       'storageUsedMB': 34.20,
       'breakdown': [
-        {'category': '622 Active Student Bio & Academic Data', 'size': '2.45 MB', 'records': '622 active'},
-        {'category': 'Alumni 2-Year Retention Archive Vault', 'size': '1.85 MB', 'records': '$activeAlumni retained, $purgedAlumni auto-purged'},
-        {'category': '10 Faculty Advisor & HOD Portals', 'size': '320 KB', 'records': '12 accounts'},
-        {'category': 'Sep-Dec 2026 Attendance & Punch Logs', 'size': '6.40 MB', 'records': '18,660 logs'},
-        {'category': 'OD & Medical Proof PDF Attachments', 'size': '18.60 MB', 'records': '6 documents'},
-        {'category': 'Odd Sem 2026 Timetable Indices', 'size': '1.15 MB', 'records': '10 sections'},
-        {'category': 'Smart Pro Jarvis AI Intelligence Engine', 'size': '3.88 MB', 'records': 'Full Index'},
+        {
+          'category': '622 Active Student Bio & Academic Data',
+          'size': '2.45 MB',
+          'records': '622 active',
+        },
+        {
+          'category': 'Alumni 2-Year Retention Archive Vault',
+          'size': '1.85 MB',
+          'records': '$activeAlumni retained, $purgedAlumni auto-purged',
+        },
+        {
+          'category': '10 Faculty Advisor & HOD Portals',
+          'size': '320 KB',
+          'records': '12 accounts',
+        },
+        {
+          'category': 'Sep-Dec 2026 Attendance & Punch Logs',
+          'size': '6.40 MB',
+          'records': '18,660 logs',
+        },
+        {
+          'category': 'OD & Medical Proof PDF Attachments',
+          'size': '18.60 MB',
+          'records': '6 documents',
+        },
+        {
+          'category': 'Odd Sem 2026 Timetable Indices',
+          'size': '1.15 MB',
+          'records': '10 sections',
+        },
+        {
+          'category': 'Smart Pro Jarvis AI Intelligence Engine',
+          'size': '3.88 MB',
+          'records': 'Full Index',
+        },
       ],
       'systemHealth': '100% Operational',
       'syncStatus': 'Local Storage Synced with Dept Cloud Server',
       'lastSyncTime': '07-09-2026 01:50 PM',
-      'retentionPolicyStatus': '2-Year Alumni Compliance: Active Automated Scheduler',
+      'retentionPolicyStatus':
+          '2-Year Alumni Compliance: Active Automated Scheduler',
     };
   }
 
-  static int get pendingSlips =>
-      _leaveRequests.where((l) => l.letterStatus == LetterStatus.submitted || l.letterStatus == LetterStatus.forwarded).length;
+  static int get pendingSlips => _leaveRequests
+      .where(
+        (l) =>
+            l.letterStatus == LetterStatus.submitted ||
+            l.letterStatus == LetterStatus.forwarded,
+      )
+      .length;
 
-  static int get pendingHodApprovals =>
-      _leaveRequests.where((l) => l.letterStatus == LetterStatus.forwarded).length;
+  static int get pendingHodApprovals => _leaveRequests
+      .where((l) => l.letterStatus == LetterStatus.forwarded)
+      .length;
 
-  static int get pendingHodPromotions =>
-      _promotionRequests.where((p) => p.status == PromotionApprovalStatus.forwardedToHod || p.status == PromotionApprovalStatus.pendingAdvisorReview).length;
+  static int get pendingHodPromotions => _promotionRequests
+      .where(
+        (p) =>
+            p.status == PromotionApprovalStatus.forwardedToHod ||
+            p.status == PromotionApprovalStatus.pendingAdvisorReview,
+      )
+      .length;
+
+  // ──────────────────── Department Broadcast Notices & In-App Alerts ────────────────────
+
+  static final List<DepartmentNoticeModel> _broadcastNotices = [];
+
+  static List<DepartmentNoticeModel> get broadcastNotices =>
+      List.unmodifiable(_broadcastNotices);
+
+  static int get unreadNoticeCount =>
+      _broadcastNotices.where((n) => !n.isRead).length;
+
+  static Future<DepartmentNoticeModel> broadcastNotice({
+    required String title,
+    required String message,
+    required String targetAudience,
+    required String priority,
+    String templateType = 'Others',
+    String senderName = 'HOD Dr. K. Manivannan',
+  }) async {
+    final localId = 'notice-${DateTime.now().millisecondsSinceEpoch}';
+    final notice = DepartmentNoticeModel(
+      id: localId,
+      title: title,
+      message: message,
+      targetAudience: targetAudience,
+      priority: priority,
+      templateType: templateType,
+      senderName: senderName,
+      createdAt: DateTime.now(),
+      isRead: false,
+    );
+
+    _broadcastNotices.insert(0, notice);
+    _notifyUpdate();
+
+    if (kDebugMode) {
+      debugPrint('================================================================');
+      debugPrint('📢 [HOD BROADCAST LOG - MESSAGE RETURNED]');
+      debugPrint('🆔 Notice ID: ${notice.id}');
+      debugPrint('📌 Title: ${notice.title}');
+      debugPrint('📝 Message: ${notice.message}');
+      debugPrint('👥 Audience: ${notice.targetAudience}');
+      debugPrint('🚨 Priority: ${notice.priority}');
+      debugPrint('🏷️ Template: ${notice.templateType}');
+      debugPrint('👤 Sender: ${notice.senderName}');
+      debugPrint('🕒 Sent At: ${notice.createdAt.toIso8601String()}');
+      debugPrint('💾 Database: Persisted to Supabase (broadcast_notices)');
+      debugPrint('================================================================');
+    }
+
+    // Persist live to Supabase Cloud Database
+    final supabase = SupabaseService();
+    if (supabase.isInitialized) {
+      await supabase.submitBroadcastNotice(
+        title: title,
+        message: message,
+        targetAudience: targetAudience,
+        priority: priority,
+        templateType: templateType,
+        senderName: senderName,
+      );
+    }
+
+    return notice;
+  }
+
+  static Future<void> markNoticeAsRead(String noticeId) async {
+    final idx = _broadcastNotices.indexWhere((n) => n.id == noticeId);
+    if (idx != -1) {
+      _broadcastNotices[idx] = _broadcastNotices[idx].copyWith(isRead: true);
+      _notifyUpdate();
+
+      final numericId =
+          int.tryParse(noticeId.replaceAll(RegExp(r'[^0-9]'), ''));
+      if (numericId != null) {
+        final supabase = SupabaseService();
+        if (supabase.isInitialized) {
+          await supabase.markBroadcastNoticeRead(numericId);
+        }
+      }
+    }
+  }
+
+  static Future<void> markAllNoticesAsRead() async {
+    for (int i = 0; i < _broadcastNotices.length; i++) {
+      if (!_broadcastNotices[i].isRead) {
+        _broadcastNotices[i] = _broadcastNotices[i].copyWith(isRead: true);
+      }
+    }
+    _notifyUpdate();
+  }
 }

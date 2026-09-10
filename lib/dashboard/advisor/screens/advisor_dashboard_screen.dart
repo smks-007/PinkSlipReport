@@ -101,6 +101,13 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                   _buildAppBar(),
                   _buildAdvisorScopeBanner(),
                   const SizedBox(height: 12),
+
+                  // Live HOD Broadcast Alert Banner (In-App Notification)
+                  if (MockDataService.broadcastNotices.isNotEmpty && MockDataService.unreadNoticeCount > 0) ...[
+                    _buildBroadcastAlertBanner(),
+                    const SizedBox(height: 12),
+                  ],
+
                   _buildWelcomeCard(),
                   const SizedBox(height: 20),
 
@@ -184,6 +191,34 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
           ),
           const Spacer(),
           IconButton(
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.notifications_outlined, size: 24, color: Color(0xFF6366F1)),
+                if (MockDataService.unreadNoticeCount > 0)
+                  Positioned(
+                    top: -4,
+                    right: -4,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFEF4444),
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                      child: Text(
+                        '${MockDataService.unreadNoticeCount}',
+                        style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            tooltip: 'Department Broadcast Notices',
+            onPressed: () => _showNoticesBottomSheet(),
+          ),
+          IconButton(
             icon: const Icon(Icons.dns_rounded, size: 22, color: Color(0xFF0284C7)),
             tooltip: 'Storage Telemetry & Data Center',
             onPressed: () => showDialog(
@@ -214,6 +249,318 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
             },
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildBroadcastAlertBanner() {
+    final unreadNotices = MockDataService.broadcastNotices.where((n) => !n.isRead).toList();
+    if (unreadNotices.isEmpty) return const SizedBox.shrink();
+    final latest = unreadNotices.first;
+    final isUrgent = latest.isUrgent;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isUrgent ? const Color(0xFFFEF2F2) : const Color(0xFFEFF6FF),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isUrgent ? const Color(0xFFFCA5A5) : const Color(0xFF93C5FD),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: (isUrgent ? Colors.red : Colors.blue).withValues(alpha: 0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: isUrgent ? const Color(0xFFEF4444) : const Color(0xFF2563EB),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.campaign_rounded, color: Colors.white, size: 16),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Text(
+                        isUrgent ? 'URGENT HOD BROADCAST' : 'DEPARTMENT CIRCULAR',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5,
+                          color: isUrgent ? const Color(0xFFB91C1C) : const Color(0xFF1D4ED8),
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: isUrgent ? const Color(0xFFFEE2E2) : const Color(0xFFDBEAFE),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          latest.templateType,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: isUrgent ? const Color(0xFF991B1B) : const Color(0xFF1E40AF),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              latest.title,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: isUrgent ? const Color(0xFF7F1D1D) : const Color(0xFF1E3A8A),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              latest.message,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 11.5, color: Color(0xFF334155), height: 1.3),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'From: ${latest.senderName} • ${latest.targetAudience}',
+                  style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                ),
+                InkWell(
+                  onTap: () => _showNoticesBottomSheet(),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isUrgent ? const Color(0xFFEF4444) : const Color(0xFF2563EB),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text(
+                      'View Notice →',
+                      style: TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showNoticesBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          final notices = MockDataService.broadcastNotices;
+          return Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.8,
+            ),
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF6366F1).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.notifications_active_rounded, color: Color(0xFF6366F1), size: 22),
+                        ),
+                        const SizedBox(width: 10),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Department Broadcast Notices',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
+                            ),
+                            Text(
+                              '${MockDataService.unreadNoticeCount} unread announcements from HOD',
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 20),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (notices.isNotEmpty)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                      onPressed: () async {
+                        await MockDataService.markAllNoticesAsRead();
+                        setSheetState(() {});
+                        setState(() {});
+                      },
+                      icon: const Icon(Icons.done_all_rounded, size: 16, color: Color(0xFF6366F1)),
+                      label: const Text('Mark All as Read', style: TextStyle(fontSize: 11.5, color: Color(0xFF6366F1), fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                const SizedBox(height: 6),
+                Expanded(
+                  child: notices.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              Icon(Icons.mark_chat_read_rounded, size: 48, color: Color(0xFFCBD5E1)),
+                              SizedBox(height: 12),
+                              Text('No Broadcast Notices', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+                              SizedBox(height: 4),
+                              Text('Official circulars and announcements from HOD will appear here.', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                            ],
+                          ),
+                        )
+                      : ListView.separated(
+                          itemCount: notices.length,
+                          separatorBuilder: (_, _) => const SizedBox(height: 10),
+                          itemBuilder: (context, index) {
+                            final n = notices[index];
+                            final isUrgent = n.isUrgent;
+                            return Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: n.isRead ? const Color(0xFFF8FAFC) : (isUrgent ? const Color(0xFFFEF2F2) : const Color(0xFFEEF2FF)),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: n.isRead
+                                      ? const Color(0xFFE2E8F0)
+                                      : (isUrgent ? const Color(0xFFFCA5A5) : const Color(0xFFC7D2FE)),
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: isUrgent ? const Color(0xFFEF4444) : const Color(0xFF6366F1),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          n.priority.toUpperCase(),
+                                          style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Colors.white),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFE2E8F0),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          n.templateType,
+                                          style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      if (!n.isRead)
+                                        Container(
+                                          width: 8,
+                                          height: 8,
+                                          decoration: const BoxDecoration(
+                                            color: Color(0xFFEF4444),
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    n.title,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                      color: n.isRead ? const Color(0xFF334155) : const Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    n.message,
+                                    style: const TextStyle(fontSize: 11.5, color: Color(0xFF475569), height: 1.3),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'From: ${n.senderName} • Target: ${n.targetAudience}',
+                                        style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                                      ),
+                                      if (!n.isRead)
+                                        TextButton(
+                                          style: TextButton.styleFrom(
+                                            visualDensity: VisualDensity.compact,
+                                            padding: EdgeInsets.zero,
+                                          ),
+                                          onPressed: () async {
+                                            await MockDataService.markNoticeAsRead(n.id);
+                                            setSheetState(() {});
+                                            setState(() {});
+                                          },
+                                          child: const Text('Mark Read', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF6366F1))),
+                                        ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -1116,7 +1463,7 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
     final sectionStudents = StudentDirectoryData.bySection['$year-$section'] ?? [];
     
     // Find section absentees
-    final absentStudents = sectionStudents.where((s) => MockDataService.todaysAbsentRollNumbers.contains(s.rollNumber)).toList();
+    final absentStudents = sectionStudents.where((s) => MockDataService.isStudentAbsent(s.rollNumber)).toList();
     final availableStudents = absentStudents.isNotEmpty ? absentStudents : sectionStudents;
 
     StudentModel currentStudent = preselectedStudent ?? (availableStudents.isNotEmpty ? availableStudents.first : sectionStudents.first);
@@ -1197,7 +1544,7 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     ),
                     items: sectionStudents.map((st) {
-                      final isAbs = MockDataService.todaysAbsentRollNumbers.contains(st.rollNumber);
+                      final isAbs = MockDataService.isStudentAbsent(st.rollNumber);
                       return DropdownMenuItem<String>(
                         value: st.rollNumber,
                         child: Text(

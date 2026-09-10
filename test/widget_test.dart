@@ -52,10 +52,11 @@ void main() {
     expect(s4?.name, 'S. HARINI');
     expect(s4?.batchYear, '2023 BATCH');
     expect(s4?.section, 'B');
-    // Verify today's attendance metrics
-    expect(MockDataService.presentToday, 533);
-    expect(MockDataService.absentToday, 89);
-    expect(MockDataService.todaysAbsentRollNumbers.length, 89);
+    // Verify today's attendance metrics (all default present until advisor marks absent / issues pink slip)
+    expect(MockDataService.totalStrength, 622);
+    expect(MockDataService.presentToday, 622);
+    expect(MockDataService.absentToday, 0);
+    expect(MockDataService.todaysAbsentRollNumbers.length, 0);
   });
 
   test('AuthService has exactly 20 Class Representatives (1 Boy & 1 Girl for each of 10 sections)', () {
@@ -271,6 +272,26 @@ void main() {
   });
 
   test('Academic Year Progression & Promotion Approval Workflow', () {
+    // Advisor initiates / submits promotion proposal
+    final initialReq = PromotionRequest(
+      id: 'prom-001',
+      fromYear: 2,
+      toYear: 3,
+      section: 'A',
+      batchYear: '2025 BATCH',
+      semesterCompleted: 4,
+      semesterEndDate: DateTime(2026, 8, 30),
+      graceTransitionDays: 8,
+      eligiblePromotionDate: DateTime(2026, 9, 7),
+      studentIds: StudentDirectoryData.bySection['2-A']?.map((s) => s.id).toList() ?? [],
+      totalStudents: StudentDirectoryData.bySection['2-A']?.length ?? 62,
+      status: PromotionApprovalStatus.pendingAdvisorReview,
+      advisorName: 'Dr. D. Anandhan',
+      advisorRemarks: 'All 62 students cleared 4th Sem practicals and minimum attendance criteria.',
+      createdAt: DateTime(2026, 8, 30),
+    );
+    MockDataService.submitPromotionRequest(initialReq);
+
     final pendingPromotions = MockDataService.getPendingPromotionsForAdvisor(
       2,
       'A',
@@ -307,6 +328,36 @@ void main() {
   });
 
   test('2-Year Alumni Data Retention Policy & Automated Purge Engine', () {
+    // Add real alumni records produced from graduation
+    MockDataService.addAlumniRecord(AlumniRetentionRecord(
+      studentId: 'alum_001',
+      studentName: 'KAVIN KUMAR S',
+      rollNumber: '20243001',
+      section: 'A',
+      batchYear: '2024 BATCH',
+      graduationDate: DateTime(2024, 6, 15),
+      retentionPeriodYears: 2,
+      retentionExpiryDate: DateTime(2026, 6, 15),
+      isPurged: true,
+      purgedAt: DateTime(2026, 6, 16),
+      purgeAuditLog: 'Auto-Purged: 2-Year statutory data retention window completed on 15-06-2026.',
+      cumulativeAttendance: 95.8,
+      totalODsAttended: 5,
+    ));
+    MockDataService.addAlumniRecord(AlumniRetentionRecord(
+      studentId: 'alum_101',
+      studentName: 'SARAVANAN M',
+      rollNumber: '21243015',
+      section: 'A',
+      batchYear: '2025 BATCH',
+      graduationDate: DateTime(2025, 6, 15),
+      retentionPeriodYears: 2,
+      retentionExpiryDate: DateTime(2027, 6, 15),
+      isPurged: false,
+      cumulativeAttendance: 93.6,
+      totalODsAttended: 4,
+    ));
+
     final archives = MockDataService.alumniArchiveRecords;
     expect(archives.isNotEmpty, isTrue);
 
@@ -439,8 +490,17 @@ void main() {
   });
 
   test('HOD Pink Slip Central and student attendance verification', () {
-    // 533 Present vs 94 Absent checks
     expect(MockDataService.isStudentPresent('25243001'), isTrue); // Present
+    // Advisor issues Pink Slip for 25243006 -> automatically marks student absent
+    final stu006 = StudentDirectoryData.byRollNumber['25243006']!;
+    MockDataService.createAdvisorPinkSlip(
+      student: stu006,
+      date: DateTime.now(),
+      markPresent: false,
+      category: LeaveCategory.leave,
+      reason: 'Medical Leave - Viral fever',
+      advisorName: 'Dr. D. Anandhan',
+    );
     expect(
       MockDataService.isStudentAbsent('25243006'),
       isTrue,
@@ -788,5 +848,54 @@ void main() {
     );
     expect(studentRecordPresent.isPresent, isTrue);
     expect(studentRecordPresent.source, 'pink_slip_od');
+  });
+
+  test('HOD Pink Slip modal directory search operates across all 622 students', () {
+    final allStudents = MockDataService.allStudents;
+    expect(allStudents.length, 622);
+
+    // Search by roll number
+    final rollMatch = allStudents.where((s) => s.rollNumber.contains('25243005')).toList();
+    expect(rollMatch.isNotEmpty, isTrue);
+    expect(rollMatch.first.name, 'AKASH S');
+
+    // Search by name
+    final nameMatches = allStudents.where((s) => s.name.toLowerCase().contains('kumar')).toList();
+    expect(nameMatches.isNotEmpty, isTrue);
+
+    // Search by register number
+    final regMatch = allStudents.where((s) => s.registerNumber?.contains('922524') ?? false).toList();
+    expect(regMatch.isNotEmpty, isTrue);
+
+    // Filter by year & section
+    final year4B = allStudents.where((s) => s.year == 4 && s.section == 'B').toList();
+    expect(year4B.length, 65);
+  });
+
+  test('HOD broadcasts custom notice with Others template and notifies advisors in real-time', () async {
+    final initialUnread = MockDataService.unreadNoticeCount;
+
+    // HOD broadcasts a custom notice using the 'Others' template
+    await MockDataService.broadcastNotice(
+      title: 'Urgent: Department Advisory Meeting at 4:30 PM',
+      message: 'All 10 Section Advisors are required to attend the emergency semester review.',
+      targetAudience: 'All Section Advisors (10 Faculty)',
+      priority: 'High Priority',
+      templateType: 'Others',
+      senderName: 'HOD Dr. K. Manivannan',
+    );
+
+    expect(MockDataService.broadcastNotices.isNotEmpty, isTrue);
+    final latestNotice = MockDataService.broadcastNotices.first;
+    expect(latestNotice.title, 'Urgent: Department Advisory Meeting at 4:30 PM');
+    expect(latestNotice.templateType, 'Others');
+    expect(latestNotice.isUrgent, isTrue);
+    expect(latestNotice.isRead, isFalse);
+    expect(MockDataService.unreadNoticeCount, initialUnread + 1);
+
+    // Advisor marks notice as read
+    await MockDataService.markNoticeAsRead(latestNotice.id);
+    expect(MockDataService.broadcastNotices.first.isRead, isTrue);
+    expect(MockDataService.unreadNoticeCount, initialUnread);
   });
 }
