@@ -20,8 +20,8 @@ class AttendanceScreen extends StatefulWidget {
 class _AttendanceScreenState extends State<AttendanceScreen> {
   int _selectedYear = 2;
   String _selectedSection = 'A';
-  int _selectedMonth = 9; // 9 = September, 10 = October, 11 = November, 12 = December 2026
-  DateTime _selectedDate = DateTime(2026, 9, 7); // Default to current date in 2026
+  int _selectedMonth = DateTime.now().month;
+  DateTime _selectedDate = DateTime.now();
   String _searchQuery = '';
   final _searchCtrl = TextEditingController();
   late List<AttendanceRecord> _records;

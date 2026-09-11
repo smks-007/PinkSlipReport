@@ -473,7 +473,7 @@ class _JarvisChatDrawerState extends State<_JarvisChatDrawer> with SingleTickerP
     final rollCtrl = TextEditingController();
     final reasonCtrl = TextEditingController();
     LeaveCategory selectedCategory = LeaveCategory.leave;
-    DateTime selectedDate = DateTime(2026, 9, 7);
+    DateTime selectedDate = DateTime.now();
 
     showDialog(
       context: context,

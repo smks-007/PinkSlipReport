@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/supabase_service.dart';
@@ -17,6 +18,7 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
   bool _isLoading = false;
   bool _obscurePassword = true;
   String? _errorMessage;
+  Timer? _lockoutTimer;
 
   late AnimationController _glowAnimController;
 
@@ -32,10 +34,44 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
     } else {
       _glowAnimController.value = 1.0;
     }
+
+    if (AuthService().isLockedOut) {
+      _startLockoutCountdown();
+    }
+  }
+
+  void _startLockoutCountdown() {
+    _lockoutTimer?.cancel();
+    final authService = AuthService();
+    if (!authService.isLockedOut) return;
+
+    setState(() {
+      _errorMessage = 'Security lock active. Please wait ${authService.remainingLockoutSeconds}s before retrying.';
+    });
+
+    _lockoutTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      final remaining = authService.remainingLockoutSeconds;
+      if (remaining <= 0 || !authService.isLockedOut) {
+        timer.cancel();
+        _lockoutTimer = null;
+        setState(() {
+          _errorMessage = null;
+        });
+      } else {
+        setState(() {
+          _errorMessage = 'Security lock active. Please wait ${remaining}s before retrying.';
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
+    _lockoutTimer?.cancel();
     _glowAnimController.dispose();
     _usernameCtrl.dispose();
     _passwordCtrl.dispose();
@@ -47,9 +83,7 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
 
     final authService = AuthService();
     if (authService.isLockedOut) {
-      setState(() {
-        _errorMessage = 'Security lock active. Please wait ${authService.remainingLockoutSeconds}s before retrying.';
-      });
+      _startLockoutCountdown();
       return;
     }
 
@@ -68,6 +102,10 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
       _isLoading = false;
       _errorMessage = error;
     });
+
+    if (authService.isLockedOut) {
+      _startLockoutCountdown();
+    }
 
     if (error == null) {
       Navigator.pushReplacementNamed(context, authService.dashboardRoute);

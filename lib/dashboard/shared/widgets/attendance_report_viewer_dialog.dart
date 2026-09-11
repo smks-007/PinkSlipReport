@@ -41,7 +41,7 @@ class _AttendanceReportViewerDialogState extends State<AttendanceReportViewerDia
 
   @override
   Widget build(BuildContext context) {
-    final targetDate = widget.date ?? DateTime(2026, 9, 7);
+    final targetDate = widget.date ?? DateTime.now();
     final isSection = widget.year != null && widget.section != null;
     
     final strength = isSection

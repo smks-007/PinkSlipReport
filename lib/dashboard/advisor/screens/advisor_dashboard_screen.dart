@@ -1470,7 +1470,7 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
     
     String leaveCategory = 'Medical Leave';
     String leaveInformedType = 'Informed Leave';
-    DateTime selectedDate = DateTime(2026, 9, 7);
+    DateTime selectedDate = DateTime.now();
     final reasonCtrl = TextEditingController(text: 'Severe viral fever & OPD medical checkup');
     final remarksCtrl = TextEditingController(text: 'Verified hospital OPD certificate and confirmed with parent. Forwarded to HOD for approval.');
     

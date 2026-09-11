@@ -434,13 +434,14 @@ class MockDataService {
   static int get totalStrength => allStudents.length;
 
   static int get presentToday {
+    final now = DateTime.now();
     int total = 0;
     for (int yr = 2; yr <= 4; yr++) {
       final sections = yr == 4 ? ['A', 'B'] : ['A', 'B', 'C', 'D'];
       for (final sec in sections) {
         total +=
-            getSectionPresent(yr, sec, DateTime(2026, 9, 7)) +
-            getSectionOnDuty(yr, sec, DateTime(2026, 9, 7));
+            getSectionPresent(yr, sec, now) +
+            getSectionOnDuty(yr, sec, now);
       }
     }
     return total;
@@ -456,7 +457,7 @@ class MockDataService {
   }
 
   static int getSectionAbsent(int year, String section, [DateTime? date]) {
-    final targetDate = date ?? DateTime(2026, 9, 7);
+    final targetDate = date ?? DateTime.now();
     final records = getAttendanceForDate(
       targetDate,
       year: year,
@@ -466,7 +467,7 @@ class MockDataService {
   }
 
   static int getSectionPresent(int year, String section, [DateTime? date]) {
-    final targetDate = date ?? DateTime(2026, 9, 7);
+    final targetDate = date ?? DateTime.now();
     final records = getAttendanceForDate(
       targetDate,
       year: year,
@@ -476,7 +477,7 @@ class MockDataService {
   }
 
   static int getSectionOnDuty(int year, String section, [DateTime? date]) {
-    final targetDate = date ?? DateTime(2026, 9, 7);
+    final targetDate = date ?? DateTime.now();
     final records = getAttendanceForDate(
       targetDate,
       year: year,
@@ -619,9 +620,9 @@ class MockDataService {
 
       final isExplicitlyAbsent =
           _dynamicAbsentRollNumbers.contains(s.rollNumber) &&
-          (date.day == DateTime(2026, 9, 7).day ||
-              (date.day == DateTime.now().day &&
-                  date.month == DateTime.now().month));
+          (date.day == DateTime.now().day &&
+              date.month == DateTime.now().month &&
+              date.year == DateTime.now().year);
 
       AttendanceStatus status = AttendanceStatus.present;
       String? odReason;
@@ -882,7 +883,7 @@ class MockDataService {
 
   /// Get daily attendance % trend for the last 6 working instructional days (Strictly Excludes Sundays, Highlights College Leaves)
   static List<Map<String, dynamic>> getWeeklyTrend(int year, String section) {
-    final now = DateTime(2026, 9, 7); // Active Academic Reference Date (Monday)
+    final now = DateTime.now(); // Active Academic Date
     final List<Map<String, dynamic>> data = [];
 
     // Collect 6 working days going backward from now, strictly omitting Sundays
@@ -924,7 +925,7 @@ class MockDataService {
 
   /// Get overall department weekly trend across all 10 sections (Excludes Sundays, Highlights College Leaves)
   static List<Map<String, dynamic>> getOverallDepartmentWeeklyTrend() {
-    final now = DateTime(2026, 9, 7);
+    final now = DateTime.now();
     final List<Map<String, dynamic>> data = [];
 
     final List<DateTime> workingDays = [];
@@ -1440,7 +1441,7 @@ class MockDataService {
   /// Auto-purge trigger: scans all archived alumni records. If retention period (>= 2 years) is exceeded,
   /// automatically purges the student data from the active system and writes to the audit log.
   static int triggerAlumniRetentionPurgeCheck([DateTime? referenceDate]) {
-    final now = referenceDate ?? DateTime(2026, 9, 7);
+    final now = referenceDate ?? DateTime.now();
     int purgedCount = 0;
 
     for (int i = 0; i < _alumniArchive.length; i++) {

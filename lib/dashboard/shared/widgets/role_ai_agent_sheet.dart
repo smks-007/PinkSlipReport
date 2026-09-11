@@ -580,7 +580,7 @@ class _RoleAiAgentSheetState extends State<RoleAiAgentSheet> {
                   final slip = AiAgentService().issuePinkSlip(
                     rollNumber: roll,
                     reason: reason,
-                    date: DateTime(2026, 9, 7),
+                    date: DateTime.now(),
                     issuedBy: widget.user.name,
                   );
                   Navigator.pop(ctx);

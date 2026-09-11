@@ -62,7 +62,7 @@ class SupabaseService {
       return 'manivannan.hod@vsb.ac.in';
     }
     if (clean.contains('kavitha') || clean == 'hod12' || clean.startsWith('hod.kavi')) {
-      return 'kavitha.hod@vsb.ac.in';
+      return 'hod.kavitha@vsb.ac.in';
     }
 
     // 2. Section Advisor mapping (handles both username handles and section abbreviations)
@@ -121,10 +121,41 @@ class SupabaseService {
       debugPrint('🔐 Attempting Supabase Auth for: $email');
     }
 
-    final authResponse = await client!.auth.signInWithPassword(
-      email: email,
-      password: password,
-    );
+    AuthResponse? authResponse;
+    try {
+      authResponse = await client!.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+    } catch (e) {
+      // If sign-in failed, check for known email variations (e.g. hod.kavitha vs kavitha.hod)
+      String? altEmail;
+      if (email == 'hod.kavitha@vsb.ac.in') {
+        altEmail = 'kavitha.hod@vsb.ac.in';
+      } else if (email == 'kavitha.hod@vsb.ac.in') {
+        altEmail = 'hod.kavitha@vsb.ac.in';
+      } else if (email == 'manivannan.hod@vsb.ac.in') {
+        altEmail = 'hod.manivannan@vsb.ac.in';
+      } else if (email == 'hod.manivannan@vsb.ac.in') {
+        altEmail = 'manivannan.hod@vsb.ac.in';
+      }
+
+      if (altEmail != null) {
+        try {
+          if (kDebugMode) {
+            debugPrint('🔄 Retrying Supabase Auth with alternate alias: $altEmail');
+          }
+          authResponse = await client!.auth.signInWithPassword(
+            email: altEmail,
+            password: password,
+          );
+        } catch (_) {
+          rethrow;
+        }
+      } else {
+        rethrow;
+      }
+    }
 
     final user = authResponse.user;
     if (user == null) return null;

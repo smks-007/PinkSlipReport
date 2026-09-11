@@ -1997,7 +1997,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
   }
 
   Widget _buildAbsenteesAndODSection() {
-    final records = MockDataService.getAttendanceForDate(DateTime(2026, 9, 7), year: _selectedYear, section: _selectedSection);
+    final records = MockDataService.getAttendanceForDate(DateTime.now(), year: _selectedYear, section: _selectedSection);
     final absentees = records.where((r) => r.isAbsent).toList();
     final odList = records.where((r) => r.isOnDuty).toList();
     final students = MockDataService.getStudentsBySection(_selectedYear, _selectedSection);

@@ -23,9 +23,15 @@ class AuthService extends ChangeNotifier {
   UserModel? get currentUser => _currentUser;
   bool get isLoggedIn => _currentUser != null && !isSessionExpired;
   bool get isLoading => _isLoading;
-  int get failedAttempts => _failedAttempts;
-  bool get isLockedOut =>
-      _lockoutUntil != null && DateTime.now().isBefore(_lockoutUntil!);
+  bool get isLockedOut {
+    if (_lockoutUntil == null) return false;
+    if (DateTime.now().isBefore(_lockoutUntil!)) {
+      return true;
+    }
+    _lockoutUntil = null;
+    _failedAttempts = 0;
+    return false;
+  }
 
   /// Check if the current session has timed out
   bool get isSessionExpired {
@@ -39,7 +45,12 @@ class AuthService extends ChangeNotifier {
   int get remainingLockoutSeconds {
     if (_lockoutUntil == null) return 0;
     final diff = _lockoutUntil!.difference(DateTime.now()).inSeconds;
-    return diff > 0 ? diff : 0;
+    if (diff <= 0) {
+      _lockoutUntil = null;
+      _failedAttempts = 0;
+      return 0;
+    }
+    return diff;
   }
 
   /// Update activity timestamp (call on user interaction)
@@ -392,6 +403,10 @@ class AuthService extends ChangeNotifier {
   }
 
   void _handleFailedAttempt() {
+    if (_lockoutUntil != null && DateTime.now().isAfter(_lockoutUntil!)) {
+      _lockoutUntil = null;
+      _failedAttempts = 0;
+    }
     _failedAttempts++;
     if (_failedAttempts >= 5) {
       _lockoutUntil = DateTime.now().add(const Duration(minutes: 5));
@@ -399,6 +414,13 @@ class AuthService extends ChangeNotifier {
         debugPrint('🔒 Account locked after $_failedAttempts failed attempts.');
       }
     }
+  }
+
+  /// Reset security lockout and failed attempts counter
+  void resetLockout() {
+    _failedAttempts = 0;
+    _lockoutUntil = null;
+    notifyListeners();
   }
 
   /// Sign out and clear all session state
