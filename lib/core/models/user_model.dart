@@ -69,4 +69,42 @@ class UserModel {
             : 'Student';
     }
   }
+
+  UserModel copyWith({
+    String? id,
+    String? name,
+    String? email,
+    UserRole? role,
+    String? department,
+    String? college,
+    String? customUsername,
+    String? classSection,
+    String? batchYear,
+    String? hodScope,
+    String? avatarUrl,
+    bool? isClassRepresentative,
+    String? rollNumber,
+    String? gender,
+    int? year,
+    String? section,
+  }) {
+    return UserModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      role: role ?? this.role,
+      department: department ?? this.department,
+      college: college ?? this.college,
+      customUsername: customUsername ?? this.customUsername,
+      classSection: classSection ?? this.classSection,
+      batchYear: batchYear ?? this.batchYear,
+      hodScope: hodScope ?? this.hodScope,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      isClassRepresentative: isClassRepresentative ?? this.isClassRepresentative,
+      rollNumber: rollNumber ?? this.rollNumber,
+      gender: gender ?? this.gender,
+      year: year ?? this.year,
+      section: section ?? this.section,
+    );
+  }
 }

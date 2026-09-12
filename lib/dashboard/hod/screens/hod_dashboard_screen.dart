@@ -35,16 +35,22 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
   @override
   void initState() {
     super.initState();
-    final user = AuthService().currentUser;
-    if (user != null && (user.id == 'hod-002' || user.name.toLowerCase().contains('kavitha'))) {
-      _selectedYear = 2;
-    } else {
-      _selectedYear = 3;
-    }
+    _selectedYear = 2;
+    // Both HODs have full access across all years and sections
+    AuthService().addListener(_onAuthChanged);
+    // Refresh user profile dynamically from public.users table on load
+    AuthService().refreshCurrentUserFromDB().then((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  void _onAuthChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    AuthService().removeListener(_onAuthChanged);
     _pinkSlipSearchCtrl.dispose();
     super.dispose();
   }
@@ -60,7 +66,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
     if (user != null && user.role == UserRole.hod) {
       return user.name;
     }
-    return 'DR. MANIVANNAN (Ph.D.)';
+    return 'Dr. K. Manivannan';
   }
 
   String get _currentHodTitle {
@@ -1590,12 +1596,12 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
-        children: [2, 3, 4].map((year) {
+        children: [1, 2, 3, 4].map((year) {
           final isSelected = _selectedYear == year;
           return Padding(
             padding: const EdgeInsets.only(right: 8),
             child: ChoiceChip(
-              label: Text('$year${year == 2 ? 'nd' : year == 3 ? 'rd' : 'th'} Year (${year == 2 ? "2025" : year == 3 ? "2024" : "2023"} Batch)'),
+              label: Text('$year${year == 1 ? 'st' : year == 2 ? 'nd' : year == 3 ? 'rd' : 'th'} Year (${year == 1 ? "2026" : year == 2 ? "2025" : year == 3 ? "2024" : "2023"} Batch)'),
               selected: isSelected,
               selectedColor: const Color(0xFF6366F1),
               labelStyle: TextStyle(color: isSelected ? Colors.white : AppColors.textSecondary, fontWeight: FontWeight.bold, fontSize: 11.5),
@@ -1764,7 +1770,115 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                 ),
               ],
             ),
+            if (!_showDepartmentGraph) ...[
+              const SizedBox(height: 10),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    // Year selector chips
+                    ...([1, 2, 3, 4]).map((y) {
+                      final isSel = _selectedYear == y;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: InkWell(
+                          onTap: () {
+                            setState(() {
+                              _selectedYear = y;
+                              if (y == 4 && (_selectedSection == 'C' || _selectedSection == 'D')) {
+                                _selectedSection = 'A';
+                              }
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isSel ? const Color(0xFF6366F1) : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isSel ? const Color(0xFF6366F1) : const Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            child: Text(
+                              'Yr $y',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: isSel ? Colors.white : const Color(0xFF475569),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 6),
+                      width: 1,
+                      height: 18,
+                      color: const Color(0xFFCBD5E1),
+                    ),
+                    // Section selector chips
+                    ..._currentSections.map((sec) {
+                      final isSel = _selectedSection == sec;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: InkWell(
+                          onTap: () => setState(() => _selectedSection = sec),
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isSel ? const Color(0xFF0284C7) : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isSel ? const Color(0xFF0284C7) : const Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            child: Text(
+                              'Sec $sec',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: isSel ? Colors.white : const Color(0xFF475569),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
+            if (!_showDepartmentGraph && _selectedYear == 1 && MockDataService.getStudentsBySection(1, _selectedSection).isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  children: const [
+                    Icon(Icons.school_outlined, size: 32, color: Color(0xFF94A3B8)),
+                    SizedBox(height: 8),
+                    Text(
+                      'Year 1 (2026 Batch) Enrollment in Progress',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF334155)),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Admissions database records for 1st Year will display once student matriculation completes.',
+                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              )
+            else
             // Visual Bar Chart
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,

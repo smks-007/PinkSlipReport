@@ -177,12 +177,27 @@ class SupabaseService {
       userRole = UserRole.student;
     }
 
+    // Fetch official profile from public.users table
+    Map<String, dynamic>? dbProfile;
+    try {
+      dbProfile = await fetchUserProfile(user.email ?? email, authId: user.id);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Warning fetching dbProfile during sign in: $e');
+      }
+    }
+
+    final dbFullName = dbProfile?['full_name'] as String?;
+    final resolvedName = (dbFullName != null && dbFullName.trim().isNotEmpty)
+        ? dbFullName.trim()
+        : (metadata['full_name'] as String? ?? metadata['name'] as String? ?? email.split('@').first);
+
     return UserModel(
       id: user.id,
-      name: metadata['full_name'] as String? ?? metadata['name'] as String? ?? email.split('@').first,
+      name: resolvedName,
       email: user.email ?? email,
       role: userRole,
-      department: metadata['department'] as String? ?? 'AI&DS',
+      department: dbProfile?['department'] as String? ?? metadata['department'] as String? ?? 'AI&DS',
       college: metadata['college'] as String? ?? 'V.S.B. Engineering College',
       classSection: metadata['class_section'] as String?,
       batchYear: metadata['batch_year'] as String?,
@@ -190,6 +205,71 @@ class SupabaseService {
       year: metadata['year'] as int?,
       section: metadata['section'] as String?,
     );
+  }
+
+  /// Fetch user profile directly from Supabase public.users table
+  Future<Map<String, dynamic>?> fetchUserProfile(String email, {String? authId}) async {
+    if (!_isInitialized || client == null) return null;
+    try {
+      // 1. Try by auth_id if provided
+      if (authId != null && authId.isNotEmpty) {
+        final byAuth = await client!
+            .from('users')
+            .select()
+            .eq('auth_id', authId)
+            .maybeSingle();
+        if (byAuth != null) return Map<String, dynamic>.from(byAuth);
+      }
+
+      final cleanEmail = email.trim().toLowerCase();
+
+      // 2. Try by email directly
+      final byEmail = await client!
+          .from('users')
+          .select()
+          .eq('email', cleanEmail)
+          .maybeSingle();
+      if (byEmail != null) return Map<String, dynamic>.from(byEmail);
+
+      // 3. Try known aliases (e.g. hod.kavitha vs kavitha.hod)
+      String? alt;
+      if (cleanEmail == 'hod.kavitha@vsb.ac.in') {
+        alt = 'kavitha.hod@vsb.ac.in';
+      } else if (cleanEmail == 'kavitha.hod@vsb.ac.in') {
+        alt = 'hod.kavitha@vsb.ac.in';
+      } else if (cleanEmail == 'hod.manivannan@vsb.ac.in') {
+        alt = 'manivannan.hod@vsb.ac.in';
+      } else if (cleanEmail == 'manivannan.hod@vsb.ac.in') {
+        alt = 'hod.manivannan@vsb.ac.in';
+      }
+
+      if (alt != null) {
+        final byAlt = await client!
+            .from('users')
+            .select()
+            .eq('email', alt)
+            .maybeSingle();
+        if (byAlt != null) return Map<String, dynamic>.from(byAlt);
+      }
+
+      // 4. Fallback search by username pattern
+      final prefix = cleanEmail.split('@').first.replaceAll(RegExp(r'[^a-z0-9]'), '');
+      if (prefix.isNotEmpty) {
+        final byLike = await client!
+            .from('users')
+            .select()
+            .ilike('email', '%$prefix%')
+            .limit(1);
+        if (byLike.isNotEmpty) {
+          return Map<String, dynamic>.from(byLike.first);
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Supabase fetchUserProfile error: $e');
+      }
+    }
+    return null;
   }
 
   /// Send password reset email via Supabase Auth
@@ -377,6 +457,27 @@ class SupabaseService {
     } catch (e) {
       if (kDebugMode) {
         debugPrint('⚠️ Supabase fetchAttendanceWithStudents error: $e');
+      }
+      return [];
+    }
+  }
+
+  /// Fetch attendance across a date range joined with student details
+  Future<List<Map<String, dynamic>>> fetchAttendanceDateRange(DateTime start, DateTime end) async {
+    if (!_isInitialized || client == null) return [];
+    try {
+      final startStr = '${start.year}-${start.month.toString().padLeft(2, '0')}-${start.day.toString().padLeft(2, '0')}';
+      final endStr = '${end.year}-${end.month.toString().padLeft(2, '0')}-${end.day.toString().padLeft(2, '0')}';
+      final res = await client!
+          .from('daily_attendance')
+          .select('attendance_id, student_id, attendance_date, is_present, leave_type, punch_method, in_time, out_time, students!inner(roll_number, section_id, student_name)')
+          .gte('attendance_date', startStr)
+          .lte('attendance_date', endStr)
+          .order('attendance_date');
+      return List<Map<String, dynamic>>.from(res);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Supabase fetchAttendanceDateRange error: $e');
       }
       return [];
     }

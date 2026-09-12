@@ -33,14 +33,20 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
   final TextEditingController _pinkSlipSearchCtrl = TextEditingController();
 
   @override
-  void dispose() {
-    _pinkSlipSearchCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
   void initState() {
     super.initState();
+    _initAdvisorUser();
+    AuthService().addListener(_onAuthChanged);
+    AuthService().refreshCurrentUserFromDB().then((_) {
+      if (mounted) {
+        setState(() {
+          _initAdvisorUser();
+        });
+      }
+    });
+  }
+
+  void _initAdvisorUser() {
     final loggedIn = AuthService().currentUser;
     if (loggedIn != null && loggedIn.role == UserRole.advisor) {
       _currentAdvisor = loggedIn;
@@ -50,6 +56,21 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
         orElse: () => AuthService.sectionAdvisors.first,
       );
     }
+  }
+
+  void _onAuthChanged() {
+    if (mounted) {
+      setState(() {
+        _initAdvisorUser();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    AuthService().removeListener(_onAuthChanged);
+    _pinkSlipSearchCtrl.dispose();
+    super.dispose();
   }
 
   void _openCreatePinkSlipDialog({StudentModel? student}) async {

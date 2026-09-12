@@ -63,24 +63,24 @@ class AuthService extends ChangeNotifier {
   /// HOD accounts (metadata only for display — auth via Supabase)
   static const UserModel overallHod = UserModel(
     id: 'hod-001',
-    name: 'DR. MANIVANNAN (Ph.D.)',
+    name: 'Dr. K. Manivannan',
     email: 'manivannan.hod@vsb.ac.in',
     customUsername: 'hod.manivannan',
     role: UserRole.hod,
     department: 'AI&DS',
     college: 'V.S.B. Engineering College',
-    hodScope: 'Overall & III/IV Year',
+    hodScope: 'Overall Department',
   );
 
   static const UserModel juniorHod = UserModel(
     id: 'hod-002',
-    name: 'Mrs. Kavitha',
+    name: 'Mrs. V. Kavitha',
     email: 'kavitha.hod@vsb.ac.in',
     customUsername: 'hod.kavitha',
     role: UserRole.hod,
     department: 'AI&DS',
     college: 'V.S.B. Engineering College',
-    hodScope: 'I & II Year',
+    hodScope: 'Overall Department',
   );
 
   /// 10 Section Class Advisors (metadata only — NO passwords)
@@ -421,6 +421,36 @@ class AuthService extends ChangeNotifier {
     _failedAttempts = 0;
     _lockoutUntil = null;
     notifyListeners();
+  }
+
+  /// Refresh current user profile live from Supabase public.users table
+  Future<void> refreshCurrentUserFromDB() async {
+    if (_currentUser == null) return;
+    try {
+      final dbProfile = await SupabaseService().fetchUserProfile(
+        _currentUser!.email,
+        authId: _currentUser!.id,
+      );
+      if (dbProfile != null) {
+        final dbFullName = dbProfile['full_name'] as String?;
+        final dbDept = dbProfile['department'] as String?;
+
+        if (dbFullName != null && dbFullName.trim().isNotEmpty && dbFullName.trim() != _currentUser!.name) {
+          _currentUser = _currentUser!.copyWith(
+            name: dbFullName.trim(),
+            department: dbDept ?? _currentUser!.department,
+          );
+          if (kDebugMode) {
+            debugPrint('🔄 Updated user profile from DB: ${_currentUser!.name}');
+          }
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Error refreshing user profile from DB: $e');
+      }
+    }
   }
 
   /// Sign out and clear all session state
