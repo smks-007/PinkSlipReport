@@ -1,10 +1,14 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/data/student_directory_data.dart';
 import '../../../core/models/leave_model.dart';
 import '../../../core/models/student_model.dart';
 import '../../../core/models/user_model.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/mock_data_service.dart';
+import '../../../core/services/supabase_service.dart';
 
 /// Interactive dialog for the concerned Class Advisor to create/issue an official Pink Slip,
 /// allowing them to explicitly mark a student as Present (e.g. OD / Event) or Absent (e.g. Leave / Medical).
@@ -42,6 +46,7 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
   String _attachedFileType = 'Official Pink Slip Endorsement';
   String _attachedFileSize = '1.1 MB';
   bool _hasAttachment = true;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -51,12 +56,28 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
     _category = _markPresent ? LeaveCategory.onDuty : LeaveCategory.leave;
 
     final user = AuthService().currentUser;
-    final int year = user?.year ?? 2;
-    final String section = user?.section ?? 'B';
+    int year = user?.year ?? 2;
+    String section = user?.section ?? 'A';
+    if (user != null && (user.year == null || user.section == null)) {
+      final matchedAdv = AuthService.sectionAdvisors.firstWhere(
+        (a) =>
+            a.email.toLowerCase() == user.email.toLowerCase() ||
+            (user.customUsername != null &&
+                a.customUsername?.toLowerCase() ==
+                    user.customUsername?.toLowerCase()) ||
+            a.id == user.id,
+        orElse: () => AuthService.sectionAdvisors.first,
+      );
+      year = matchedAdv.year ?? year;
+      section = matchedAdv.section ?? section;
+    }
 
     _classStudents = MockDataService.getStudentsBySection(year, section);
     if (_classStudents.isEmpty) {
-      _classStudents = MockDataService.allStudents.take(20).toList();
+      _classStudents = StudentDirectoryData.bySection['$year-$section'] ?? [];
+      if (_classStudents.isEmpty) {
+        _classStudents = MockDataService.allStudents.take(20).toList();
+      }
     }
 
     if (widget.initialStudent != null) {
@@ -112,7 +133,7 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
     }
   }
 
-  void _simulateFilePick() {
+  void _attachDocument() {
     setState(() {
       _attachedFileName = _markPresent
           ? 'od_proof_signed_${_selectedStudent?.rollNumber ?? "file"}.pdf'
@@ -131,14 +152,50 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
     );
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate() || _selectedStudent == null) return;
+
+    setState(() => _isSubmitting = true);
 
     final user = AuthService().currentUser;
     final advisorName = user?.name ?? 'Class Advisor';
     final advisorId = user?.id ?? 'adv-001';
     final int year = user?.year ?? _selectedStudent!.year;
     final String section = user?.section ?? _selectedStudent!.section;
+
+    String? finalAttachmentUrl;
+    if (_hasAttachment) {
+      try {
+        final docContent = '''%PDF-1.4
+% ══════════════════════════════════════════════════════════
+% V.S.B. ENGINEERING COLLEGE — DEPARTMENT OF AI & DS
+% OFFICIAL CLASS ADVISOR PINK SLIP & ATTENDANCE ENDORSEMENT
+% ══════════════════════════════════════════════════════════
+% Student Name  : ${_selectedStudent!.name}
+% Roll Number   : ${_selectedStudent!.rollNumber}
+% Year & Section: Year $year, Section $section
+% Date of Slip  : ${_selectedDate.toIso8601String().split('T').first}
+% Category      : ${_category == LeaveCategory.onDuty ? "ON-DUTY (OD)" : "LEAVE"}
+% Type          : ${_leaveType == LeaveType.informed ? "INFORMED" : "UNINFORMED"}
+% Marked Status : ${_markPresent ? "PRESENT" : "ABSENT"}
+% Reason        : ${_reasonCtrl.text.trim()}
+% Remarks       : ${_advisorRemarksCtrl.text.trim()}
+% Issued By     : $advisorName ($advisorId)
+% Generated At  : ${DateTime.now().toIso8601String()}
+%%EOF''';
+        final fileBytes = Uint8List.fromList(utf8.encode(docContent));
+        final uploadedUrl = await SupabaseService().uploadLeaveDocument(
+          fileBytes,
+          _attachedFileName,
+          folder: 'pink_slips',
+        );
+        if (uploadedUrl != null && uploadedUrl.isNotEmpty) {
+          finalAttachmentUrl = uploadedUrl;
+        }
+      } catch (e) {
+        debugPrint('⚠️ Storage upload notice: $e');
+      }
+    }
 
     final newSlip = MockDataService.createAdvisorPinkSlip(
       student: _selectedStudent!,
@@ -150,39 +207,42 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
       advisorName: advisorName,
       advisorId: advisorId,
       advisorRemarks: _advisorRemarksCtrl.text.trim(),
-      attachmentFileName: _hasAttachment ? _attachedFileName : null,
+      attachmentFileName: finalAttachmentUrl ?? (_hasAttachment ? _attachedFileName : null),
       attachmentFileType: _hasAttachment ? _attachedFileType : null,
       attachmentFileSize: _hasAttachment ? _attachedFileSize : null,
       year: year,
       section: section,
     );
 
-    widget.onSlipCreated?.call(newSlip);
-    Navigator.pop(context, newSlip);
+    if (mounted) {
+      setState(() => _isSubmitting = false);
+      widget.onSlipCreated?.call(newSlip);
+      Navigator.pop(context, newSlip);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(
-              _markPresent ? Icons.check_circle_rounded : Icons.cancel_rounded,
-              color: Colors.white,
-              size: 20,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Pink Slip issued for ${_selectedStudent!.name}! Marked ${_markPresent ? "PRESENT" : "ABSENT"}.',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(
+                _markPresent ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                color: Colors.white,
+                size: 20,
               ),
-            ),
-          ],
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Pink Slip issued for ${_selectedStudent!.name}! Marked ${_markPresent ? "PRESENT" : "ABSENT"}.',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: _markPresent ? const Color(0xFF047857) : AppColors.absentRed,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
         ),
-        backgroundColor: _markPresent ? const Color(0xFF047857) : AppColors.absentRed,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 3),
-      ),
-    );
+      );
+    }
   }
 
   @override
@@ -715,7 +775,7 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
                               ),
                             ),
                             OutlinedButton.icon(
-                              onPressed: _simulateFilePick,
+                              onPressed: _isSubmitting ? null : _attachDocument,
                               icon: const Icon(Icons.upload_file, size: 14),
                               label: const Text('Change File'),
                               style: OutlinedButton.styleFrom(
@@ -741,15 +801,23 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
                 border: Border(top: BorderSide(color: Color(0xFFF1F5F9))),
               ),
               child: ElevatedButton.icon(
-                onPressed: _submit,
-                icon: Icon(
-                  _markPresent ? Icons.check_circle_outline_rounded : Icons.highlight_off_rounded,
-                  size: 18,
-                ),
+                onPressed: _isSubmitting ? null : _submit,
+                icon: _isSubmitting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : Icon(
+                        _markPresent ? Icons.check_circle_outline_rounded : Icons.highlight_off_rounded,
+                        size: 18,
+                      ),
                 label: Text(
-                  _markPresent
-                      ? 'Issue Pink Slip & Mark as PRESENT'
-                      : 'Issue Pink Slip & Mark as ABSENT',
+                  _isSubmitting
+                      ? 'Issuing & Uploading to Cloud...'
+                      : (_markPresent
+                          ? 'Issue Pink Slip & Mark as PRESENT'
+                          : 'Issue Pink Slip & Mark as ABSENT'),
                   style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
                 ),
                 style: ElevatedButton.styleFrom(

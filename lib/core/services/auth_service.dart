@@ -83,8 +83,8 @@ class AuthService extends ChangeNotifier {
     hodScope: 'Overall Department',
   );
 
-  /// 10 Section Class Advisors (metadata only — NO passwords)
-  static const List<UserModel> sectionAdvisors = [
+  /// 10 Section Class Advisors (fallback if offline — populated dynamically from DB)
+  static const List<UserModel> _fallbackSectionAdvisors = [
     UserModel(
       id: 'adv-2a',
       name: 'Dr. D. Anandhan',
@@ -206,6 +206,12 @@ class AuthService extends ChangeNotifier {
       section: 'B',
     ),
   ];
+
+  static List<UserModel> _dynamicAdvisors = [];
+
+  /// Dynamic or DB-backed Section Class Advisors
+  static List<UserModel> get sectionAdvisors =>
+      _dynamicAdvisors.isNotEmpty ? _dynamicAdvisors : _fallbackSectionAdvisors;
 
   /// 20 Official Class Representatives (metadata only — NO passwords)
   static const List<UserModel> classRepresentatives = [
@@ -366,7 +372,33 @@ class AuthService extends ChangeNotifier {
       );
 
       if (supabaseUser != null) {
-        _currentUser = supabaseUser;
+        UserModel enriched = supabaseUser;
+        if (enriched.role == UserRole.advisor) {
+          final matchedAdv = sectionAdvisors.firstWhere(
+            (a) =>
+                a.email.toLowerCase() == enriched.email.toLowerCase() ||
+                (enriched.customUsername != null &&
+                    a.customUsername?.toLowerCase() ==
+                        enriched.customUsername?.toLowerCase()) ||
+                a.id == enriched.id ||
+                (enriched.year != null &&
+                    enriched.section != null &&
+                    a.year == enriched.year &&
+                    a.section == enriched.section),
+            orElse: () =>
+                const UserModel(id: '', name: '', email: '', role: UserRole.advisor, department: 'AI&DS'),
+          );
+          if (matchedAdv.id.isNotEmpty) {
+            enriched = enriched.copyWith(
+              year: enriched.year ?? matchedAdv.year,
+              section: enriched.section ?? matchedAdv.section,
+              classSection: enriched.classSection ?? matchedAdv.classSection,
+              batchYear: enriched.batchYear ?? matchedAdv.batchYear,
+              customUsername: enriched.customUsername ?? matchedAdv.customUsername,
+            );
+          }
+        }
+        _currentUser = enriched;
         _failedAttempts = 0;
         _lockoutUntil = null;
         _lastActivity = DateTime.now();
@@ -449,6 +481,59 @@ class AuthService extends ChangeNotifier {
     } catch (e) {
       if (kDebugMode) {
         debugPrint('⚠️ Error refreshing user profile from DB: $e');
+      }
+    }
+  }
+
+  /// Synchronize faculty and class advisors dynamically from the database
+  Future<void> syncFacultyFromDB() async {
+    try {
+      final facultyData = await SupabaseService().fetchFacultyAdvisors();
+      if (facultyData.isNotEmpty) {
+        final List<UserModel> loadedAdvisors = [];
+        for (final row in facultyData) {
+          final Map<String, dynamic>? userMap = row['users'] is Map<String, dynamic>
+              ? row['users'] as Map<String, dynamic>
+              : null;
+          final String name = (userMap?['full_name'] ?? row['full_name'] ?? row['name'] ?? '').toString();
+          final String email = (userMap?['email'] ?? row['email'] ?? '').toString();
+          final String sectionId = (row['assigned_section'] ?? row['section_id'] ?? '').toString();
+          final String dept = (userMap?['department'] ?? row['department'] ?? 'AI&DS').toString();
+          final String staffId = (row['staff_id'] ?? userMap?['user_id'] ?? row['user_id'] ?? '').toString();
+
+          if (name.isNotEmpty) {
+            int parsedYear = 2;
+            String parsedSection = 'A';
+            if (sectionId.length >= 2) {
+              final firstChar = int.tryParse(sectionId[0]);
+              if (firstChar != null) parsedYear = firstChar;
+              parsedSection = sectionId.substring(1).toUpperCase();
+            }
+
+            loadedAdvisors.add(UserModel(
+              id: staffId.isNotEmpty ? 'adv-$staffId' : 'adv-$sectionId',
+              name: name,
+              email: email,
+              customUsername: email.isNotEmpty ? email.split('@').first : 'advisor.$sectionId',
+              role: UserRole.advisor,
+              department: dept,
+              classSection: sectionId.isNotEmpty ? '$sectionId AI&DS' : 'Class Advisor',
+              year: parsedYear,
+              section: parsedSection,
+            ));
+          }
+        }
+        if (loadedAdvisors.isNotEmpty) {
+          _dynamicAdvisors = loadedAdvisors;
+          if (kDebugMode) {
+            debugPrint('✅ Synced ${_dynamicAdvisors.length} advisors dynamically from database');
+          }
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Error syncing faculty from DB: $e');
       }
     }
   }

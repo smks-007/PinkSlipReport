@@ -55,7 +55,7 @@ class _AttendanceReportViewerDialogState extends State<AttendanceReportViewerDia
         : MockDataService.absentToday;
     final od = isSection
         ? MockDataService.getSectionOnDuty(widget.year!, widget.section!, targetDate)
-        : 8;
+        : MockDataService.getDepartmentOnDuty(targetDate);
     final percentage = isSection
         ? MockDataService.getSectionAttendancePercentage(widget.year!, widget.section!, targetDate)
         : MockDataService.attendancePercentage;

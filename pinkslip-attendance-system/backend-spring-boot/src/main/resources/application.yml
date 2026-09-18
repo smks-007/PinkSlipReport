@@ -7,9 +7,9 @@ spring:
   application:
     name: pinkslip-attendance-system
   datasource:
-    url: jdbc:postgresql://localhost:5432/pinkslip_db
-    username: postgres
-    password: postgres_password
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/pinkslip_db}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -21,8 +21,8 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
 jwt:
-  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-  expirationMs: 86400000 # 24 hours
+  secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+  expirationMs: ${JWT_EXPIRATION_MS:86400000} # 24 hours
 
 department:
   name: Artificial Intelligence and Data Science

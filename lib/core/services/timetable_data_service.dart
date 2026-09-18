@@ -1,4 +1,5 @@
 import '../models/timetable_model.dart';
+import 'supabase_service.dart';
 
 /// Complete Timetable repository for II Year (Semester III) AI&DS — Sections A, B, C, and D.
 /// Source: V.S.B. Engineering College, Karur (Autonomous)
@@ -36,6 +37,86 @@ class TimetableDataService {
 
   static SectionTimetable getSectionTimetable(String section) {
     return _sections[section.toUpperCase()] ?? _sectionA;
+  }
+
+  /// Asynchronously fetch timetable from Supabase public.timetables, updating cache with resilient fallback
+  static Future<SectionTimetable> fetchTimetableFromDb(String section, {int year = 2}) async {
+    final cleanSection = section.toUpperCase().trim();
+    final defaultSection = getSectionTimetable(cleanSection);
+
+    try {
+      final sectionId = 'II-$cleanSection';
+      var records = await SupabaseService().fetchTimetable(sectionId);
+      if (records.isEmpty) {
+        records = await SupabaseService().fetchTimetable(cleanSection);
+      }
+
+      if (records.isNotEmpty) {
+        final Map<String, List<TimetableEntry>> schedule = {};
+        final Map<String, SubjectFacultyInfo> subjectsMap = {};
+
+        for (final r in records) {
+          final day = r['day_of_week'] as String? ?? 'Monday';
+          final periodNum = (r['period_number'] as int?) ?? 1;
+          final timeSlot = r['time_slot'] as String? ??
+              (periodNum <= timeSlots.length ? timeSlots[periodNum - 1] : '09:15 - 10:00');
+          final subCode = r['subject_code'] as String? ?? '';
+          final subName = r['subject_name'] as String? ?? '';
+          final shortName = r['short_name'] as String? ?? subCode;
+          final faculty = r['faculty_name'] as String? ?? '';
+          final facultyShort = r['faculty_short'] as String? ?? '';
+          final isLab = r['is_lab'] as bool? ?? false;
+
+          final entry = TimetableEntry(
+            periodNumber: periodNum,
+            timeSlot: timeSlot,
+            subjectCode: subCode,
+            subjectName: subName,
+            subjectShort: shortName,
+            facultyName: faculty,
+            facultyShort: facultyShort,
+            isLab: isLab,
+          );
+
+          schedule.putIfAbsent(day, () => []).add(entry);
+
+          if (!subjectsMap.containsKey(subCode) && subCode.isNotEmpty) {
+            subjectsMap[subCode] = SubjectFacultyInfo(
+              code: subCode,
+              name: subName,
+              shortName: shortName,
+              facultyName: faculty,
+              facultyShort: facultyShort,
+              periodsPerWeek: 4,
+              isLab: isLab,
+            );
+          }
+        }
+
+        for (final dayList in schedule.values) {
+          dayList.sort((a, b) => a.periodNumber.compareTo(b.periodNumber));
+        }
+
+        final dynamicTimetable = SectionTimetable(
+          section: cleanSection,
+          year: defaultSection.year,
+          semester: defaultSection.semester,
+          department: defaultSection.department,
+          classRoom: (records.first['room_number'] as String?) ?? defaultSection.classRoom,
+          classAdvisor: defaultSection.classAdvisor,
+          counselingDetails: defaultSection.counselingDetails,
+          subjects: subjectsMap.values.toList(),
+          schedule: schedule,
+        );
+
+        _sections[cleanSection] = dynamicTimetable;
+        return dynamicTimetable;
+      }
+    } catch (_) {
+      // Resilient fallback to static cache
+    }
+
+    return defaultSection;
   }
 
   // ════════════════════════════════════════════════════════════════════════

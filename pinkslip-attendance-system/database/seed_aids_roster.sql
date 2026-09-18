@@ -4,8 +4,8 @@
 -- 1. Ensure Sections Table is Populated
 INSERT INTO sections (section_id, year, section_name, department, total_strength) VALUES
 ('II-AIDS-A', 2, 'A', 'Artificial Intelligence and Data Science', 63),
-('II-AIDS-B', 2, 'B', 'Artificial Intelligence and Data Science', 63),
-('II-AIDS-C', 2, 'C', 'Artificial Intelligence and Data Science', 60),
+('II-AIDS-B', 2, 'B', 'Artificial Intelligence and Data Science', 62),
+('II-AIDS-C', 2, 'C', 'Artificial Intelligence and Data Science', 61),
 ('II-AIDS-D', 2, 'D', 'Artificial Intelligence and Data Science', 63),
 ('III-AIDS-A', 3, 'A', 'Artificial Intelligence and Data Science', 65),
 ('III-AIDS-B', 3, 'B', 'Artificial Intelligence and Data Science', 61),
@@ -767,7 +767,7 @@ INSERT INTO students (student_id, roll_number, register_number, section_id, stud
 (1123, '25243125', '922525243125', 'II-AIDS-B', 'MONIKA P', 5),
 (1124, '25243126', '922525243126', 'II-AIDS-B', 'MONISHA R', 2),
 (1125, '25243127', '922525243127', 'II-AIDS-B', 'MOUNISHWARAN L', 1),
-(1126, '25243128', '922525243128', 'II-AIDS-B', 'MUGESHDHARAN M', 2),
+(1126, '25243128', '922525243128', 'II-AIDS-C', 'MUGESHDHARAN M', 2),
 (1127, '25243129', '922525243129', 'II-AIDS-C', 'MUHIL RAJA A', 0),
 (1128, '25243130', '922525243130', 'II-AIDS-C', 'MUKESH S V', 0),
 (1129, '25243131', '922525243131', 'II-AIDS-C', 'MUTHU KALAIARASU S', 0),
@@ -1265,3 +1265,4 @@ INSERT INTO students (student_id, roll_number, register_number, section_id, stud
 (1621, '23243304', '922523243304', 'IV-AIDS-B', 'PRADEEP.S', 1),
 (1622, '23243305', '922523243305', 'IV-AIDS-B', 'DHARIN RAJ.M', 0)
 ON CONFLICT (roll_number) DO NOTHING;
+

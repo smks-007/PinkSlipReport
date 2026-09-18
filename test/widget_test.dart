@@ -1015,4 +1015,44 @@ void main() {
 
     expect(find.textContaining('Cloud Backup Synced Successfully'), findsOneWidget);
   });
+
+  test('Advisor issued Pink Slip is received by HOD in pending queue and can be sanctioned or rejected', () {
+    final student = MockDataService.allStudents.firstWhere(
+      (s) => s.rollNumber == '25243010',
+    );
+    final testDate = DateTime.now();
+
+    // 1. Advisor issues Pink Slip for student (Mark Absent, forwarded to HOD)
+    final advisorSlip = MockDataService.createAdvisorPinkSlip(
+      student: student,
+      date: testDate,
+      markPresent: false,
+      category: LeaveCategory.leave,
+      reason: 'Medical Emergency - Hospitalization',
+      advisorName: 'Dr. M. Rajendiran',
+      advisorId: 'adv-2b',
+      advisorRemarks: 'Verified doctor certificate. Forwarding to HOD for sanction.',
+      year: student.year,
+      section: student.section,
+    );
+
+    expect(advisorSlip.letterStatus, LetterStatus.forwarded);
+    expect(advisorSlip.advisorRemarks, contains('Forwarding to HOD'));
+
+    // 2. Check HOD pending queue includes this slip
+    final hodPendingSlips = MockDataService.getPendingForHod(year: student.year);
+    final foundInHodQueue = hodPendingSlips.any((s) => s.id == advisorSlip.id);
+    expect(foundInHodQueue, isTrue, reason: 'HOD must receive the advisor issued pink slip in their pending queue');
+
+    // 3. HOD sanctions the leave
+    final approved = MockDataService.approveByHod(
+      advisorSlip.id,
+      remarks: 'Sanctioned by HOD Dr. K. Manivannan. Medical certificate verified.',
+    );
+    expect(approved, isTrue);
+
+    final updatedSlip = MockDataService.leaveRequests.firstWhere((s) => s.id == advisorSlip.id);
+    expect(updatedSlip.letterStatus, LetterStatus.approved);
+    expect(updatedSlip.hodRemarks, contains('Sanctioned by HOD'));
+  });
 }

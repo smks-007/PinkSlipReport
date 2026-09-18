@@ -1,24 +1,32 @@
-# 📑 Pink Slip Report
+# 📑 SMART PRO — Pink Slip & Attendance Management System
 
-> **Pink Slip Report** is a scalable employee separation management system for securely creating, managing, and generating digital employee exit reports using Flutter, Spring Boot, PostgreSQL, and JWT authentication.
+> **Pink Slip Report (SMART PRO)** is a real-time academic attendance ledger, 2-tier On-Duty (OD) / Leave approval pipeline, and digital Pink Slip clearance platform built for the **Department of Artificial Intelligence & Data Science (AI & DS)** at **V.S.B. Engineering College, Karur**.
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.47+-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-3.13+-0175C2?logo=dart&logoColor=white)](https://dart.dev)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-6DB33F?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16+-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org)
+[![Supabase](https://img.shields.io/badge/Supabase-Cloud%20PostgreSQL-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
 ## 🌟 Key Features
 
-* **📱 Modern Material 3 UI**: Clean, responsive Flutter mobile and web client with custom vector canvas illustrations.
-* **🔐 Complete Authentication Suite**:
-  * **Sign In**: Username/password authentication, password visibility toggles, and social login entrypoints (Google & Facebook).
-  * **Sign Up**: Account registration with validation and interactive legal agreement terms.
-  * **Forgot Password**: One-Time-Password (OTP) recovery workflow and email verification.
-* **🛡 Enterprise Security**: JWT-based stateless authentication, BCrypt encryption, and Role-Based Access Control (RBAC).
-* **📄 Automated Exit Clearance & Separation**: Digital Pink Slip report generation with departmental clearances (IT, Finance, HR) and verification.
+* **📱 Modern Material 3 Dashboards**: Tailored role-based portals for **Students**, **Class Advisors**, and the **Head of Department (HOD)**.
+* **🔐 Supabase Cloud Authentication & RBAC**:
+  * Strict database-driven role verification (`HOD`, `ADVISOR`, `STUDENT`) via `public.users` and authenticated JWT tokens.
+  * Inactivity timeout protection, brute-force lockout safeguards, and password recovery workflows.
+* **📅 1-Month Day-Wise Attendance Ledger**:
+  * 30+ working day calendar horizon for all 622 AIDS students across 10 sections (`II-AIDS-A..D`, `III-AIDS-A..D`, `IV-AIDS-A..B`).
+  * Instant 1-click batch presence/absent/OD toggling with immutable prior approval locking (*"If updated, don't overwrite"*).
+* **📑 2-Tier Leave & On-Duty Approval Workflow**:
+  * **Student**: Apply for Leaves/ODs with letter upload and digital reason submission.
+  * **Class Advisor**: Review, endorse, and forward to HOD or reject with remarks.
+  * **HOD**: Final executive approval/rejection with automated attendance ledger pre-locking.
+* **📊 Visual Intelligence & Analytics**:
+  * Section-wise attendance benchmarking against Anna University's 75% statutory threshold.
+  * Period-by-period attrition heatmaps and 30-day attendance trend curves.
+* **🤖 Jarvis AI Copilot**:
+  * Natural language query interface for student profiles, attendance analytics, detention forecasting, and automated bilingual (Tamil/English) alert drafting.
 
 ---
 
@@ -27,15 +35,25 @@
 ```
 PinkSlipReport/
 ├── lib/
-│   ├── auth/
-│   │   ├── screens/        # Sign In, Sign Up, Forgot Password screens
-│   │   ├── theme/          # Centralized AuthTheme tokens (colors, typography, inputs)
-│   │   └── widgets/        # Reusable custom UI components (buttons, fields, illustrations)
-│   └── main.dart           # App entrypoint and route table
-├── test/
-│   └── widget_test.dart    # Automated widget integration & validation test suite
-├── Implement/              # Design specifications and architecture guidelines
-├── UPDATES.md              # Detailed project changelog, commit history, and roadmap
+│   ├── auth/               # Authentication screens, theme tokens & custom widgets
+│   ├── chatbot/            # Jarvis AI Copilot dialogs and telemetry widgets
+│   ├── core/
+│   │   ├── constants/      # App styles, color tokens & Supabase configurations
+│   │   ├── data/           # Official student directory datasets (622 students)
+│   │   ├── models/         # Domain models (User, Student, Attendance, Leave, Notice)
+│   │   ├── services/       # Supabase, Auth, Data, AI Agent, and Gemini services
+│   │   └── widgets/        # Reusable shared UI widgets & dialogs
+│   ├── dashboard/
+│   │   ├── advisor/        # Class Advisor dashboard & day-wise attendance ledger
+│   │   ├── hod/            # HOD department overview, approval inbox & analytics
+│   │   ├── student/        # Student dashboard, leave submissions & slip viewer
+│   │   ├── timetable/      # Section timetables & schedule manager
+│   │   └── shared/         # Shared reporting, promotion & slip viewer dialogs
+│   └── main.dart           # App entrypoint, theme setup & route guards
+├── supabase/
+│   └── migrations/         # PostgreSQL schema migrations, RLS policies & triggers
+├── test/                   # Automated widget & unit test suites
+├── UPDATES.md              # Detailed changelog, version history & roadmap
 └── README.md
 ```
 
@@ -46,8 +64,7 @@ PinkSlipReport/
 ### Prerequisites
 * Flutter SDK (`>=3.47.0`)
 * Dart SDK (`>=3.13.0`)
-* Java JDK 17+ (for backend services)
-* PostgreSQL 16+ (for separation database)
+* Supabase project instance (URL and Anon Key configured via environment variables or `supabase_config.dart`)
 
 ### Installation & Run
 
@@ -76,4 +93,4 @@ PinkSlipReport/
 
 ## 📖 Changelog & Updates
 
-For detailed version history, recent commit logs, and upcoming roadmap items, please refer to [UPDATES.md](file:///c:/Users/Rajavel/.gemini/antigravity/scratch/PinkSlipReport/UPDATES.md).
+For detailed version history and changelog, please refer to [UPDATES.md](file:///d:/Dept/PinkSlipReport-main/UPDATES.md).

@@ -100,9 +100,11 @@ class AiAgentService {
       }
     }
 
-    // Today's attendance record (Reference date: Sep 7, 2026 / current)
+    // Today's attendance record (Dynamic current date)
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
     final todayRecords = MockDataService.getAttendanceForDate(
-      DateTime(2026, 9, 7),
+      today,
       year: student.year,
       section: student.section,
     );
@@ -111,12 +113,12 @@ class AiAgentService {
       orElse: () => AttendanceRecord(
         id: 'temp',
         studentId: student.id,
-        date: DateTime(2026, 9, 7),
+        date: today,
         status: MockDataService.isStudentAbsent(student.rollNumber)
             ? AttendanceStatus.absent
             : AttendanceStatus.present,
         source: 'telemetry_sync',
-        createdAt: DateTime(2026, 9, 7),
+        createdAt: today,
       ),
     );
 
@@ -125,10 +127,10 @@ class AiAgentService {
         .where((l) => l.studentRollNumber == student.rollNumber)
         .toList();
 
-    // Cumulative attendance estimation (90% + variance or low if defaulter)
+    // Cumulative attendance from real student profile
     final isDefaulter = MockDataService.getDefaultersBySection(student.year, student.section)
         .any((d) => (d['student'] as StudentModel).rollNumber == student.rollNumber);
-    final cumulativePct = isDefaulter ? 71.4 : (92.5 + ((student.rollNumber.hashCode.abs() % 70) / 10));
+    final cumulativePct = MockDataService.getStudentAttendancePercentage(student);
 
     return {
       'student': student,
@@ -157,8 +159,26 @@ class AiAgentService {
   }) {
     final profile = getStudentDeepProfile(rollNumber);
     final double currentPct = profile != null ? (profile['cumulativePercentage'] as double) : 85.0;
-    const int totalTermDays = 90; // Sep-Dec 2026 instructional calendar
-    const int elapsedDays = 24; // Sep 2026 instructional days so far
+
+    // Dynamically calculate instructional days from active academic term calendar
+    final now = DateTime.now();
+    final termStart = DateTime(now.year, 9, 1);
+    final termEnd = DateTime(now.year, 12, 31);
+    int totalTermDays = 0;
+    int elapsedDays = 0;
+    DateTime cursor = termStart;
+    while (!cursor.isAfter(termEnd)) {
+      if (cursor.weekday != DateTime.sunday && !MockDataService.isCollegeHoliday(cursor)) {
+        totalTermDays++;
+        if (!cursor.isAfter(now)) {
+          elapsedDays++;
+        }
+      }
+      cursor = cursor.add(const Duration(days: 1));
+    }
+    if (totalTermDays == 0) totalTermDays = 90;
+    if (elapsedDays <= 0) elapsedDays = 1;
+    if (elapsedDays > totalTermDays) elapsedDays = totalTermDays;
 
     // Estimated attended days
     final int attended = ((currentPct / 100.0) * elapsedDays).round();
@@ -316,7 +336,7 @@ class AiAgentService {
         final summary = '📈 **AI-Agent Attendance Diagnostic & Forecast**\n\n'
             '• **Student**: **$studentName** (`$studentRoll`) • **$studentYear AI&DS - Sec $studentSec**\n'
             '• **Current Attendance**: **$currentPct%** (${currentPct >= 75.0 ? "✅ Eligible" : "⚠️ Low Attendance Risk"})\n'
-            '• **Semester Calendar**: 90 Days Total | 24 Days Elapsed | 66 Days Remaining\n'
+            '• **Semester Calendar**: ${forecast["totalTermDays"]} Days Total | ${forecast["elapsedDays"]} Days Elapsed | ${forecast["remainingDays"]} Days Remaining\n'
             '• **Safe Margin**: You can take **$safeLeaves more days leave** and stay above 75.0%.\n'
             '• **To Reach 80% Target**: Attend next **$needed80 classes** continuously.\n'
             '• **Recommendation**: Ensure all previous OD/medical proofs are submitted within 24h.';
@@ -350,8 +370,9 @@ class AiAgentService {
           timestamp: DateTime.now(),
         ));
 
+        final now = DateTime.now();
         final newSlip = LeaveModel(
-          id: 'stu-agent-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+          id: 'stu-agent-${now.millisecondsSinceEpoch.toString().substring(7)}',
           studentId: 'stu_$studentRoll',
           studentName: studentName,
           studentRollNumber: studentRoll,
@@ -359,15 +380,15 @@ class AiAgentService {
           section: studentSec,
           year: studentYear,
           batchYear: user.batchYear ?? '2025 BATCH',
-          leaveDate: DateTime(2026, 9, 7),
+          leaveDate: DateTime(now.year, now.month, now.day),
           leaveType: LeaveType.informed,
           reason: reason,
           letterSubmitted: true,
           letterStatus: LetterStatus.submitted,
-          attachmentFileName: isOd ? 'od_invitation_letter.pdf' : 'medical_prescription.pdf',
+          attachmentFileName: isOd ? 'od_invitation_${studentRoll}_${now.millisecondsSinceEpoch}.pdf' : 'medical_proof_${studentRoll}_${now.millisecondsSinceEpoch}.pdf',
           attachmentFileType: isOd ? 'Official Event Invitation' : 'Medical Certificate',
           attachmentFileSize: '820 KB',
-          dateSubmittedToAdvisor: DateTime.now(),
+          dateSubmittedToAdvisor: now,
           advisorRemarks: 'Generated & pre-verified via Smart Pro AI-Agent Student Co-Pilot.',
         );
 
@@ -693,7 +714,7 @@ class AiAgentService {
         timestamp: DateTime.now(),
       ));
 
-      final purgedCount = MockDataService.triggerAlumniRetentionPurgeCheck(DateTime(2026, 9, 7));
+      final purgedCount = MockDataService.triggerAlumniRetentionPurgeCheck(startTime);
 
       steps.add(AgentStep(
         thought: 'Executing cryptographic erasure on expired alumni records in compliance with UGC/AICTE data privacy guidelines.',
@@ -731,24 +752,25 @@ class AiAgentService {
 
     // ── SCENARIO D: General Comprehensive Department Audit & Brief ──
     else {
+      final totalStr = MockDataService.totalStrength;
+      final pres = MockDataService.presentToday;
+      final abs = MockDataService.absentToday;
+      final pct = MockDataService.attendancePercentage;
+
       steps.add(AgentStep(
-        thought: 'Aggregating live telemetry across all 10 sections: 622 students, attendance registers, OD queue, timetable indices, and defaulters.',
+        thought: 'Aggregating live telemetry across all 10 sections: $totalStr students, attendance registers, OD queue, timetable indices, and defaulters.',
         actionName: 'aggregateDepartmentTelemetry',
-        actionInput: 'Department: AI & DS, Total Strength: 622',
-        observation: 'Compiled: 533 Present (85.0%), 94 Absentees, ${MockDataService.pendingHodApprovals} Pending HOD Signatures.',
+        actionInput: 'Department: AI & DS, Total Strength: $totalStr',
+        observation: 'Compiled: $pres Present (${pct.toStringAsFixed(1)}%), $abs Absentees, ${MockDataService.pendingHodApprovals} Pending HOD Signatures.',
         timestamp: DateTime.now(),
       ));
 
-      actionsExecuted.add('Aggregated 622 student records across 10 sections');
-      actionsExecuted.add('Verified Sep-Dec 2026 Academic Calendar attendance metrics');
+      actionsExecuted.add('Aggregated $totalStr student records across 10 sections');
+      actionsExecuted.add('Verified Academic Calendar attendance metrics');
 
       final summary = '📊 **Smart Pro AI-Agent: Comprehensive Department Executive Brief**\n\n'
-          '• **Total Department Strength**: **622 Students** (10 Sections)\n'
-          '• **Today\'s Attendance**: **533 Present (85.0%)** | **94 Absent (15.0%)**\n'
-          '• **Section Highlights**:\n'
-          '  - **III AIDS A**: 98.5% Turnout (1 Absent: Santhosh A)\n'
-          '  - **III AIDS C**: 98.4% Turnout (1 Absent: Sakthi Balan M)\n'
-          '  - **II AIDS C**: Full Section 60 Absentees Logged\n'
+          '• **Total Department Strength**: **$totalStr Students** (10 Sections)\n'
+          '• **Today\'s Attendance**: **$pres Present (${pct.toStringAsFixed(1)}%)** | **$abs Absent**\n'
           '• **Pending HOD Queue**: **${MockDataService.pendingHodApprovals} Leave/OD Approvals**\n'
           '• **System Health**: 100% Operational • Cloud Synced';
 

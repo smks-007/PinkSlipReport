@@ -49,7 +49,25 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
   void _initAdvisorUser() {
     final loggedIn = AuthService().currentUser;
     if (loggedIn != null && loggedIn.role == UserRole.advisor) {
-      _currentAdvisor = loggedIn;
+      if (loggedIn.year != null && loggedIn.section != null) {
+        _currentAdvisor = loggedIn;
+      } else {
+        final matchedAdv = AuthService.sectionAdvisors.firstWhere(
+          (a) =>
+              a.email.toLowerCase() == loggedIn.email.toLowerCase() ||
+              (loggedIn.customUsername != null &&
+                  a.customUsername?.toLowerCase() ==
+                      loggedIn.customUsername?.toLowerCase()) ||
+              a.id == loggedIn.id,
+          orElse: () => AuthService.sectionAdvisors.first,
+        );
+        _currentAdvisor = loggedIn.copyWith(
+          year: loggedIn.year ?? matchedAdv.year,
+          section: loggedIn.section ?? matchedAdv.section,
+          classSection: loggedIn.classSection ?? matchedAdv.classSection,
+          batchYear: loggedIn.batchYear ?? matchedAdv.batchYear,
+        );
+      }
     } else {
       _currentAdvisor = AuthService.sectionAdvisors.firstWhere(
         (a) => a.id == 'adv-2a', // Default to II-A Dr. Anandhan
@@ -90,7 +108,7 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
   Widget build(BuildContext context) {
     final year = _currentAdvisor.year ?? 2;
     final section = _currentAdvisor.section ?? 'A';
-    final students = StudentDirectoryData.bySection['$year-$section'] ?? [];
+    final students = MockDataService.getStudentsBySection(year, section);
     final filteredStudents = students.where((s) {
       if (_studentSearchQuery.isEmpty) return true;
       return s.name.toLowerCase().contains(_studentSearchQuery.toLowerCase()) ||
@@ -1481,7 +1499,7 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
   void _showForwardAbsenteePinkSlipModal([StudentModel? preselectedStudent]) {
     final year = _currentAdvisor.year ?? 2;
     final section = _currentAdvisor.section ?? 'A';
-    final sectionStudents = StudentDirectoryData.bySection['$year-$section'] ?? [];
+    final sectionStudents = MockDataService.getStudentsBySection(year, section);
     
     // Find section absentees
     final absentStudents = sectionStudents.where((s) => MockDataService.isStudentAbsent(s.rollNumber)).toList();

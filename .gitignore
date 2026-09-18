@@ -47,3 +47,12 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Credentials & Environment
+*.env
+*.env.*
+*.pdf
+*Credentials*
+*.xlsx
+node_modules/
+dist/

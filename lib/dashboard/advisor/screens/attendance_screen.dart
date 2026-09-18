@@ -30,9 +30,24 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   void initState() {
     super.initState();
     final user = AuthService().currentUser;
-    if (user != null && user.year != null && user.section != null) {
-      _selectedYear = user.year!;
-      _selectedSection = user.section!;
+    if (user != null) {
+      if (user.year != null && user.section != null) {
+        _selectedYear = user.year!;
+        _selectedSection = user.section!;
+      } else {
+        // Fallback: match advisor from AuthService.sectionAdvisors by email or username
+        final matchedAdv = AuthService.sectionAdvisors.firstWhere(
+          (a) =>
+              a.email.toLowerCase() == user.email.toLowerCase() ||
+              (user.customUsername != null &&
+                  a.customUsername?.toLowerCase() ==
+                      user.customUsername?.toLowerCase()) ||
+              a.id == user.id,
+          orElse: () => AuthService.sectionAdvisors.first,
+        );
+        _selectedYear = matchedAdv.year ?? 2;
+        _selectedSection = matchedAdv.section ?? 'A';
+      }
     }
     _loadRecords();
   }
@@ -275,8 +290,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     if (_searchQuery.isEmpty) return _records;
     return _records.where((r) {
       final student = _sectionStudents.firstWhere(
-        (s) => s.id == r.studentId,
-        orElse: () => MockDataService.allStudents.first,
+        (s) => s.id == r.studentId || s.rollNumber == r.studentId,
+        orElse: () => MockDataService.allStudents.firstWhere(
+          (s) => s.id == r.studentId || s.rollNumber == r.studentId,
+          orElse: () => MockDataService.allStudents.first,
+        ),
       );
       return student.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           student.rollNumber.contains(_searchQuery);
@@ -462,8 +480,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     itemBuilder: (context, index) {
                       final record = _filteredRecords[index];
                       final student = _sectionStudents.firstWhere(
-                        (s) => s.id == record.studentId,
-                        orElse: () => MockDataService.allStudents.first,
+                        (s) => s.id == record.studentId || s.rollNumber == record.studentId,
+                        orElse: () => MockDataService.allStudents.firstWhere(
+                          (s) => s.id == record.studentId || s.rollNumber == record.studentId,
+                          orElse: () => MockDataService.allStudents.first,
+                        ),
                       );
                       final recordIdx = _records.indexWhere((r) => r.id == record.id);
 
@@ -798,7 +819,7 @@ class _AttendanceTile extends StatelessWidget {
                     ? const Color(0xFFEFF6FF)
                     : const Color(0xFFFEE2E2),
             child: Text(
-              gender == 'Female' ? '♀' : (name.isNotEmpty ? name[0] : 'S'),
+              (gender == 'Female' || gender == 'Girl') ? '♀' : (name.isNotEmpty ? name[0] : 'S'),
               style: TextStyle(
                 fontWeight: FontWeight.w700,
                 fontSize: 13,

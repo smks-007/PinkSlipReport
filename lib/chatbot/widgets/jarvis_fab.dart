@@ -327,74 +327,17 @@ class _JarvisChatDrawerState extends State<_JarvisChatDrawer> with SingleTickerP
           '• **December 2026**: 18 Instructional Days (Model Practical & University End Sem Exams)\n\n'
           '📌 **Key Rules**: Minimum **75%** attendance mandatory | Biometric Morning Cutoff **8:45 AM** | OD Slips submitted within 24h.';
     } else if (q.contains('4th year') || q.contains('fourth year') || q.contains('iv year') || q.contains('muthuselvan') || q.contains('nandhini') || q.contains('final year')) {
-      response = '👨‍🏫 **4th Year (IV Year AI & DS - 2023 Batch) Class Advisors**:\n\n'
-          '• **Section A**: **Mr. Muthuselvan** (`advisor.muthuselvan` / `advisor.4a@vsb.ac.in`)\n'
-          '  - Total Students: 60 | Classroom: MB III A-301\n'
-          '• **Section B**: **Mrs. Nandhinidevi** (`advisor.nandhinidevi` / `advisor.4b@vsb.ac.in`)\n'
-          '  - Total Students: 65 | Classroom: MB III A-302\n\n'
-          '🌟 Total 4th Year Strength: **125 Students** | Placement & Final Year Projects coordination active.';
+      response = _buildAdvisorsText(targetYear: 4);
     } else if (q.contains('2nd year') || q.contains('second year') || q.contains('ii year') || q.contains('anandhan') || q.contains('rajendiran') || q.contains('bharathidasan') || q.contains('palraj')) {
-      response = '👨‍🏫 **2nd Year (II Year AI & DS - 2025 Batch) Class Advisors**:\n\n'
-          '• **Section A**: **Dr. D. Anandhan** (`advisor.anandhan` / `advisor.2a@vsb.ac.in`) — 63 Students\n'
-          '• **Section B**: **Dr. M. Rajendiran** (`advisor.rajendiran` / `advisor.2b@vsb.ac.in`) — 63 Students\n'
-          '• **Section C**: **Mr. A. Bharathidasan** (`advisor.bharathidasan` / `advisor.2c@vsb.ac.in`) — 60 Students\n'
-          '• **Section D**: **Mr. R. Palraj** (`advisor.palraj` / `advisor.2d@vsb.ac.in`) — 66 Students\n\n'
-          '🌟 Total 2nd Year Strength: **252 Students** (2025 Batch).';
+      response = _buildAdvisorsText(targetYear: 2);
     } else if (q.contains('3rd year') || q.contains('third year') || q.contains('iii year') || q.contains('vishnupriya') || q.contains('murugesan') || q.contains('bharathi') || q.contains('velusamy')) {
-      response = '👨‍🏫 **3rd Year (III Year AI & DS - 2024 Batch) Class Advisors**:\n\n'
-          '• **Section A**: **Ms. C. Vishnupriya** (`advisor.vishnupriya` / `advisor.3a@vsb.ac.in`) — 65 Students\n'
-          '• **Section B**: **Dr. R. Murugesan** (`advisor.murugesan` / `advisor.3b@vsb.ac.in`) — 61 Students\n'
-          '• **Section C**: **Mrs. B. Bharathi** (`advisor.bharathi` / `advisor.3c@vsb.ac.in`) — 61 Students\n'
-          '• **Section D**: **Mr. Velusamy** (`advisor.velusamy` / `advisor.3d@vsb.ac.in`) — 63 Students\n\n'
-          '🌟 Total 3rd Year Strength: **250 Students** (2024 Batch).';
+      response = _buildAdvisorsText(targetYear: 3);
     } else if (q.contains('advisor') || q.contains('faculty') || q.contains('staff') || q.contains('teachers')) {
-      response = '👨‍🏫 **All 10 Official Section Class Advisors (Academic Year 2026-2027)**:\n\n'
-          '🏛️ **IV Year (2023 Batch - Final Year)**:\n'
-          '  • IV - A: **Mr. Muthuselvan** (`advisor.muthuselvan`)\n'
-          '  • IV - B: **Mrs. Nandhinidevi** (`advisor.nandhinidevi`)\n\n'
-          '🏛️ **III Year (2024 Batch - V Semester)**:\n'
-          '  • III - A: **Ms. C. Vishnupriya** (`advisor.vishnupriya`)\n'
-          '  • III - B: **Dr. R. Murugesan** (`advisor.murugesan`)\n'
-          '  • III - C: **Mrs. B. Bharathi** (`advisor.bharathi`)\n'
-          '  • III - D: **Mr. Velusamy** (`advisor.velusamy`)\n\n'
-          '🏛️ **II Year (2025 Batch - III Semester)**:\n'
-          '  • II - A: **Dr. D. Anandhan** (`advisor.anandhan`)\n'
-          '  • II - B: **Dr. M. Rajendiran** (`advisor.rajendiran`)\n'
-          '  • II - C: **Mr. A. Bharathidasan** (`advisor.bharathidasan`)\n'
-          '  • II - D: **Mr. R. Palraj** (`advisor.palraj`)\n\n'
-          '🎓 **Head of Department (HOD)**:\n'
-          '  • Overall HOD: **Dr. K. Manivannan (Ph.D.)**\n'
-          '  • Junior Wing HOD: **Mrs. V. Kavitha**';
+      response = _buildAdvisorsText();
     } else if (q.contains('absent') || q.contains('uninformed') || q.contains('leaves today') || q.contains('attendance summary')) {
-      final totalStrength = MockDataService.totalStrength;
-      final pres = MockDataService.presentToday;
-      final abs = MockDataService.absentToday;
-      final pct = MockDataService.attendancePercentage;
-
-      response = '📊 **Today\'s Real-Time Department Attendance Status**:\n\n'
-          '• **Total Department Strength**: **$totalStrength Students** (10 Sections)\n'
-          '• **Total Present Today**: **$pres Students** (${pct.toStringAsFixed(1)}% Turnout)\n'
-          '• **Total Absentees**: **$abs Students**\n\n'
-          '**Section-wise Absentee Breakdown**:\n'
-          '• **II AIDS A**: 6 Absentees (AKHIL M, ARSHAD S, BHARATH M, DHARSAN S, DHARUN K, DHIVAKAR S)\n'
-          '• **II AIDS B**: 3 Absentees (LAKSHAYAA S, LITHESH HARI R, MUGESHDHARAN M)\n'
-          '• **II AIDS C**: 60 Absentees (Full section logged absent)\n'
-          '• **II AIDS D**: 6 Absentees (SANTHOSH RAJ B, SHANMUGA SUNDARAM B, SRI HARISHKUMAR T, TAMILARASAN M, THAMARAIKKANNAN S, VIJAY M)\n'
-          '• **III AIDS A**: 1 Absentee (SANTHOSH A)\n'
-          '• **III AIDS B**: 6 Absentees (KAVIN SHARVESH R, KAVIYA D, KAVYA SHREE TV, LALITHA M, LOGESH S, MAHALAKSHMI K)\n'
-          '• **III AIDS C**: 1 Absentee (SAKTHI BALAN M)\n'
-          '• **III AIDS D**: 2 Absentees (SAKTHI B, VELAVAN A)\n'
-          '• **IV AIDS A**: 7 Absentees (S.AARTHI, S.ELAMATHI, V.GOKUL ANAND, S.GOKUL KRISHNA, M.GOKUL, S.HARI KRISHNA, V.S HARINI)\n'
-          '• **IV AIDS B**: 2 Absentees (P. ROOBALAKSHMI, K. THARANI KUMAR)';
+      response = _buildAbsenteesText();
     } else if (q.contains('pending') || q.contains('approve') || q.contains('signature') || q.contains('queue')) {
-      final pending = MockDataService.pendingHodApprovals;
-      response = '🖋️ **HOD Real-Time Decision Queue**:\n\n'
-          'There are **$pending Applications** forwarded by Class Advisors awaiting your digital signature:\n\n'
-          '1. **Janani Y** (Roll: `25243068`, II AI&DS Sec B) — IIT Madras National AI Symposium OD with Invitation Letter.\n'
-          '2. **Adithyan S** (Roll: `25243002`, II AI&DS Sec A) — State Cricket Zonal Championship OD with Sports Board Letter.\n'
-          '3. **Akash I** (Roll: `24243007`, III AI&DS Sec A) — Smart India Hackathon (SIH) Grand Finale OD.\n'
-          '4. **S. Harini** (Roll: `23243034`, IV AI&DS Sec B) — Zoho Corporation Recruitment Interview OD.\n\n'
-          '💡 You can approve or reject these directly or switch to **Autonomous AI-Agent Mode** to execute auto-approvals.';
+      response = _buildPendingQueueText();
     } else if (q.contains('pink slip') || q.contains('gate pass') || q.contains('pinkslip')) {
       response = '🎫 **Pink Slip & Gate Pass Protocol**:\n\n'
           '• Pink slips are officially generated for student leaves, hospital condonations, and on-duty (OD) campus exits.\n'
@@ -424,6 +367,84 @@ class _JarvisChatDrawerState extends State<_JarvisChatDrawer> with SingleTickerP
 
     return '$errorNotice$response';
   }
+
+  String _buildAdvisorsText({int? targetYear}) {
+    final advisors = AuthService.sectionAdvisors;
+    final buffer = StringBuffer();
+    if (targetYear != null) {
+      final filtered = advisors.where((a) => a.year == targetYear).toList();
+      final yearRoman = targetYear == 2 ? 'II' : (targetYear == 3 ? 'III' : 'IV');
+      buffer.writeln('👨‍🏫 **$targetYear-th Year ($yearRoman Year AI & DS) Class Advisors**:\n');
+      for (final a in filtered) {
+        final sec = a.section ?? '';
+        final str = MockDataService.getSectionStrength(targetYear, sec);
+        buffer.writeln('• **Section $sec**: **${a.name}** (`${a.email}`) — $str Students');
+      }
+    } else {
+      buffer.writeln('👨‍🏫 **Official Section Class Advisors (Academic Year 2026-2027)**:\n');
+      for (int yr = 4; yr >= 2; yr--) {
+        final yearRoman = yr == 2 ? 'II' : (yr == 3 ? 'III' : 'IV');
+        final filtered = advisors.where((a) => a.year == yr).toList();
+        buffer.writeln('🏛️ **$yearRoman Year**:');
+        for (final a in filtered) {
+          buffer.writeln('  • $yearRoman - ${a.section}: **${a.name}** (`${a.email}`)');
+        }
+        buffer.writeln();
+      }
+      buffer.writeln('🎓 **Head of Department (HOD)**:');
+      buffer.writeln('  • Overall HOD: **Dr. K. Manivannan (Ph.D.)** (`${AuthService.overallHod.email}`)');
+      buffer.writeln('  • Junior Wing HOD: **Mrs. V. Kavitha** (`${AuthService.juniorHod.email}`)');
+    }
+    return buffer.toString().trim();
+  }
+
+  String _buildAbsenteesText() {
+    final totalStrength = MockDataService.totalStrength;
+    final pres = MockDataService.presentToday;
+    final abs = MockDataService.absentToday;
+    final pct = MockDataService.attendancePercentage;
+
+    final buffer = StringBuffer('📊 **Today\'s Real-Time Department Attendance Status**:\n\n');
+    buffer.writeln('• **Total Department Strength**: **$totalStrength Students** (10 Sections)');
+    buffer.writeln('• **Total Present Today**: **$pres Students** (${pct.toStringAsFixed(1)}% Turnout)');
+    buffer.writeln('• **Total Absentees**: **$abs Students**\n');
+    buffer.writeln('**Section-wise Absentee Breakdown**:');
+
+    for (int yr = 2; yr <= 4; yr++) {
+      final sections = yr == 4 ? ['A', 'B'] : ['A', 'B', 'C', 'D'];
+      final yearRoman = yr == 2 ? 'II' : (yr == 3 ? 'III' : 'IV');
+      for (final sec in sections) {
+        final students = MockDataService.getStudentsBySection(yr, sec);
+        final absentees = students.where((s) => MockDataService.isStudentAbsent(s.rollNumber)).toList();
+        if (absentees.isEmpty) {
+          buffer.writeln('• **$yearRoman AIDS $sec**: 0 Absentees (100% Present)');
+        } else {
+          final names = absentees.take(6).map((s) => s.name).join(', ');
+          final more = absentees.length > 6 ? ' +${absentees.length - 6} more' : '';
+          buffer.writeln('• **$yearRoman AIDS $sec**: ${absentees.length} Absentees ($names$more)');
+        }
+      }
+    }
+    return buffer.toString().trim();
+  }
+
+  String _buildPendingQueueText() {
+    final pending = MockDataService.getPendingForHod();
+    final buffer = StringBuffer('🖋️ **HOD Real-Time Decision Queue**:\n\n');
+    buffer.writeln('There are **${pending.length} Applications** forwarded by Class Advisors awaiting your digital signature:\n');
+    if (pending.isEmpty) {
+      buffer.writeln('✅ All forwarded applications have been reviewed. No pending items in queue.');
+    } else {
+      for (int i = 0; i < pending.length && i < 5; i++) {
+        final item = pending[i];
+        buffer.writeln('${i + 1}. **${item.studentName}** (Roll: `${item.studentRollNumber}`, Year ${item.year} Sec ${item.section}) — ${item.categoryDisplay}: ${item.reason}');
+      }
+    }
+    buffer.writeln('\n💡 You can approve or reject these directly or switch to **Autonomous AI-Agent Mode** to execute auto-approvals.');
+    return buffer.toString().trim();
+  }
+
+
 
   String _formatProfileResponse(Map<String, dynamic> p) {
     final s = p['student'] as StudentModel;

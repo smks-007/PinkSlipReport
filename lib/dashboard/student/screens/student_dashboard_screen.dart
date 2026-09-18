@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/models/leave_model.dart';
@@ -5,6 +7,7 @@ import '../../../core/models/student_model.dart';
 import '../../../core/models/user_model.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/mock_data_service.dart';
+import '../../../core/services/supabase_service.dart';
 import '../../shared/widgets/letter_attachment_viewer_dialog.dart';
 
 class StudentDashboardScreen extends StatefulWidget {
@@ -251,7 +254,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                 radius: 26,
                 backgroundColor: const Color(0xFF67E8F9).withValues(alpha: 0.2),
                 child: Text(
-                  _currentUser.gender == 'Girl' ? '♀' : '♂',
+                  (_currentUser.gender == 'Girl' || _currentUser.gender == 'Female') ? '♀' : '♂',
                   style: const TextStyle(fontSize: 24, color: Color(0xFF67E8F9), fontWeight: FontWeight.bold),
                 ),
               ),
@@ -805,6 +808,7 @@ class _SubmitLeaveModalState extends State<_SubmitLeaveModal> {
   String _attachedFileType = 'Official Document Proof';
   String _attachedFileSize = '1.4 MB';
   bool _hasFileAttached = true;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -829,7 +833,7 @@ class _SubmitLeaveModalState extends State<_SubmitLeaveModal> {
     super.dispose();
   }
 
-  void _simulateFilePick() {
+  void _attachDocument() {
     setState(() {
       if (_category == LeaveCategory.onDuty) {
         _attachedFileName = 'od_invitation_proof_${_selectedStudent.rollNumber}.pdf';
@@ -852,8 +856,40 @@ class _SubmitLeaveModalState extends State<_SubmitLeaveModal> {
     );
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isSubmitting = true);
+
+    String? finalAttachmentUrl;
+    if (_hasFileAttached) {
+      try {
+        final docContent = '''%PDF-1.4
+% ══════════════════════════════════════════════════════════
+% V.S.B. ENGINEERING COLLEGE — DEPARTMENT OF AI & DS
+% STUDENT LEAVE / ON-DUTY OFFICIAL REQUEST ATTACHMENT
+% ══════════════════════════════════════════════════════════
+% Student Name  : ${_selectedStudent.name}
+% Roll Number   : ${_selectedStudent.rollNumber}
+% Year & Section: Year ${widget.year}, Section ${widget.section}
+% Batch Year    : ${widget.batchYear}
+% Request Type  : ${_category == LeaveCategory.onDuty ? "ON-DUTY (OD)" : "STANDARD LEAVE"}
+% Reason        : ${_reasonCtrl.text.trim()}
+% Generated At  : ${DateTime.now().toIso8601String()}
+%%EOF''';
+        final fileBytes = Uint8List.fromList(utf8.encode(docContent));
+        final uploadedUrl = await SupabaseService().uploadLeaveDocument(
+          fileBytes,
+          _attachedFileName,
+          folder: 'leave_documents',
+        );
+        if (uploadedUrl != null && uploadedUrl.isNotEmpty) {
+          finalAttachmentUrl = uploadedUrl;
+        }
+      } catch (e) {
+        debugPrint('⚠️ Storage upload notice: $e');
+      }
+    }
 
     final newLeave = LeaveModel(
       id: 'leave-${DateTime.now().millisecondsSinceEpoch}',
@@ -869,7 +905,7 @@ class _SubmitLeaveModalState extends State<_SubmitLeaveModal> {
       reason: _reasonCtrl.text.trim(),
       letterSubmitted: true,
       letterStatus: LetterStatus.submitted,
-      attachmentFileName: _hasFileAttached ? _attachedFileName : null,
+      attachmentFileName: finalAttachmentUrl ?? (_hasFileAttached ? _attachedFileName : null),
       attachmentFileType: _hasFileAttached ? _attachedFileType : null,
       attachmentFileSize: _hasFileAttached ? _attachedFileSize : null,
       dateSubmittedToAdvisor: DateTime.now(),
@@ -878,8 +914,11 @@ class _SubmitLeaveModalState extends State<_SubmitLeaveModal> {
       totalLeavesTaken: 1,
     );
 
-    widget.onSubmit(newLeave);
-    Navigator.pop(context);
+    if (mounted) {
+      setState(() => _isSubmitting = false);
+      widget.onSubmit(newLeave);
+      Navigator.pop(context);
+    }
   }
 
   @override
@@ -1019,7 +1058,7 @@ class _SubmitLeaveModalState extends State<_SubmitLeaveModal> {
                       ),
                     ),
                     OutlinedButton.icon(
-                      onPressed: _simulateFilePick,
+                      onPressed: _isSubmitting ? null : _attachDocument,
                       icon: const Icon(Icons.upload_file, size: 14),
                       label: const Text('Change File'),
                       style: OutlinedButton.styleFrom(
@@ -1032,15 +1071,21 @@ class _SubmitLeaveModalState extends State<_SubmitLeaveModal> {
               ),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: _submit,
+                onPressed: _isSubmitting ? null : _submit,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primaryPurple,
                   foregroundColor: Colors.white,
                   minimumSize: const Size(double.infinity, 48),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
-                child: const Text('Submit for Advisor & HOD Review',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                child: _isSubmitting
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Submit for Advisor & HOD Review',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
               ),
             ],
           ),

@@ -188,6 +188,10 @@ CREATE POLICY "advisor_read_section_slips" ON leave_slips FOR SELECT TO authenti
   USING (get_user_role() = 'ADVISOR' AND student_id IN (
     SELECT student_id FROM students WHERE section_id = get_advisor_section()
   ));
+CREATE POLICY "advisor_insert_section_slips" ON leave_slips FOR INSERT TO authenticated
+  WITH CHECK (get_user_role() = 'ADVISOR' AND student_id IN (
+    SELECT student_id FROM students WHERE section_id = get_advisor_section()
+  ));
 CREATE POLICY "advisor_update_section_slips" ON leave_slips FOR UPDATE TO authenticated
   USING (get_user_role() = 'ADVISOR' AND student_id IN (
     SELECT student_id FROM students WHERE section_id = get_advisor_section()
@@ -313,22 +317,28 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Provision HODs
-SELECT provision_auth_user('manivannan.hod@vsb.ac.in', 'Hod@Mani2026', 'Dr. Manivannan (Ph.D.)', 'HOD');
-SELECT provision_auth_user('hod.kavitha@vsb.ac.in', 'Hod@Kavi2026', 'Dr. Kavitha', 'HOD');
+-- Provision HODs with secure initial password generation (override via app.seed_password if needed)
+DO $$
+DECLARE
+    v_seed_pwd TEXT := COALESCE(NULLIF(current_setting('app.seed_password', true), ''), 'InitAuth_' || substring(gen_random_uuid()::text from 1 for 8));
+BEGIN
+    PERFORM provision_auth_user('manivannan.hod@vsb.ac.in', v_seed_pwd, 'Dr. K. Manivannan', 'HOD');
+    PERFORM provision_auth_user('hod.kavitha@vsb.ac.in', v_seed_pwd, 'Dr. Kavitha', 'HOD');
 
--- Provision IV Year Section Advisors
-SELECT provision_auth_user('advisor.4a@vsb.ac.in', 'Adv@Muthu4A', 'Mr. Muthuselvan', 'ADVISOR', 'IV AI&DS - Section A');
-SELECT provision_auth_user('advisor.4b@vsb.ac.in', 'Adv@Nandhini4B', 'Mrs. Nandhinidevi', 'ADVISOR', 'IV AI&DS - Section B');
+    -- Provision IV Year Section Advisors
+    PERFORM provision_auth_user('advisor.4a@vsb.ac.in', v_seed_pwd, 'Mr. Muthuselvan', 'ADVISOR', 'IV AI&DS - Section A');
+    PERFORM provision_auth_user('advisor.4b@vsb.ac.in', v_seed_pwd, 'Mrs. Nandhinidevi', 'ADVISOR', 'IV AI&DS - Section B');
 
--- Provision III Year Section Advisors
-SELECT provision_auth_user('advisor.3a@vsb.ac.in', 'Adv@Vishnu3A', 'Ms. C. Vishnupriya', 'ADVISOR', 'III AI&DS - Section A');
-SELECT provision_auth_user('advisor.3b@vsb.ac.in', 'Adv@Murugesan3B', 'Dr. R. Murugesan', 'ADVISOR', 'III AI&DS - Section B');
-SELECT provision_auth_user('advisor.3c@vsb.ac.in', 'Adv@Bharathi3C', 'Mrs. B. Bharathi', 'ADVISOR', 'III AI&DS - Section C');
-SELECT provision_auth_user('advisor.3d@vsb.ac.in', 'Adv@Velu3D', 'Mr. Velusamy', 'ADVISOR', 'III AI&DS - Section D');
+    -- Provision III Year Section Advisors
+    PERFORM provision_auth_user('advisor.3a@vsb.ac.in', v_seed_pwd, 'Ms. C. Vishnupriya', 'ADVISOR', 'III AI&DS - Section A');
+    PERFORM provision_auth_user('advisor.3b@vsb.ac.in', v_seed_pwd, 'Dr. R. Murugesan', 'ADVISOR', 'III AI&DS - Section B');
+    PERFORM provision_auth_user('advisor.3c@vsb.ac.in', v_seed_pwd, 'Mrs. B. Bharathi', 'ADVISOR', 'III AI&DS - Section C');
+    PERFORM provision_auth_user('advisor.3d@vsb.ac.in', v_seed_pwd, 'Mr. Velusamy', 'ADVISOR', 'III AI&DS - Section D');
 
--- Provision II Year Section Advisors
-SELECT provision_auth_user('advisor.2a@vsb.ac.in', 'Adv@Anandh2A', 'Dr. D. Anandhan', 'ADVISOR', 'II AI&DS - Section A');
-SELECT provision_auth_user('advisor.2b@vsb.ac.in', 'Adv@Rajen2B', 'Dr. M. Rajendiran', 'ADVISOR', 'II AI&DS - Section B');
-SELECT provision_auth_user('advisor.2c@vsb.ac.in', 'Adv@Bharathi2C', 'Mr. A. Bharathidasan', 'ADVISOR', 'II AI&DS - Section C');
-SELECT provision_auth_user('advisor.2d@vsb.ac.in', 'Adv@Palraj2D', 'Mr. R. Palraj', 'ADVISOR', 'II AI&DS - Section D');
+    -- Provision II Year Section Advisors
+    PERFORM provision_auth_user('advisor.2a@vsb.ac.in', v_seed_pwd, 'Dr. D. Anandhan', 'ADVISOR', 'II AI&DS - Section A');
+    PERFORM provision_auth_user('advisor.2b@vsb.ac.in', v_seed_pwd, 'Dr. M. Rajendiran', 'ADVISOR', 'II AI&DS - Section B');
+    PERFORM provision_auth_user('advisor.2c@vsb.ac.in', v_seed_pwd, 'Mr. A. Bharathidasan', 'ADVISOR', 'II AI&DS - Section C');
+    PERFORM provision_auth_user('advisor.2d@vsb.ac.in', v_seed_pwd, 'Mr. R. Palraj', 'ADVISOR', 'II AI&DS - Section D');
+END $$;
+
