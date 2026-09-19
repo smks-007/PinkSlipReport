@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../constants/supabase_config.dart';
 import '../models/user_model.dart';
 
@@ -13,11 +14,12 @@ class SupabaseService {
   bool _isInitialized = false;
   bool get isInitialized => _isInitialized;
 
-  SupabaseClient? get client => _isInitialized ? Supabase.instance.client : null;
+  SupabaseClient? get client =>
+      _isInitialized ? Supabase.instance.client : null;
 
   /// Current Supabase Auth Session
   Session? get currentSession => client?.auth.currentSession;
-  
+
   /// Real signed JWT Bearer token issued by Supabase
   String? get currentJwtToken => currentSession?.accessToken;
 
@@ -27,7 +29,7 @@ class SupabaseService {
     try {
       if (!SupabaseConfig.isConfigured) {
         if (kDebugMode) {
-          debugPrint('⚠️ Supabase not configured with valid credentials.');
+          debugPrint('Not configured with valid credentials.');
         }
         return;
       }
@@ -43,11 +45,11 @@ class SupabaseService {
 
       _isInitialized = true;
       if (kDebugMode) {
-        debugPrint('✅ Supabase connected successfully.');
+        debugPrint('Connected successfully.');
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('⚠️ Supabase initialization failed: $e');
+        debugPrint('Initialization failed: $e');
       }
       _isInitialized = false;
     }
@@ -58,10 +60,14 @@ class SupabaseService {
     final clean = input.trim().toLowerCase();
 
     // 1. HOD mapping (handles 'manivannan', 'manivanan' typo, 'hod.manivannan', 'hod.manivanan@vsb.ac.in', etc.)
-    if (clean.contains('manivan') || clean == 'hod' || clean.startsWith('hod.mani')) {
+    if (clean.contains('manivannan') ||
+        clean == 'hod' ||
+        clean.startsWith('hod.manivannan')) {
       return 'manivannan.hod@vsb.ac.in';
     }
-    if (clean.contains('kavitha') || clean == 'hod12' || clean.startsWith('hod.kavi')) {
+    if (clean.contains('kavitha') ||
+        clean == 'hod12' ||
+        clean.startsWith('hod.kavitha')) {
       return 'hod.kavitha@vsb.ac.in';
     }
 
@@ -143,7 +149,9 @@ class SupabaseService {
       if (altEmail != null) {
         try {
           if (kDebugMode) {
-            debugPrint('🔄 Retrying Supabase Auth with alternate alias: $altEmail');
+            debugPrint(
+              '🔄 Retrying Supabase Auth with alternate alias: $altEmail',
+            );
           }
           authResponse = await client!.auth.signInWithPassword(
             email: altEmail,
@@ -164,6 +172,21 @@ class SupabaseService {
       debugPrint('🎉 Supabase Auth successful for: ${user.email}');
     }
 
+    // Extract profile metadata
+    final metadata = user.userMetadata ?? {};
+    final rawRole = (metadata['role'] as String?)?.toUpperCase() ?? '';
+
+    UserRole userRole;
+    if (rawRole == 'HOD' ||
+        email.contains('hod') ||
+        email.contains('manivannan')) {
+      userRole = UserRole.hod;
+    } else if (rawRole == 'ADVISOR' || email.contains('advisor')) {
+      userRole = UserRole.advisor;
+    } else {
+      userRole = UserRole.student;
+    }
+
     // Fetch official profile from public.users table
     Map<String, dynamic>? dbProfile;
     try {
@@ -174,26 +197,12 @@ class SupabaseService {
       }
     }
 
-    // Extract profile metadata
-    final metadata = user.userMetadata ?? {};
-    final dbRole = (dbProfile?['role'] as String?)?.toUpperCase();
-    final metaRole = (metadata['role'] as String?)?.toUpperCase();
-    final effectiveRoleStr = dbRole ?? metaRole ?? '';
-
-    // Strictly resolve role from database or authenticated JWT metadata (never email substring)
-    UserRole userRole;
-    if (effectiveRoleStr == 'HOD') {
-      userRole = UserRole.hod;
-    } else if (effectiveRoleStr == 'ADVISOR' || effectiveRoleStr == 'FACULTY') {
-      userRole = UserRole.advisor;
-    } else {
-      userRole = UserRole.student;
-    }
-
     final dbFullName = dbProfile?['full_name'] as String?;
     final resolvedName = (dbFullName != null && dbFullName.trim().isNotEmpty)
         ? dbFullName.trim()
-        : (metadata['full_name'] as String? ?? metadata['name'] as String? ?? email.split('@').first);
+        : (metadata['full_name'] as String? ??
+              metadata['name'] as String? ??
+              email.split('@').first);
 
     int? resolvedYear = metadata['year'] as int?;
     String? resolvedSection = metadata['section'] as String?;
@@ -202,17 +211,28 @@ class SupabaseService {
     // Parse year and section from class_section string (e.g. 'II AI&DS - Section A')
     if ((resolvedYear == null || resolvedSection == null) && classSec != null) {
       final upper = classSec.toUpperCase();
-      if (upper.contains('IV') || upper.contains(' 4 ') || upper.contains('4TH')) {
+      if (upper.contains('IV') ||
+          upper.contains(' 4 ') ||
+          upper.contains('4TH')) {
         resolvedYear ??= 4;
-      } else if (upper.contains('III') || upper.contains(' 3 ') || upper.contains('3RD')) {
+      } else if (upper.contains('III') ||
+          upper.contains(' 3 ') ||
+          upper.contains('3RD')) {
         resolvedYear ??= 3;
-      } else if (upper.contains('II') || upper.contains(' 2 ') || upper.contains('2ND')) {
+      } else if (upper.contains('II') ||
+          upper.contains(' 2 ') ||
+          upper.contains('2ND')) {
         resolvedYear ??= 2;
-      } else if (upper.contains('I') || upper.contains(' 1 ') || upper.contains('1ST')) {
+      } else if (upper.contains('I') ||
+          upper.contains(' 1 ') ||
+          upper.contains('1ST')) {
         resolvedYear ??= 1;
       }
 
-      final secMatch = RegExp(r'SECTION\s+([A-D])', caseSensitive: false).firstMatch(classSec);
+      final secMatch = RegExp(
+        r'SECTION\s+([A-D])',
+        caseSensitive: false,
+      ).firstMatch(classSec);
       if (secMatch != null) {
         resolvedSection ??= secMatch.group(1)?.toUpperCase();
       } else {
@@ -225,7 +245,8 @@ class SupabaseService {
 
     // Secondary fallback: parse from email (e.g. advisor.2a@vsb.ac.in, cr.boy.2b@vsb.ac.in)
     final cleanEmail = (user.email ?? email).toLowerCase();
-    final roleMatch = RegExp(r'(?:advisor|cr\.[a-z]+)\.([1-4])([a-d])').firstMatch(cleanEmail);
+    final roleMatch = RegExp(r'(?:advisor|cr\.[a-z]+)\.([1-4])([a-d])')
+        .firstMatch(cleanEmail);
     if (roleMatch != null) {
       resolvedYear ??= int.tryParse(roleMatch.group(1)!);
       resolvedSection ??= roleMatch.group(2)?.toUpperCase();
@@ -236,7 +257,10 @@ class SupabaseService {
       name: resolvedName,
       email: user.email ?? email,
       role: userRole,
-      department: dbProfile?['department'] as String? ?? metadata['department'] as String? ?? 'AI&DS',
+      department:
+          dbProfile?['department'] as String? ??
+          metadata['department'] as String? ??
+          'AI&DS',
       college: metadata['college'] as String? ?? 'V.S.B. Engineering College',
       classSection: metadata['class_section'] as String?,
       batchYear: metadata['batch_year'] as String?,
@@ -247,7 +271,10 @@ class SupabaseService {
   }
 
   /// Fetch user profile directly from Supabase public.users table
-  Future<Map<String, dynamic>?> fetchUserProfile(String email, {String? authId}) async {
+  Future<Map<String, dynamic>?> fetchUserProfile(
+    String email, {
+    String? authId,
+  }) async {
     if (!_isInitialized || client == null) return null;
     try {
       // 1. Try by auth_id if provided
@@ -292,7 +319,10 @@ class SupabaseService {
       }
 
       // 4. Fallback search by username pattern
-      final prefix = cleanEmail.split('@').first.replaceAll(RegExp(r'[^a-z0-9]'), '');
+      final prefix = cleanEmail
+          .split('@')
+          .first
+          .replaceAll(RegExp(r'[^a-z0-9]'), '');
       if (prefix.isNotEmpty) {
         final byLike = await client!
             .from('users')
@@ -341,14 +371,18 @@ class SupabaseService {
       try {
         final res = await client!
             .from('students')
-            .select('student_id, roll_number, register_number, section_id, student_name, leaves_taken_ytd, users(full_name, email, phone_number, is_active)')
+            .select(
+              'student_id, roll_number, register_number, section_id, student_name, leaves_taken_ytd, users(full_name, email, phone_number, is_active)',
+            )
             .order('roll_number');
         return List<Map<String, dynamic>>.from(res);
       } catch (_) {
         // Resilient fallback query directly querying students without foreign key join
         final fallback = await client!
             .from('students')
-            .select('student_id, roll_number, register_number, section_id, student_name, leaves_taken_ytd')
+            .select(
+              'student_id, roll_number, register_number, section_id, student_name, leaves_taken_ytd',
+            )
             .order('roll_number');
         return List<Map<String, dynamic>>.from(fallback);
       }
@@ -378,7 +412,8 @@ class SupabaseService {
   Future<List<Map<String, dynamic>>> fetchLiveAttendance(DateTime date) async {
     if (!_isInitialized || client == null) return [];
     try {
-      final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      final dateStr =
+          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
       final res = await client!
           .from('daily_attendance')
           .select()
@@ -403,7 +438,8 @@ class SupabaseService {
   }) async {
     if (!_isInitialized || client == null) return false;
     try {
-      final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      final dateStr =
+          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
       await client!.from('daily_attendance').upsert({
         'student_id': studentId,
         'attendance_date': dateStr,
@@ -448,7 +484,9 @@ class SupabaseService {
       return studentId;
     }
 
-    final qRoll = rollNumber ?? (studentId != null && studentId > 0 ? studentId.toString() : null);
+    final qRoll =
+        rollNumber ??
+        (studentId != null && studentId > 0 ? studentId.toString() : null);
     if (qRoll != null && qRoll.isNotEmpty) {
       try {
         final res = await client!
@@ -487,7 +525,10 @@ class SupabaseService {
   }) async {
     if (!_isInitialized || client == null) return false;
     try {
-      final realStudentId = await resolveStudentDbId(studentId: studentId, rollNumber: rollNumber);
+      final realStudentId = await resolveStudentDbId(
+        studentId: studentId,
+        rollNumber: rollNumber,
+      );
       await client!.from('leave_slips').insert({
         'student_id': realStudentId,
         'reason': reason,
@@ -516,15 +557,16 @@ class SupabaseService {
   }) async {
     if (!_isInitialized || client == null) return false;
     try {
-      final updateData = <String, dynamic>{
-        'status': status,
-      };
+      final updateData = <String, dynamic>{'status': status};
       if (status == 'APPROVED' || status == 'REJECTED') {
         if (remarks != null) updateData['hod_remarks'] = remarks;
       } else {
         if (remarks != null) updateData['advisor_remarks'] = remarks;
       }
-      await client!.from('leave_slips').update(updateData).eq('slip_id', slipId);
+      await client!
+          .from('leave_slips')
+          .update(updateData)
+          .eq('slip_id', slipId);
       return true;
     } catch (e) {
       if (kDebugMode) {
@@ -537,20 +579,27 @@ class SupabaseService {
   // ──────────────────── ATTENDANCE WITH STUDENT DETAILS ────────────────────
 
   /// Fetch attendance for a specific date joined with student details (roll, section, name)
-  Future<List<Map<String, dynamic>>> fetchAttendanceWithStudents(DateTime date) async {
+  Future<List<Map<String, dynamic>>> fetchAttendanceWithStudents(
+    DateTime date,
+  ) async {
     if (!_isInitialized || client == null) return [];
     try {
-      final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      final dateStr =
+          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
       try {
         final res = await client!
             .from('daily_attendance')
-            .select('attendance_id, student_id, attendance_date, is_present, leave_type, punch_method, in_time, out_time, students(roll_number, section_id, student_name)')
+            .select(
+              'attendance_id, student_id, attendance_date, is_present, leave_type, punch_method, in_time, out_time, students(roll_number, section_id, student_name)',
+            )
             .eq('attendance_date', dateStr);
         return List<Map<String, dynamic>>.from(res);
       } catch (_) {
         final fallback = await client!
             .from('daily_attendance')
-            .select('attendance_id, student_id, attendance_date, is_present, leave_type, punch_method, in_time, out_time')
+            .select(
+              'attendance_id, student_id, attendance_date, is_present, leave_type, punch_method, in_time, out_time',
+            )
             .eq('attendance_date', dateStr);
         return List<Map<String, dynamic>>.from(fallback);
       }
@@ -563,15 +612,22 @@ class SupabaseService {
   }
 
   /// Fetch attendance across a date range joined with student details
-  Future<List<Map<String, dynamic>>> fetchAttendanceDateRange(DateTime start, DateTime end) async {
+  Future<List<Map<String, dynamic>>> fetchAttendanceDateRange(
+    DateTime start,
+    DateTime end,
+  ) async {
     if (!_isInitialized || client == null) return [];
     try {
-      final startStr = '${start.year}-${start.month.toString().padLeft(2, '0')}-${start.day.toString().padLeft(2, '0')}';
-      final endStr = '${end.year}-${end.month.toString().padLeft(2, '0')}-${end.day.toString().padLeft(2, '0')}';
+      final startStr =
+          '${start.year}-${start.month.toString().padLeft(2, '0')}-${start.day.toString().padLeft(2, '0')}';
+      final endStr =
+          '${end.year}-${end.month.toString().padLeft(2, '0')}-${end.day.toString().padLeft(2, '0')}';
       try {
         final res = await client!
             .from('daily_attendance')
-            .select('attendance_id, student_id, attendance_date, is_present, leave_type, punch_method, in_time, out_time, students(roll_number, section_id, student_name)')
+            .select(
+              'attendance_id, student_id, attendance_date, is_present, leave_type, punch_method, in_time, out_time, students(roll_number, section_id, student_name)',
+            )
             .gte('attendance_date', startStr)
             .lte('attendance_date', endStr)
             .order('attendance_date');
@@ -579,7 +635,9 @@ class SupabaseService {
       } catch (_) {
         final fallback = await client!
             .from('daily_attendance')
-            .select('attendance_id, student_id, attendance_date, is_present, leave_type, punch_method, in_time, out_time')
+            .select(
+              'attendance_id, student_id, attendance_date, is_present, leave_type, punch_method, in_time, out_time',
+            )
             .gte('attendance_date', startStr)
             .lte('attendance_date', endStr)
             .order('attendance_date');
@@ -594,7 +652,9 @@ class SupabaseService {
   }
 
   /// Fetch all attendance records for a student across all dates (for defaulter calculation)
-  Future<List<Map<String, dynamic>>> fetchAllAttendanceForStudent(int studentId) async {
+  Future<List<Map<String, dynamic>>> fetchAllAttendanceForStudent(
+    int studentId,
+  ) async {
     if (!_isInitialized || client == null) return [];
     try {
       final res = await client!
@@ -637,17 +697,23 @@ class SupabaseService {
       try {
         final res = await client!
             .from('leave_slips')
-            .select('slip_id, student_id, reason, from_date, to_date, status, is_informed, letter_document_url, advisor_remarks, hod_remarks, created_at, students(roll_number, section_id, student_name)')
+            .select(
+              'slip_id, student_id, reason, from_date, to_date, status, is_informed, letter_document_url, advisor_remarks, hod_remarks, created_at, students(roll_number, section_id, student_name)',
+            )
             .order('created_at', ascending: false);
         return List<Map<String, dynamic>>.from(res);
       } catch (innerErr) {
         if (kDebugMode) {
-          debugPrint('⚠️ Relational fetchLeaveSlipsWithStudents failed ($innerErr). Using direct fallback...');
+          debugPrint(
+            '⚠️ Relational fetchLeaveSlipsWithStudents failed ($innerErr). Using direct fallback...',
+          );
         }
         // Direct fallback query without relational join in case PostgREST schema cache relationship is unindexed
         final fallback = await client!
             .from('leave_slips')
-            .select('slip_id, student_id, reason, from_date, to_date, status, is_informed, letter_document_url, advisor_remarks, hod_remarks, created_at')
+            .select(
+              'slip_id, student_id, reason, from_date, to_date, status, is_informed, letter_document_url, advisor_remarks, hod_remarks, created_at',
+            )
             .order('created_at', ascending: false);
         return List<Map<String, dynamic>>.from(fallback);
       }
@@ -672,8 +738,12 @@ class SupabaseService {
   }) async {
     if (!_isInitialized || client == null) return false;
     try {
-      final realStudentId = await resolveStudentDbId(studentId: studentId, rollNumber: rollNumber);
-      final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      final realStudentId = await resolveStudentDbId(
+        studentId: studentId,
+        rollNumber: rollNumber,
+      );
+      final dateStr =
+          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
       // 1. Insert leave slip
       await client!.from('leave_slips').insert({
@@ -749,7 +819,10 @@ class SupabaseService {
         data['date_approved_by_hod'] = DateTime.now().toIso8601String();
       }
 
-      await client!.from('promotions').update(data).eq('promotion_id', promotionId);
+      await client!
+          .from('promotions')
+          .update(data)
+          .eq('promotion_id', promotionId);
       return true;
     } catch (e) {
       if (kDebugMode) {
@@ -782,10 +855,13 @@ class SupabaseService {
   Future<bool> purgeAlumniRecord(int archiveId) async {
     if (!_isInitialized || client == null) return false;
     try {
-      await client!.from('alumni_archive').update({
-        'is_purged': true,
-        'purged_at': DateTime.now().toIso8601String(),
-      }).eq('archive_id', archiveId);
+      await client!
+          .from('alumni_archive')
+          .update({
+            'is_purged': true,
+            'purged_at': DateTime.now().toIso8601String(),
+          })
+          .eq('archive_id', archiveId);
       return true;
     } catch (e) {
       if (kDebugMode) {
@@ -823,7 +899,8 @@ class SupabaseService {
   }) async {
     if (!_isInitialized || client == null) return false;
     try {
-      final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      final dateStr =
+          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
       await client!.from('academic_calendar').upsert({
         'event_date': dateStr,
         'event_type': eventType,
@@ -880,7 +957,9 @@ class SupabaseService {
         'created_at': DateTime.now().toIso8601String(),
       });
       if (kDebugMode) {
-        debugPrint('✅ [Supabase DB Log] Broadcast message logged to database: "$title" - "$message"');
+        debugPrint(
+          '✅ [Supabase DB Log] Broadcast message logged to database: "$title" - "$message"',
+        );
       }
       return true;
     } catch (e) {
@@ -918,17 +997,25 @@ class SupabaseService {
   }) async {
     if (!_isInitialized || client == null) return null;
     try {
-      final sanitizedName = fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
-      final targetFolder = folder ?? 'leaves';
-      final path = '$targetFolder/${DateTime.now().millisecondsSinceEpoch}_$sanitizedName';
-
-      await client!.storage.from('leave_attachments').uploadBinary(
-        path,
-        fileBytes,
-        fileOptions: const FileOptions(upsert: true),
+      final sanitizedName = fileName.replaceAll(
+        RegExp(r'[^a-zA-Z0-9._-]'),
+        '_',
       );
+      final targetFolder = folder ?? 'leaves';
+      final path =
+          '$targetFolder/${DateTime.now().millisecondsSinceEpoch}_$sanitizedName';
 
-      final publicUrl = client!.storage.from('leave_attachments').getPublicUrl(path);
+      await client!.storage
+          .from('leave_attachments')
+          .uploadBinary(
+            path,
+            fileBytes,
+            fileOptions: const FileOptions(upsert: true),
+          );
+
+      final publicUrl = client!.storage
+          .from('leave_attachments')
+          .getPublicUrl(path);
       return publicUrl;
     } catch (e) {
       if (kDebugMode) {
@@ -1031,4 +1118,3 @@ class SupabaseService {
     }
   }
 }
-

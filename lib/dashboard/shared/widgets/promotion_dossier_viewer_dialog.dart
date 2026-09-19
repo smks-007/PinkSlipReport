@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/models/promotion_model.dart';
 import '../../../../core/models/user_model.dart';
 import '../../../../core/services/auth_service.dart';
-import '../../../../core/services/mock_data_service.dart';
+import '../../../core/services/data_service.dart';
 import '../../../../core/data/student_directory_data.dart';
 
 /// Full interactive Academic Progression & Batch Promotion Dossier Viewer.

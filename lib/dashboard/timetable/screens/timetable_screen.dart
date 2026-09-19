@@ -5,6 +5,7 @@ import '../../../core/models/timetable_model.dart';
 import '../../../core/models/user_model.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/timetable_data_service.dart';
+import '../../shared/widgets/google_calendar_sheet.dart';
 
 /// Interactive Timetable Screen for 2nd Year B.Tech AI&DS (Sections A, B, C, D).
 class TimetableScreen extends StatefulWidget {
@@ -93,6 +94,11 @@ class _TimetableScreenState extends State<TimetableScreen>
           style: AppStyles.headingMedium.copyWith(fontSize: 18),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.calendar_month_rounded, color: Color(0xFF4285F4)),
+            tooltip: 'Google Calendar Events',
+            onPressed: () => GoogleCalendarSheet.show(context),
+          ),
           IconButton(
             icon: const Icon(Icons.menu_book_rounded, color: AppColors.primaryPurple),
             tooltip: 'View Subject & Faculty Details',

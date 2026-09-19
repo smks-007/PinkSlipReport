@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../../core/services/auth_service.dart';
-import '../../core/services/mock_data_service.dart';
+import 'data_service.dart';
 
 /// Service to interact with Google Gemini AI API for HOD intelligence and general assistance.
 class GeminiService {

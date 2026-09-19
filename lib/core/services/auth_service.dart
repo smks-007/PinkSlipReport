@@ -408,7 +408,7 @@ class AuthService extends ChangeNotifier {
           await MockDataService.syncFromSupabase();
         } catch (e) {
           if (kDebugMode) {
-            debugPrint('⚠️ Post-login sync warning: $e');
+            debugPrint('Post-login sync warning: $e');
           }
         }
 
@@ -443,7 +443,7 @@ class AuthService extends ChangeNotifier {
     if (_failedAttempts >= 5) {
       _lockoutUntil = DateTime.now().add(const Duration(minutes: 5));
       if (kDebugMode) {
-        debugPrint('🔒 Account locked after $_failedAttempts failed attempts.');
+        debugPrint('Account locked after $_failedAttempts failed attempts.');
       }
     }
   }
@@ -473,14 +473,14 @@ class AuthService extends ChangeNotifier {
             department: dbDept ?? _currentUser!.department,
           );
           if (kDebugMode) {
-            debugPrint('🔄 Updated user profile from DB: ${_currentUser!.name}');
+            debugPrint('Updated user profile from DB: ${_currentUser!.name}');
           }
           notifyListeners();
         }
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('⚠️ Error refreshing user profile from DB: $e');
+        debugPrint('Error refreshing user profile from DB: $e');
       }
     }
   }
@@ -526,14 +526,14 @@ class AuthService extends ChangeNotifier {
         if (loadedAdvisors.isNotEmpty) {
           _dynamicAdvisors = loadedAdvisors;
           if (kDebugMode) {
-            debugPrint('✅ Synced ${_dynamicAdvisors.length} advisors dynamically from database');
+            debugPrint('Synced ${_dynamicAdvisors.length} advisors dynamically from database');
           }
           notifyListeners();
         }
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('⚠️ Error syncing faculty from DB: $e');
+        debugPrint('Error syncing faculty from DB: $e');
       }
     }
   }

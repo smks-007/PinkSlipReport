@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_styles.dart';
 import '../../../core/models/user_model.dart';
@@ -6,7 +7,7 @@ import '../../../core/models/student_model.dart';
 import '../../../core/models/leave_model.dart';
 import '../../../core/models/promotion_model.dart';
 import '../../../core/services/auth_service.dart';
-import '../../../core/services/mock_data_service.dart';
+import '../../../core/services/data_service.dart';
 import '../../../core/data/student_directory_data.dart';
 import '../../../core/widgets/smart_pro_logo.dart';
 import '../../shared/widgets/create_pink_slip_dialog.dart';
@@ -49,25 +50,7 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
   void _initAdvisorUser() {
     final loggedIn = AuthService().currentUser;
     if (loggedIn != null && loggedIn.role == UserRole.advisor) {
-      if (loggedIn.year != null && loggedIn.section != null) {
-        _currentAdvisor = loggedIn;
-      } else {
-        final matchedAdv = AuthService.sectionAdvisors.firstWhere(
-          (a) =>
-              a.email.toLowerCase() == loggedIn.email.toLowerCase() ||
-              (loggedIn.customUsername != null &&
-                  a.customUsername?.toLowerCase() ==
-                      loggedIn.customUsername?.toLowerCase()) ||
-              a.id == loggedIn.id,
-          orElse: () => AuthService.sectionAdvisors.first,
-        );
-        _currentAdvisor = loggedIn.copyWith(
-          year: loggedIn.year ?? matchedAdv.year,
-          section: loggedIn.section ?? matchedAdv.section,
-          classSection: loggedIn.classSection ?? matchedAdv.classSection,
-          batchYear: loggedIn.batchYear ?? matchedAdv.batchYear,
-        );
-      }
+      _currentAdvisor = loggedIn;
     } else {
       _currentAdvisor = AuthService.sectionAdvisors.firstWhere(
         (a) => a.id == 'adv-2a', // Default to II-A Dr. Anandhan
@@ -108,7 +91,7 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
   Widget build(BuildContext context) {
     final year = _currentAdvisor.year ?? 2;
     final section = _currentAdvisor.section ?? 'A';
-    final students = MockDataService.getStudentsBySection(year, section);
+    final students = StudentDirectoryData.bySection['$year-$section'] ?? [];
     final filteredStudents = students.where((s) {
       if (_studentSearchQuery.isEmpty) return true;
       return s.name.toLowerCase().contains(_studentSearchQuery.toLowerCase()) ||
@@ -116,7 +99,10 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
     }).toList();
 
     final defaulters = MockDataService.getDefaultersBySection(year, section);
-    final pendingPromotions = MockDataService.getPendingPromotionsForAdvisor(year, section);
+    final pendingPromotions = MockDataService.getPendingPromotionsForAdvisor(
+      year,
+      section,
+    );
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -124,7 +110,10 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
         heroTag: 'fab_issue_pink_slip',
         onPressed: () => _openCreatePinkSlipDialog(),
         icon: const Icon(Icons.note_add_rounded, size: 18),
-        label: const Text('Issue Pink Slip', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+        label: const Text(
+          'Issue Pink Slip',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+        ),
         backgroundColor: const Color(0xFFEA580C),
         foregroundColor: Colors.white,
       ),
@@ -142,7 +131,8 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                   const SizedBox(height: 12),
 
                   // Live HOD Broadcast Alert Banner (In-App Notification)
-                  if (MockDataService.broadcastNotices.isNotEmpty && MockDataService.unreadNoticeCount > 0) ...[
+                  if (MockDataService.broadcastNotices.isNotEmpty &&
+                      MockDataService.unreadNoticeCount > 0) ...[
                     _buildBroadcastAlertBanner(),
                     const SizedBox(height: 12),
                   ],
@@ -152,7 +142,11 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
 
                   // Academic Year-End Promotion Review Card (7-10 Day Grace Window)
                   if (pendingPromotions.isNotEmpty) ...[
-                    _buildAdvisorPromotionCard(pendingPromotions.first, year, section),
+                    _buildAdvisorPromotionCard(
+                      pendingPromotions.first,
+                      year,
+                      section,
+                    ),
                     const SizedBox(height: 20),
                   ],
 
@@ -173,7 +167,12 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                   const SizedBox(height: 24),
 
                   // Full Class Student Roster
-                  _buildStudentRosterSection(filteredStudents, students.length, year, section),
+                  _buildStudentRosterSection(
+                    filteredStudents,
+                    students.length,
+                    year,
+                    section,
+                  ),
                   const SizedBox(height: 24),
 
                   _buildRecentPinkSlipsHeader(),
@@ -224,7 +223,11 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
               ),
               const Text(
                 'Dept of AI & DS • Class Advisor Portal',
-                style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                style: TextStyle(
+                  fontSize: 10.5,
+                  color: Color(0xFF64748B),
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ],
           ),
@@ -233,7 +236,11 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
             icon: Stack(
               clipBehavior: Clip.none,
               children: [
-                const Icon(Icons.notifications_outlined, size: 24, color: Color(0xFF6366F1)),
+                const Icon(
+                  Icons.notifications_outlined,
+                  size: 24,
+                  color: Color(0xFF6366F1),
+                ),
                 if (MockDataService.unreadNoticeCount > 0)
                   Positioned(
                     top: -4,
@@ -244,10 +251,17 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                         color: Color(0xFFEF4444),
                         shape: BoxShape.circle,
                       ),
-                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
                       child: Text(
                         '${MockDataService.unreadNoticeCount}',
-                        style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.bold,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -258,7 +272,11 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
             onPressed: () => _showNoticesBottomSheet(),
           ),
           IconButton(
-            icon: const Icon(Icons.dns_rounded, size: 22, color: Color(0xFF0284C7)),
+            icon: const Icon(
+              Icons.dns_rounded,
+              size: 22,
+              color: Color(0xFF0284C7),
+            ),
             tooltip: 'Storage Telemetry & Data Center',
             onPressed: () => showDialog(
               context: context,
@@ -266,7 +284,11 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.logout_rounded, size: 22, color: Color(0xFFEF4444)),
+            icon: const Icon(
+              Icons.logout_rounded,
+              size: 22,
+              color: Color(0xFFEF4444),
+            ),
             tooltip: 'Sign Out',
             onPressed: () async {
               final confirmed = await showDialog<bool>(
@@ -275,8 +297,17 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                   title: const Text('Sign Out'),
                   content: const Text('Are you sure you want to sign out?'),
                   actions: [
-                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                    TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sign Out', style: TextStyle(color: Color(0xFFEF4444)))),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text(
+                        'Sign Out',
+                        style: TextStyle(color: Color(0xFFEF4444)),
+                      ),
+                    ),
                   ],
                 ),
               );
@@ -293,7 +324,9 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
   }
 
   Widget _buildBroadcastAlertBanner() {
-    final unreadNotices = MockDataService.broadcastNotices.where((n) => !n.isRead).toList();
+    final unreadNotices = MockDataService.broadcastNotices
+        .where((n) => !n.isRead)
+        .toList();
     if (unreadNotices.isEmpty) return const SizedBox.shrink();
     final latest = unreadNotices.first;
     final isUrgent = latest.isUrgent;
@@ -311,7 +344,9 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
           ),
           boxShadow: [
             BoxShadow(
-              color: (isUrgent ? Colors.red : Colors.blue).withValues(alpha: 0.08),
+              color: (isUrgent ? Colors.red : Colors.blue).withValues(
+                alpha: 0.08,
+              ),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -325,29 +360,44 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: isUrgent ? const Color(0xFFEF4444) : const Color(0xFF2563EB),
+                    color: isUrgent
+                        ? const Color(0xFFEF4444)
+                        : const Color(0xFF2563EB),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.campaign_rounded, color: Colors.white, size: 16),
+                  child: const Icon(
+                    Icons.campaign_rounded,
+                    color: Colors.white,
+                    size: 16,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Row(
                     children: [
                       Text(
-                        isUrgent ? 'URGENT HOD BROADCAST' : 'DEPARTMENT CIRCULAR',
+                        isUrgent
+                            ? 'URGENT HOD BROADCAST'
+                            : 'DEPARTMENT CIRCULAR',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 0.5,
-                          color: isUrgent ? const Color(0xFFB91C1C) : const Color(0xFF1D4ED8),
+                          color: isUrgent
+                              ? const Color(0xFFB91C1C)
+                              : const Color(0xFF1D4ED8),
                         ),
                       ),
                       const Spacer(),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
-                          color: isUrgent ? const Color(0xFFFEE2E2) : const Color(0xFFDBEAFE),
+                          color: isUrgent
+                              ? const Color(0xFFFEE2E2)
+                              : const Color(0xFFDBEAFE),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
@@ -355,7 +405,9 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
-                            color: isUrgent ? const Color(0xFF991B1B) : const Color(0xFF1E40AF),
+                            color: isUrgent
+                                ? const Color(0xFF991B1B)
+                                : const Color(0xFF1E40AF),
                           ),
                         ),
                       ),
@@ -370,7 +422,9 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
-                color: isUrgent ? const Color(0xFF7F1D1D) : const Color(0xFF1E3A8A),
+                color: isUrgent
+                    ? const Color(0xFF7F1D1D)
+                    : const Color(0xFF1E3A8A),
               ),
             ),
             const SizedBox(height: 4),
@@ -378,7 +432,11 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
               latest.message,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11.5, color: Color(0xFF334155), height: 1.3),
+              style: const TextStyle(
+                fontSize: 11.5,
+                color: Color(0xFF334155),
+                height: 1.3,
+              ),
             ),
             const SizedBox(height: 10),
             Row(
@@ -386,19 +444,31 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
               children: [
                 Text(
                   'From: ${latest.senderName} • ${latest.targetAudience}',
-                  style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Color(0xFF64748B),
+                  ),
                 ),
                 InkWell(
                   onTap: () => _showNoticesBottomSheet(),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
-                      color: isUrgent ? const Color(0xFFEF4444) : const Color(0xFF2563EB),
+                      color: isUrgent
+                          ? const Color(0xFFEF4444)
+                          : const Color(0xFF2563EB),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: const Text(
                       'View Notice →',
-                      style: TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
@@ -439,10 +509,15 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF6366F1).withValues(alpha: 0.1),
+                            color: const Color(0xFF6366F1)
+                                .withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Icon(Icons.notifications_active_rounded, color: Color(0xFF6366F1), size: 22),
+                          child: const Icon(
+                            Icons.notifications_active_rounded,
+                            color: Color(0xFF6366F1),
+                            size: 22,
+                          ),
                         ),
                         const SizedBox(width: 10),
                         Column(
@@ -450,11 +525,18 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                           children: [
                             const Text(
                               'Department Broadcast Notices',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: Color(0xFF0F172A),
+                              ),
                             ),
                             Text(
                               '${MockDataService.unreadNoticeCount} unread announcements from HOD',
-                              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF64748B),
+                              ),
                             ),
                           ],
                         ),
@@ -471,14 +553,27 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton.icon(
-                      style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                      ),
                       onPressed: () async {
                         await MockDataService.markAllNoticesAsRead();
                         setSheetState(() {});
                         setState(() {});
                       },
-                      icon: const Icon(Icons.done_all_rounded, size: 16, color: Color(0xFF6366F1)),
-                      label: const Text('Mark All as Read', style: TextStyle(fontSize: 11.5, color: Color(0xFF6366F1), fontWeight: FontWeight.bold)),
+                      icon: const Icon(
+                        Icons.done_all_rounded,
+                        size: 16,
+                        color: Color(0xFF6366F1),
+                      ),
+                      label: const Text(
+                        'Mark All as Read',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: Color(0xFF6366F1),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
                 const SizedBox(height: 6),
@@ -488,29 +583,52 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: const [
-                              Icon(Icons.mark_chat_read_rounded, size: 48, color: Color(0xFFCBD5E1)),
+                              Icon(
+                                Icons.mark_chat_read_rounded,
+                                size: 48,
+                                color: Color(0xFFCBD5E1),
+                              ),
                               SizedBox(height: 12),
-                              Text('No Broadcast Notices', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+                              Text(
+                                'No Broadcast Notices',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
                               SizedBox(height: 4),
-                              Text('Official circulars and announcements from HOD will appear here.', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                              Text(
+                                'Official circulars and announcements from HOD will appear here.',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF94A3B8),
+                                ),
+                              ),
                             ],
                           ),
                         )
                       : ListView.separated(
                           itemCount: notices.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 10),
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: 10),
                           itemBuilder: (context, index) {
                             final n = notices[index];
                             final isUrgent = n.isUrgent;
                             return Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: n.isRead ? const Color(0xFFF8FAFC) : (isUrgent ? const Color(0xFFFEF2F2) : const Color(0xFFEEF2FF)),
+                                color: n.isRead
+                                    ? const Color(0xFFF8FAFC)
+                                    : (isUrgent
+                                          ? const Color(0xFFFEF2F2)
+                                          : const Color(0xFFEEF2FF)),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
                                   color: n.isRead
                                       ? const Color(0xFFE2E8F0)
-                                      : (isUrgent ? const Color(0xFFFCA5A5) : const Color(0xFFC7D2FE)),
+                                      : (isUrgent
+                                            ? const Color(0xFFFCA5A5)
+                                            : const Color(0xFFC7D2FE)),
                                 ),
                               ),
                               child: Column(
@@ -519,26 +637,46 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                                   Row(
                                     children: [
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 2,
+                                        ),
                                         decoration: BoxDecoration(
-                                          color: isUrgent ? const Color(0xFFEF4444) : const Color(0xFF6366F1),
-                                          borderRadius: BorderRadius.circular(4),
+                                          color: isUrgent
+                                              ? const Color(0xFFEF4444)
+                                              : const Color(0xFF6366F1),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
                                         ),
                                         child: Text(
                                           n.priority.toUpperCase(),
-                                          style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Colors.white),
+                                          style: const TextStyle(
+                                            fontSize: 9.5,
+                                            fontWeight: FontWeight.w900,
+                                            color: Colors.white,
+                                          ),
                                         ),
                                       ),
                                       const SizedBox(width: 6),
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 2,
+                                        ),
                                         decoration: BoxDecoration(
                                           color: const Color(0xFFE2E8F0),
-                                          borderRadius: BorderRadius.circular(4),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
                                         ),
                                         child: Text(
                                           n.templateType,
-                                          style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                                          style: const TextStyle(
+                                            fontSize: 9.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF475569),
+                                          ),
                                         ),
                                       ),
                                       const Spacer(),
@@ -559,34 +697,54 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 13,
-                                      color: n.isRead ? const Color(0xFF334155) : const Color(0xFF0F172A),
+                                      color: n.isRead
+                                          ? const Color(0xFF334155)
+                                          : const Color(0xFF0F172A),
                                     ),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
                                     n.message,
-                                    style: const TextStyle(fontSize: 11.5, color: Color(0xFF475569), height: 1.3),
+                                    style: const TextStyle(
+                                      fontSize: 11.5,
+                                      color: Color(0xFF475569),
+                                      height: 1.3,
+                                    ),
                                   ),
                                   const SizedBox(height: 8),
                                   Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
                                         'From: ${n.senderName} • Target: ${n.targetAudience}',
-                                        style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          color: Color(0xFF94A3B8),
+                                        ),
                                       ),
                                       if (!n.isRead)
                                         TextButton(
                                           style: TextButton.styleFrom(
-                                            visualDensity: VisualDensity.compact,
+                                            visualDensity:
+                                                VisualDensity.compact,
                                             padding: EdgeInsets.zero,
                                           ),
                                           onPressed: () async {
-                                            await MockDataService.markNoticeAsRead(n.id);
+                                            await MockDataService.markNoticeAsRead(
+                                              n.id,
+                                            );
                                             setSheetState(() {});
                                             setState(() {});
                                           },
-                                          child: const Text('Mark Read', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF6366F1))),
+                                          child: const Text(
+                                            'Mark Read',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFF6366F1),
+                                            ),
+                                          ),
                                         ),
                                     ],
                                   ),
@@ -616,7 +774,11 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
         ),
         child: Row(
           children: [
-            const Icon(Icons.lock_person_rounded, size: 18, color: Color(0xFF4F46E5)),
+            const Icon(
+              Icons.lock_person_rounded,
+              size: 18,
+              color: Color(0xFF4F46E5),
+            ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -662,25 +824,39 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF10B981),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Text(
                     '👨‍🏫 Class Advisor Portal',
-                    style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     '${_currentAdvisor.classSection} (${_currentAdvisor.batchYear ?? "2025 BATCH"})',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.white),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ],
@@ -705,14 +881,21 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF38BDF8),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     '@${_currentAdvisor.username}',
-                    style: const TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.bold, fontSize: 11),
+                    style: const TextStyle(
+                      color: Color(0xFF0F172A),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                    ),
                   ),
                 ),
               ],
@@ -720,7 +903,10 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
             const SizedBox(height: 6),
             Text(
               '${_currentAdvisor.email} • ${_currentAdvisor.college}',
-              style: TextStyle(fontSize: 11.5, color: Colors.white.withValues(alpha: 0.85)),
+              style: TextStyle(
+                fontSize: 11.5,
+                color: Colors.white.withValues(alpha: 0.85),
+              ),
             ),
           ],
         ),
@@ -728,7 +914,11 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
     );
   }
 
-  Widget _buildAdvisorPromotionCard(PromotionRequest promotion, int year, String section) {
+  Widget _buildAdvisorPromotionCard(
+    PromotionRequest promotion,
+    int year,
+    String section,
+  ) {
     final isGrad = promotion.isGraduation;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -741,7 +931,10 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.5), width: 1.5),
+          border: Border.all(
+            color: const Color(0xFF38BDF8).withValues(alpha: 0.5),
+            width: 1.5,
+          ),
           boxShadow: [
             BoxShadow(
               color: const Color(0xFF0EA5E9).withValues(alpha: 0.15),
@@ -760,9 +953,16 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                   decoration: BoxDecoration(
                     color: const Color(0xFF0284C7).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFF38BDF8), width: 1),
+                    border: Border.all(
+                      color: const Color(0xFF38BDF8),
+                      width: 1,
+                    ),
                   ),
-                  child: const Icon(Icons.school_rounded, color: Color(0xFF38BDF8), size: 22),
+                  child: const Icon(
+                    Icons.school_rounded,
+                    color: Color(0xFF38BDF8),
+                    size: 22,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -772,34 +972,54 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFF10B981),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Text(
                               'SEM 2 COMPLETED',
-                              style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 6),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFF6366F1),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
                               '${promotion.graceTransitionDays}-Day Grace Period Elapsed',
-                              style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        isGrad ? 'Graduation & Alumni Archival Ready' : 'Year-End Class Promotion Ready',
-                        style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.bold),
+                        isGrad
+                            ? 'Graduation & Alumni Archival Ready'
+                            : 'Year-End Class Promotion Ready',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
@@ -819,11 +1039,18 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Eligible Promotion', style: TextStyle(color: Colors.white60, fontSize: 11)),
+                        const Text(
+                          'Eligible Promotion',
+                          style: TextStyle(color: Colors.white60, fontSize: 11),
+                        ),
                         const SizedBox(height: 2),
                         Text(
                           promotion.promotionTitle,
-                          style: const TextStyle(color: Color(0xFF7DD3FC), fontSize: 12.5, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            color: Color(0xFF7DD3FC),
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     ),
@@ -831,11 +1058,18 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      const Text('Total Students', style: TextStyle(color: Colors.white60, fontSize: 11)),
+                      const Text(
+                        'Total Students',
+                        style: TextStyle(color: Colors.white60, fontSize: 11),
+                      ),
                       const SizedBox(height: 2),
                       Text(
                         '${promotion.totalStudents} Students',
-                        style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
@@ -850,15 +1084,24 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.white,
                       side: const BorderSide(color: Color(0xFF7DD3FC)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 10),
                     ),
                     icon: const Icon(Icons.folder_open_rounded, size: 15),
-                    label: const Text('Inspect Dossier & Proofs', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                    label: const Text(
+                      'Inspect Dossier & Proofs',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     onPressed: () => PromotionDossierViewerDialog.show(
                       context,
                       promotion: promotion,
-                      onAdvisorForward: () => _showAdvisorPromotionDialog(promotion),
+                      onAdvisorForward: () =>
+                          _showAdvisorPromotionDialog(promotion),
                     ),
                   ),
                 ),
@@ -868,11 +1111,19 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF0284C7),
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 10),
                     ),
                     icon: const Icon(Icons.verified_user_outlined, size: 15),
-                    label: const Text('Endorse to HOD', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                    label: const Text(
+                      'Endorse to HOD',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     onPressed: () => _showAdvisorPromotionDialog(promotion),
                   ),
                 ),
@@ -885,7 +1136,9 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
   }
 
   void _showAdvisorPromotionDialog(PromotionRequest promotion) {
-    final remarksCtrl = TextEditingController(text: promotion.advisorRemarks ?? 'All students cleared academic credits & attendance criteria. Verified for promotion.');
+    final remarksCtrl = TextEditingController(
+      text: promotion.advisorRemarks ?? 'All students cleared academic credits & attendance criteria. Verified for promotion.',
+    );
 
     showDialog(
       context: context,
@@ -900,7 +1153,11 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
             const Expanded(
               child: Text(
                 'Endorse Academic Promotion',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
               ),
             ),
           ],
@@ -924,20 +1181,33 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                     children: [
                       Text(
                         'Target: ${promotion.promotionTitle}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0369A1)),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: Color(0xFF0369A1),
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Completed: Semester ${promotion.semesterCompleted} (Academic Term End)',
-                        style: const TextStyle(fontSize: 11.5, color: Color(0xFF0C4A6E)),
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          color: Color(0xFF0C4A6E),
+                        ),
                       ),
                       Text(
                         'Evaluation Window: ${promotion.graceTransitionDays} days elapsed post 2nd Sem',
-                        style: const TextStyle(fontSize: 11.5, color: Color(0xFF0C4A6E)),
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          color: Color(0xFF0C4A6E),
+                        ),
                       ),
                       Text(
                         'Total Batch Strength: ${promotion.totalStudents} Active Students',
-                        style: const TextStyle(fontSize: 11.5, color: Color(0xFF0C4A6E)),
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          color: Color(0xFF0C4A6E),
+                        ),
                       ),
                     ],
                   ),
@@ -945,18 +1215,30 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                 const SizedBox(height: 14),
                 const Text(
                   'Advisor Clearance Checklist:',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF1E293B)),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12.5,
+                    color: Color(0xFF1E293B),
+                  ),
                 ),
                 const SizedBox(height: 6),
                 _buildChecklistRow('✅ Semester 1 & 2 Credits verified'),
                 _buildChecklistRow('✅ Attendance cutoff minimums validated'),
-                _buildChecklistRow('✅ Lab/Practical examination clearance recorded'),
+                _buildChecklistRow(
+                  '✅ Lab/Practical examination clearance recorded',
+                ),
                 if (promotion.isGraduation)
-                  _buildChecklistRow('✅ 2-Year Alumni Data Retention Policy acknowledged'),
+                  _buildChecklistRow(
+                    '✅ 2-Year Alumni Data Retention Policy acknowledged',
+                  ),
                 const SizedBox(height: 14),
                 const Text(
                   'Advisor Endorsement Remarks to HOD:',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF1E293B)),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12.5,
+                    color: Color(0xFF1E293B),
+                  ),
                 ),
                 const SizedBox(height: 6),
                 TextField(
@@ -967,7 +1249,10 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                     hintText: 'Enter endorsement notes for HOD...',
                     filled: true,
                     fillColor: const Color(0xFFF8FAFC),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                    ),
                   ),
                 ),
               ],
@@ -983,10 +1268,15 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0284C7),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             icon: const Icon(Icons.send_rounded, size: 16),
-            label: const Text('Forward to HOD', style: TextStyle(fontWeight: FontWeight.bold)),
+            label: const Text(
+              'Forward to HOD',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             onPressed: () {
               MockDataService.advisorForwardPromotion(
                 promotion.id,
@@ -996,7 +1286,9 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('✅ Successfully forwarded ${promotion.promotionTitle} promotion to HOD for final approval.'),
+                  content: Text(
+                    '✅ Successfully forwarded ${promotion.promotionTitle} promotion to HOD for final approval.',
+                  ),
                   backgroundColor: const Color(0xFF059669),
                 ),
               );
@@ -1010,7 +1302,10 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
   Widget _buildChecklistRow(String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
-      child: Text(text, style: const TextStyle(fontSize: 11.5, color: Color(0xFF334155))),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 11.5, color: Color(0xFF334155)),
+      ),
     );
   }
 
@@ -1029,23 +1324,38 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
           children: [
             Row(
               children: [
-                const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 20),
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  color: Color(0xFFDC2626),
+                  size: 20,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     '⚠️ Low Attendance Alert (< 75% Cutoff)',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF991B1B)),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF991B1B),
+                    ),
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFDC2626),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     '${defaulters.length} Students',
-                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
@@ -1061,7 +1371,10 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
               final pct = d['percentage'] as double;
               return Container(
                 margin: const EdgeInsets.only(bottom: 6),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(8),
@@ -1072,11 +1385,19 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                   children: [
                     Text(
                       '${student.name} (${student.rollNumber})',
-                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A),
+                      ),
                     ),
                     Text(
                       '${pct.toStringAsFixed(1)}%',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFDC2626)),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFDC2626),
+                      ),
                     ),
                   ],
                 ),
@@ -1095,10 +1416,15 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                   foregroundColor: const Color(0xFF991B1B),
                   side: const BorderSide(color: Color(0xFFFCA5A5)),
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
                 icon: const Icon(Icons.mark_email_read_rounded, size: 14),
-                label: const Text('View Parent Intimation Letters & Defaulter Register', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                label: const Text(
+                  'View Parent Intimation Letters & Defaulter Register',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                ),
               ),
             ),
           ],
@@ -1110,7 +1436,13 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Text(title, style: AppStyles.headingMedium.copyWith(fontSize: 15, color: const Color(0xFF0F172A))),
+      child: Text(
+        title,
+        style: AppStyles.headingMedium.copyWith(
+          fontSize: 15,
+          color: const Color(0xFF0F172A),
+        ),
+      ),
     );
   }
 
@@ -1119,8 +1451,14 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
     final present = MockDataService.getSectionPresent(year, section);
     final absent = MockDataService.getSectionAbsent(year, section);
     final od = MockDataService.getSectionOnDuty(year, section);
-    final percentage = MockDataService.getSectionAttendancePercentage(year, section);
-    final pending = MockDataService.getLeavesForSection(year, section).where((l) => l.letterStatus == LetterStatus.submitted).length;
+    final percentage = MockDataService.getSectionAttendancePercentage(
+      year,
+      section,
+    );
+    final pending = MockDataService.getLeavesForSection(
+      year,
+      section,
+    ).where((l) => l.letterStatus == LetterStatus.submitted).length;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -1183,7 +1521,6 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         children: [
-
           // Primary Pink Slip Forwarder Action Banner
           InkWell(
             onTap: () => _showForwardAbsenteePinkSlipModal(),
@@ -1192,7 +1529,11 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF831843), Color(0xFFBE185D), Color(0xFFEC4899)],
+                  colors: [
+                    Color(0xFF831843),
+                    Color(0xFFBE185D),
+                    Color(0xFFEC4899),
+                  ],
                 ),
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: [
@@ -1211,7 +1552,11 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                       color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 20),
+                    child: const Icon(
+                      Icons.receipt_long_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -1220,17 +1565,28 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                       children: const [
                         Text(
                           '🎫 Forward Absentee / Issue Pink Slip',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
                         ),
                         SizedBox(height: 2),
                         Text(
                           'Scan Hospital Proof • Review Previous Leaves • Endorse to HOD',
-                          style: TextStyle(color: Color(0xFFFCE7F3), fontSize: 10.5),
+                          style: TextStyle(
+                            color: Color(0xFFFCE7F3),
+                            fontSize: 10.5,
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 14),
+                  const Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    color: Colors.white,
+                    size: 14,
+                  ),
                 ],
               ),
             ),
@@ -1314,7 +1670,10 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                   ),
                   Text(
                     '$totalCount Enrolled • $presentCount Present • $absentCount Absent Today',
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF64748B),
+                    ),
                   ),
                 ],
               ),
@@ -1345,15 +1704,24 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
               border: Border.all(color: const Color(0xFFE2E8F0)),
             ),
             child: TextField(
-              onChanged: (val) => setState(() => _studentSearchQuery = val.trim()),
+              onChanged: (val) =>
+                  setState(() => _studentSearchQuery = val.trim()),
               decoration: InputDecoration(
                 hintText: 'Search student name or roll number...',
-                hintStyle: const TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
-                prefixIcon: const Icon(Icons.search_rounded, size: 16, color: Color(0xFF94A3B8)),
+                hintStyle: const TextStyle(
+                  fontSize: 11.5,
+                  color: Color(0xFF94A3B8),
+                ),
+                prefixIcon: const Icon(
+                  Icons.search_rounded,
+                  size: 16,
+                  color: Color(0xFF94A3B8),
+                ),
                 suffixIcon: _studentSearchQuery.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.close_rounded, size: 14),
-                        onPressed: () => setState(() => _studentSearchQuery = ''),
+                        onPressed: () =>
+                            setState(() => _studentSearchQuery = ''),
                       )
                     : null,
                 border: InputBorder.none,
@@ -1383,11 +1751,15 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: filteredStudents.length > 10 ? 10 : filteredStudents.length,
+              itemCount: filteredStudents.length > 10
+                  ? 10
+                  : filteredStudents.length,
               itemBuilder: (context, index) {
                 final st = filteredStudents[index];
                 final isAbsent = MockDataService.isStudentAbsent(st.rollNumber);
-                final isPresent = MockDataService.isStudentPresent(st.rollNumber);
+                final isPresent = MockDataService.isStudentPresent(
+                  st.rollNumber,
+                );
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 8),
@@ -1396,7 +1768,9 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: isAbsent ? const Color(0xFFFECACA) : const Color(0xFFE2E8F0),
+                      color: isAbsent
+                          ? const Color(0xFFFECACA)
+                          : const Color(0xFFE2E8F0),
                     ),
                   ),
                   child: Row(
@@ -1406,8 +1780,8 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                         backgroundColor: isAbsent
                             ? const Color(0xFFFEE2E2)
                             : isPresent
-                                ? const Color(0xFFDCFCE7)
-                                : const Color(0xFFEFF6FF),
+                            ? const Color(0xFFDCFCE7)
+                            : const Color(0xFFEFF6FF),
                         child: Text(
                           st.name.isNotEmpty ? st.name[0] : 'S',
                           style: TextStyle(
@@ -1416,8 +1790,8 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                             color: isAbsent
                                 ? const Color(0xFFDC2626)
                                 : isPresent
-                                    ? const Color(0xFF16A34A)
-                                    : const Color(0xFF2563EB),
+                                ? const Color(0xFF16A34A)
+                                : const Color(0xFF2563EB),
                           ),
                         ),
                       ),
@@ -1436,42 +1810,52 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                             ),
                             Text(
                               'Roll: ${st.rollNumber} • Yr ${st.year}-${st.section} • ${st.totalLeavesTaken} Leaves Taken',
-                              style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+                              style: const TextStyle(
+                                fontSize: 10.5,
+                                color: Color(0xFF64748B),
+                              ),
                             ),
                           ],
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: isAbsent
                               ? const Color(0xFFFEE2E2)
                               : isPresent
-                                  ? const Color(0xFFDCFCE7)
-                                  : const Color(0xFFEFF6FF),
+                              ? const Color(0xFFDCFCE7)
+                              : const Color(0xFFEFF6FF),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           isAbsent
                               ? '🔴 Absent'
                               : isPresent
-                                  ? '🟢 Present'
-                                  : '🔵 On-Duty',
+                              ? '🟢 Present'
+                              : '🔵 On-Duty',
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
                             color: isAbsent
                                 ? const Color(0xFFDC2626)
                                 : isPresent
-                                    ? const Color(0xFF16A34A)
-                                    : const Color(0xFF2563EB),
+                                ? const Color(0xFF16A34A)
+                                : const Color(0xFF2563EB),
                           ),
                         ),
                       ),
                       const SizedBox(width: 8),
                       IconButton(
                         tooltip: 'Issue / Forward Pink Slip',
-                        icon: const Icon(Icons.receipt_long_rounded, color: Color(0xFFEC4899), size: 18),
+                        icon: const Icon(
+                          Icons.receipt_long_rounded,
+                          color: Color(0xFFEC4899),
+                          size: 18,
+                        ),
                         onPressed: () => _showForwardAbsenteePinkSlipModal(st),
                       ),
                     ],
@@ -1485,7 +1869,11 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
                   '+ ${filteredStudents.length - 10} more students in section (use search to find specific student)',
-                  style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8), fontStyle: FontStyle.italic),
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    color: Color(0xFF94A3B8),
+                    fontStyle: FontStyle.italic,
+                  ),
                 ),
               ),
             ),
@@ -1499,20 +1887,33 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
   void _showForwardAbsenteePinkSlipModal([StudentModel? preselectedStudent]) {
     final year = _currentAdvisor.year ?? 2;
     final section = _currentAdvisor.section ?? 'A';
-    final sectionStudents = MockDataService.getStudentsBySection(year, section);
-    
-    // Find section absentees
-    final absentStudents = sectionStudents.where((s) => MockDataService.isStudentAbsent(s.rollNumber)).toList();
-    final availableStudents = absentStudents.isNotEmpty ? absentStudents : sectionStudents;
+    final sectionStudents =
+        StudentDirectoryData.bySection['$year-$section'] ?? [];
 
-    StudentModel currentStudent = preselectedStudent ?? (availableStudents.isNotEmpty ? availableStudents.first : sectionStudents.first);
-    
+    // Find section absentees
+    final absentStudents = sectionStudents
+        .where((s) => MockDataService.isStudentAbsent(s.rollNumber))
+        .toList();
+    final availableStudents = absentStudents.isNotEmpty
+        ? absentStudents
+        : sectionStudents;
+
+    StudentModel currentStudent =
+        preselectedStudent ??
+        (availableStudents.isNotEmpty
+            ? availableStudents.first
+            : sectionStudents.first);
+
     String leaveCategory = 'Medical Leave';
     String leaveInformedType = 'Informed Leave';
     DateTime selectedDate = DateTime.now();
-    final reasonCtrl = TextEditingController(text: 'Severe viral fever & OPD medical checkup');
-    final remarksCtrl = TextEditingController(text: 'Verified hospital OPD certificate and confirmed with parent. Forwarded to HOD for approval.');
-    
+    final reasonCtrl = TextEditingController(
+      text: 'Severe viral fever & OPD medical checkup',
+    );
+    final remarksCtrl = TextEditingController(
+      text: 'Verified hospital OPD certificate and confirmed with parent. Forwarded to HOD for approval.',
+    );
+
     // Proof attachment state
     String? attachedFileName = 'hospital_medical_certificate.pdf';
     String? attachedFileType = 'Medical Certificate (GH/Apollo)';
@@ -1524,7 +1925,9 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
-          final isAbsentToday = MockDataService.isStudentAbsent(currentStudent.rollNumber);
+          final isAbsentToday = MockDataService.isStudentAbsent(
+            currentStudent.rollNumber,
+          );
           final previousLeaves = currentStudent.totalLeavesTaken;
 
           return Container(
@@ -1551,15 +1954,24 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEC4899).withValues(alpha: 0.1),
+                              color: const Color(0xFFEC4899)
+                                  .withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: const Icon(Icons.receipt_long_rounded, color: Color(0xFFEC4899), size: 20),
+                            child: const Icon(
+                              Icons.receipt_long_rounded,
+                              color: Color(0xFFEC4899),
+                              size: 20,
+                            ),
                           ),
                           const SizedBox(width: 10),
                           const Text(
                             'Forward Absentee Pink Slip to HOD',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF0F172A)),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: Color(0xFF0F172A),
+                            ),
                           ),
                         ],
                       ),
@@ -1572,23 +1984,43 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                   const SizedBox(height: 12),
 
                   // Student Picker
-                  const Text('Select Absent Student', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                  const Text(
+                    'Select Absent Student',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<String>(
                     initialValue: currentStudent.rollNumber,
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                     ),
                     items: sectionStudents.map((st) {
-                      final isAbs = MockDataService.isStudentAbsent(st.rollNumber);
+                      final isAbs = MockDataService.isStudentAbsent(
+                        st.rollNumber,
+                      );
                       return DropdownMenuItem<String>(
                         value: st.rollNumber,
                         child: Text(
                           '${st.name} (${st.rollNumber}) ${isAbs ? "🔴 [ABSENT TODAY]" : "🟢 [Present]"}',
-                          style: TextStyle(fontSize: 11.5, fontWeight: isAbs ? FontWeight.bold : FontWeight.normal),
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: isAbs
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
                         ),
                       );
                     }).toList(),
@@ -1617,35 +2049,77 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Today Status', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                            const Text(
+                              'Today Status',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
                             const SizedBox(height: 2),
                             Text(
-                              isAbsentToday ? '🔴 Absent Today' : '🟢 Present Today',
-                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isAbsentToday ? const Color(0xFFDC2626) : const Color(0xFF16A34A)),
+                              isAbsentToday
+                                  ? '🔴 Absent Today'
+                                  : '🟢 Present Today',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                color: isAbsentToday
+                                    ? const Color(0xFFDC2626)
+                                    : const Color(0xFF16A34A),
+                              ),
                             ),
                           ],
                         ),
-                        Container(height: 20, width: 1, color: const Color(0xFFCBD5E1)),
+                        Container(
+                          height: 20,
+                          width: 1,
+                          color: const Color(0xFFCBD5E1),
+                        ),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Previous Leaves', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                            const Text(
+                              'Previous Leaves',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
                             const SizedBox(height: 2),
                             Text(
                               '$previousLeaves Days Taken',
-                              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF0F172A),
+                              ),
                             ),
                           ],
                         ),
-                        Container(height: 20, width: 1, color: const Color(0xFFCBD5E1)),
+                        Container(
+                          height: 20,
+                          width: 1,
+                          color: const Color(0xFFCBD5E1),
+                        ),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Class Roster', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                            const Text(
+                              'Class Roster',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
                             const SizedBox(height: 2),
                             Text(
                               'Yr ${currentStudent.year}-${currentStudent.section}',
-                              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF6366F1)),
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF6366F1),
+                              ),
                             ),
                           ],
                         ),
@@ -1661,24 +2135,65 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Category', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                            const Text(
+                              'Category',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF475569),
+                              ),
+                            ),
                             const SizedBox(height: 4),
                             DropdownButtonFormField<String>(
                               initialValue: leaveCategory,
                               decoration: InputDecoration(
                                 filled: true,
                                 fillColor: const Color(0xFFF8FAFC),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFFE2E8F0),
+                                  ),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
                               ),
                               items: const [
-                                DropdownMenuItem(value: 'Medical Leave', child: Text('🏥 Medical Leave', style: TextStyle(fontSize: 11.5))),
-                                DropdownMenuItem(value: 'On-Duty OD', child: Text('🏆 On-Duty (OD)', style: TextStyle(fontSize: 11.5))),
-                                DropdownMenuItem(value: 'Campus Pink Slip', child: Text('🎫 Campus Pink Slip', style: TextStyle(fontSize: 11.5))),
-                                DropdownMenuItem(value: 'Casual Leave', child: Text('📝 Casual Leave', style: TextStyle(fontSize: 11.5))),
+                                DropdownMenuItem(
+                                  value: 'Medical Leave',
+                                  child: Text(
+                                    '🏥 Medical Leave',
+                                    style: TextStyle(fontSize: 11.5),
+                                  ),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'On-Duty OD',
+                                  child: Text(
+                                    '🏆 On-Duty (OD)',
+                                    style: TextStyle(fontSize: 11.5),
+                                  ),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'Campus Pink Slip',
+                                  child: Text(
+                                    '🎫 Campus Pink Slip',
+                                    style: TextStyle(fontSize: 11.5),
+                                  ),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'Casual Leave',
+                                  child: Text(
+                                    '📝 Casual Leave',
+                                    style: TextStyle(fontSize: 11.5),
+                                  ),
+                                ),
                               ],
                               onChanged: (val) {
-                                if (val != null) setModalState(() => leaveCategory = val);
+                                if (val != null) {
+                                  setModalState(() => leaveCategory = val);
+                                }
                               },
                             ),
                           ],
@@ -1689,22 +2204,51 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Intimation Type', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                            const Text(
+                              'Intimation Type',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF475569),
+                              ),
+                            ),
                             const SizedBox(height: 4),
                             DropdownButtonFormField<String>(
                               initialValue: leaveInformedType,
                               decoration: InputDecoration(
                                 filled: true,
                                 fillColor: const Color(0xFFF8FAFC),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFFE2E8F0),
+                                  ),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
                               ),
                               items: const [
-                                DropdownMenuItem(value: 'Informed Leave', child: Text('✅ Informed (Parent Call)', style: TextStyle(fontSize: 11.5))),
-                                DropdownMenuItem(value: 'Uninformed Absence', child: Text('⚠️ Uninformed (Proof)', style: TextStyle(fontSize: 11.5))),
+                                DropdownMenuItem(
+                                  value: 'Informed Leave',
+                                  child: Text(
+                                    '✅ Informed (Parent Call)',
+                                    style: TextStyle(fontSize: 11.5),
+                                  ),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'Uninformed Absence',
+                                  child: Text(
+                                    '⚠️ Uninformed (Proof)',
+                                    style: TextStyle(fontSize: 11.5),
+                                  ),
+                                ),
                               ],
                               onChanged: (val) {
-                                if (val != null) setModalState(() => leaveInformedType = val);
+                                if (val != null) {
+                                  setModalState(() => leaveInformedType = val);
+                                }
                               },
                             ),
                           ],
@@ -1715,7 +2259,14 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                   const SizedBox(height: 12),
 
                   // Reason & Suggestion Chips
-                  const Text('Absence Reason / Description', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                  const Text(
+                    'Absence Reason / Description',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   TextField(
                     controller: reasonCtrl,
@@ -1723,8 +2274,14 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                       hintText: 'e.g. Hospitalization & viral fever, Smart India Hackathon final round...',
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
                     ),
                     style: const TextStyle(fontSize: 12),
                   ),
@@ -1733,11 +2290,31 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
-                        _suggestionChip('🏥 Hospital & Fever', reasonCtrl, setModalState),
-                        _suggestionChip('🏆 SIH Hackathon', reasonCtrl, setModalState),
-                        _suggestionChip('🦷 Dental Clinic', reasonCtrl, setModalState),
-                        _suggestionChip('🏏 Zonal Sports', reasonCtrl, setModalState),
-                        _suggestionChip('👨‍👩‍👦 Family Function', reasonCtrl, setModalState),
+                        _suggestionChip(
+                          '🏥 Hospital & Fever',
+                          reasonCtrl,
+                          setModalState,
+                        ),
+                        _suggestionChip(
+                          '🏆 SIH Hackathon',
+                          reasonCtrl,
+                          setModalState,
+                        ),
+                        _suggestionChip(
+                          '🦷 Dental Clinic',
+                          reasonCtrl,
+                          setModalState,
+                        ),
+                        _suggestionChip(
+                          '🏏 Zonal Sports',
+                          reasonCtrl,
+                          setModalState,
+                        ),
+                        _suggestionChip(
+                          '👨‍👩‍👦 Family Function',
+                          reasonCtrl,
+                          setModalState,
+                        ),
                       ],
                     ),
                   ),
@@ -1756,49 +2333,84 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.document_scanner_rounded, size: 18, color: Color(0xFF16A34A)),
+                            const Icon(
+                              Icons.document_scanner_rounded,
+                              size: 18,
+                              color: Color(0xFF16A34A),
+                            ),
                             const SizedBox(width: 8),
                             const Text(
                               'Proof Document (Hospital / OD Certificate)',
-                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF166534)),
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF166534),
+                              ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 6),
                         if (attachedFileName != null)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: const Color(0xFF86EFAC)),
+                              border: Border.all(
+                                color: const Color(0xFF86EFAC),
+                              ),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.picture_as_pdf_rounded, color: Colors.red, size: 16),
+                                const Icon(
+                                  Icons.picture_as_pdf_rounded,
+                                  color: Colors.red,
+                                  size: 16,
+                                ),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         attachedFileName!,
-                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF0F172A),
+                                        ),
                                       ),
                                       Text(
                                         '$attachedFileType • $attachedFileSize',
-                                        style: const TextStyle(fontSize: 9.5, color: Color(0xFF64748B)),
+                                        style: const TextStyle(
+                                          fontSize: 9.5,
+                                          color: Color(0xFF64748B),
+                                        ),
                                       ),
                                     ],
                                   ),
                                 ),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFD1FAE5),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
-                                  child: const Text('✓ Attached', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF047857))),
+                                  child: const Text(
+                                    '✓ Attached',
+                                    style: TextStyle(
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF047857),
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
@@ -1821,12 +2433,27 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                                 },
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: const Color(0xFF166534),
-                                  side: const BorderSide(color: Color(0xFF86EFAC)),
-                                  padding: const EdgeInsets.symmetric(vertical: 8),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  side: const BorderSide(
+                                    color: Color(0xFF86EFAC),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 8,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
                                 ),
-                                icon: const Icon(Icons.camera_alt_outlined, size: 14),
-                                label: const Text('Capture / Scan Proof', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                icon: const Icon(
+                                  Icons.camera_alt_outlined,
+                                  size: 14,
+                                ),
+                                label: const Text(
+                                  'Capture / Scan Proof',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -1845,12 +2472,27 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                                 },
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: const Color(0xFF0284C7),
-                                  side: const BorderSide(color: Color(0xFFBAE6FD)),
-                                  padding: const EdgeInsets.symmetric(vertical: 8),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  side: const BorderSide(
+                                    color: Color(0xFFBAE6FD),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 8,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
                                 ),
-                                icon: const Icon(Icons.attach_file_rounded, size: 14),
-                                label: const Text('Attach Document', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                icon: const Icon(
+                                  Icons.attach_file_rounded,
+                                  size: 14,
+                                ),
+                                label: const Text(
+                                  'Attach Document',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ),
                             ),
                           ],
@@ -1861,7 +2503,14 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                   const SizedBox(height: 12),
 
                   // Advisor Recommendation Remarks
-                  const Text('Advisor Endorsement Remarks for HOD', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                  const Text(
+                    'Advisor Endorsement Remarks for HOD',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   TextField(
                     controller: remarksCtrl,
@@ -1870,7 +2519,10 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                       hintText: 'e.g. Verified hospital slip and parent confirmation. Recommended for HOD approval.',
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
                       contentPadding: const EdgeInsets.all(10),
                     ),
                     style: const TextStyle(fontSize: 12),
@@ -1882,17 +2534,26 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: () {
-                        final isOd = leaveCategory.contains('OD') || leaveCategory.contains('On-Duty');
-                        final isInformed = leaveInformedType.contains('Informed');
+                        final isOd =
+                            leaveCategory.contains('OD') ||
+                            leaveCategory.contains('On-Duty');
+                        final isInformed = leaveInformedType.contains(
+                          'Informed',
+                        );
 
                         final newLeave = LeaveModel(
                           id: 'ps_${DateTime.now().millisecondsSinceEpoch}',
                           studentId: currentStudent.id,
                           studentName: currentStudent.name,
                           studentRollNumber: currentStudent.rollNumber,
-                          category: isOd ? LeaveCategory.onDuty : LeaveCategory.leave,
-                          leaveType: isInformed ? LeaveType.informed : LeaveType.uninformed,
-                          reason: '${leaveCategory.toUpperCase()}: ${reasonCtrl.text.trim()}',
+                          category: isOd
+                              ? LeaveCategory.onDuty
+                              : LeaveCategory.leave,
+                          leaveType: isInformed
+                              ? LeaveType.informed
+                              : LeaveType.uninformed,
+                          reason:
+                              '${leaveCategory.toUpperCase()}: ${reasonCtrl.text.trim()}',
                           leaveDate: selectedDate,
                           letterSubmitted: attachedFileName != null,
                           letterStatus: LetterStatus.forwarded,
@@ -1916,7 +2577,9 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                         Navigator.pop(ctx);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('🎉 Pink Slip & Proof for ${currentStudent.name} successfully forwarded to HOD!'),
+                            content: Text(
+                              '🎉 Pink Slip & Proof for ${currentStudent.name} successfully forwarded to HOD!',
+                            ),
                             backgroundColor: const Color(0xFF047857),
                           ),
                         );
@@ -1925,10 +2588,18 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                         backgroundColor: const Color(0xFFEC4899),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                       icon: const Icon(Icons.send_rounded, size: 16),
-                      label: const Text('Forward Pink Slip & Proof to HOD', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      label: const Text(
+                        'Forward Pink Slip & Proof to HOD',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -1940,11 +2611,18 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
     );
   }
 
-  Widget _suggestionChip(String label, TextEditingController ctrl, StateSetter setModalState) {
+  Widget _suggestionChip(
+    String label,
+    TextEditingController ctrl,
+    StateSetter setModalState,
+  ) {
     return Padding(
       padding: const EdgeInsets.only(right: 6),
       child: ActionChip(
-        label: Text(label, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600)),
+        label: Text(
+          label,
+          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600),
+        ),
         backgroundColor: const Color(0xFFF1F5F9),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         padding: EdgeInsets.zero,
@@ -1961,46 +2639,101 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Capture / Attach Document Proof', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Capture / Attach Document Proof',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.local_hospital_rounded, color: Colors.red),
-              title: const Text('Apollo / GH Hospital Discharge Summary', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              subtitle: const Text('medical_discharge_apollo_hospital.pdf (1.8 MB)', style: TextStyle(fontSize: 10.5)),
+              leading: const Icon(
+                Icons.local_hospital_rounded,
+                color: Colors.red,
+              ),
+              title: const Text(
+                'Apollo / GH Hospital Discharge Summary',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              subtitle: const Text(
+                'medical_discharge_apollo_hospital.pdf (1.8 MB)',
+                style: TextStyle(fontSize: 10.5),
+              ),
               onTap: () {
-                onSelect('medical_discharge_apollo_hospital.pdf', 'Hospital Discharge Summary', '1.8 MB');
+                onSelect(
+                  'medical_discharge_apollo_hospital.pdf',
+                  'Hospital Discharge Summary',
+                  '1.8 MB',
+                );
                 Navigator.pop(ctx);
               },
             ),
             const Divider(height: 1),
             ListTile(
-              leading: const Icon(Icons.medical_services_rounded, color: Colors.green),
-              title: const Text('Government Hospital Fitness Certificate', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              subtitle: const Text('gh_medical_fitness_certificate.pdf (1.2 MB)', style: TextStyle(fontSize: 10.5)),
+              leading: const Icon(
+                Icons.medical_services_rounded,
+                color: Colors.green,
+              ),
+              title: const Text(
+                'Government Hospital Fitness Certificate',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              subtitle: const Text(
+                'gh_medical_fitness_certificate.pdf (1.2 MB)',
+                style: TextStyle(fontSize: 10.5),
+              ),
               onTap: () {
-                onSelect('gh_medical_fitness_certificate.pdf', 'Medical Fitness Certificate (GH)', '1.2 MB');
+                onSelect(
+                  'gh_medical_fitness_certificate.pdf',
+                  'Medical Fitness Certificate (GH)',
+                  '1.2 MB',
+                );
                 Navigator.pop(ctx);
               },
             ),
             const Divider(height: 1),
             ListTile(
-              leading: const Icon(Icons.emoji_events_rounded, color: Colors.amber),
-              title: const Text('Smart India Hackathon Shortlist Letter', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              subtitle: const Text('sih_hackathon_finalist_invitation.pdf (2.4 MB)', style: TextStyle(fontSize: 10.5)),
+              leading: const Icon(
+                Icons.emoji_events_rounded,
+                color: Colors.amber,
+              ),
+              title: const Text(
+                'Smart India Hackathon Shortlist Letter',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              subtitle: const Text(
+                'sih_hackathon_finalist_invitation.pdf (2.4 MB)',
+                style: TextStyle(fontSize: 10.5),
+              ),
               onTap: () {
-                onSelect('sih_hackathon_finalist_invitation.pdf', 'SIH Finalist Invitation', '2.4 MB');
+                onSelect(
+                  'sih_hackathon_finalist_invitation.pdf',
+                  'SIH Finalist Invitation',
+                  '2.4 MB',
+                );
                 Navigator.pop(ctx);
               },
             ),
             const Divider(height: 1),
             ListTile(
-              leading: const Icon(Icons.sports_cricket_rounded, color: Colors.blue),
-              title: const Text('Anna University Zonal Sports OD Letter', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              subtitle: const Text('zonal_sports_board_od_letter.pdf (1.5 MB)', style: TextStyle(fontSize: 10.5)),
+              leading: const Icon(
+                Icons.sports_cricket_rounded,
+                color: Colors.blue,
+              ),
+              title: const Text(
+                'Anna University Zonal Sports OD Letter',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              subtitle: const Text(
+                'zonal_sports_board_od_letter.pdf (1.5 MB)',
+                style: TextStyle(fontSize: 10.5),
+              ),
               onTap: () {
-                onSelect('zonal_sports_board_od_letter.pdf', 'Sports Board OD Proof', '1.5 MB');
+                onSelect(
+                  'zonal_sports_board_od_letter.pdf',
+                  'Sports Board OD Proof',
+                  '1.5 MB',
+                );
                 Navigator.pop(ctx);
               },
             ),
@@ -2014,7 +2747,9 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
 
   Widget _buildRecentPinkSlipsHeader() {
     final leaves = MockDataService.leaveRequests;
-    final pendingCount = leaves.where((l) => l.letterStatus == LetterStatus.submitted).length;
+    final pendingCount = leaves
+        .where((l) => l.letterStatus == LetterStatus.submitted)
+        .length;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -2030,7 +2765,11 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                   children: [
                     const Text(
                       'Pink Slip & OD Management',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A),
+                      ),
                     ),
                     Text(
                       'Review all 10 sections • Inspect proofs • Accept or Reject',
@@ -2048,16 +2787,34 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFEC4899),
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                     icon: const Icon(Icons.add_rounded, size: 15),
-                    label: const Text('Forward Slip', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    label: const Text(
+                      'Forward Slip',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 6),
                   TextButton(
-                    onPressed: () => Navigator.pushNamed(context, '/leave-management'),
-                    child: Text('View All', style: AppStyles.linkText.copyWith(color: AppColors.primaryPurple, fontSize: 12)),
+                    onPressed: () =>
+                        Navigator.pushNamed(context, '/leave-management'),
+                    child: Text(
+                      'View All',
+                      style: AppStyles.linkText.copyWith(
+                        color: AppColors.primaryPurple,
+                        fontSize: 12,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -2070,9 +2827,15 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _buildSectionFilterChip('My Class', 'My Class (Yr ${_currentAdvisor.year ?? 2}-${_currentAdvisor.section ?? "A"})'),
+                _buildSectionFilterChip(
+                  'My Class',
+                  'My Class (Yr ${_currentAdvisor.year ?? 2}-${_currentAdvisor.section ?? "A"})',
+                ),
                 const SizedBox(width: 8),
-                _buildSectionFilterChip('All 10 Sections', 'All 10 Sections (622)'),
+                _buildSectionFilterChip(
+                  'All 10 Sections',
+                  'All 10 Sections (622)',
+                ),
                 const SizedBox(width: 8),
                 _buildSectionFilterChip('II Year', 'II Year (A-D)'),
                 const SizedBox(width: 8),
@@ -2093,11 +2856,26 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                 const SizedBox(width: 8),
                 _buildStatusFilterChip('Pending Review', pendingCount),
                 const SizedBox(width: 8),
-                _buildStatusFilterChip('Forwarded to HOD', leaves.where((l) => l.letterStatus == LetterStatus.forwarded).length),
+                _buildStatusFilterChip(
+                  'Forwarded to HOD',
+                  leaves
+                      .where((l) => l.letterStatus == LetterStatus.forwarded)
+                      .length,
+                ),
                 const SizedBox(width: 8),
-                _buildStatusFilterChip('Approved by HOD', leaves.where((l) => l.letterStatus == LetterStatus.approved).length),
+                _buildStatusFilterChip(
+                  'Approved by HOD',
+                  leaves
+                      .where((l) => l.letterStatus == LetterStatus.approved)
+                      .length,
+                ),
                 const SizedBox(width: 8),
-                _buildStatusFilterChip('Rejected', leaves.where((l) => l.letterStatus == LetterStatus.rejected).length),
+                _buildStatusFilterChip(
+                  'Rejected',
+                  leaves
+                      .where((l) => l.letterStatus == LetterStatus.rejected)
+                      .length,
+                ),
               ],
             ),
           ),
@@ -2113,11 +2891,19 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
             ),
             child: TextField(
               controller: _pinkSlipSearchCtrl,
-              onChanged: (val) => setState(() => _pinkSlipSearchQuery = val.trim()),
+              onChanged: (val) =>
+                  setState(() => _pinkSlipSearchQuery = val.trim()),
               decoration: InputDecoration(
                 hintText: 'Search student name, roll number, or reason...',
-                hintStyle: const TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
-                prefixIcon: const Icon(Icons.search_rounded, size: 16, color: Color(0xFF94A3B8)),
+                hintStyle: const TextStyle(
+                  fontSize: 11.5,
+                  color: Color(0xFF94A3B8),
+                ),
+                prefixIcon: const Icon(
+                  Icons.search_rounded,
+                  size: 16,
+                  color: Color(0xFF94A3B8),
+                ),
                 suffixIcon: _pinkSlipSearchQuery.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.clear, size: 14),
@@ -2146,7 +2932,11 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFF0F172A) : Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: isSelected ? const Color(0xFF0F172A) : const Color(0xFFCBD5E1)),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF0F172A)
+                : const Color(0xFFCBD5E1),
+          ),
         ),
         child: Text(
           label,
@@ -2169,7 +2959,11 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFF6366F1) : const Color(0xFFF1F5F9),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: isSelected ? const Color(0xFF6366F1) : const Color(0xFFE2E8F0)),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF6366F1)
+                : const Color(0xFFE2E8F0),
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -2209,7 +3003,9 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
 
     // Filter by Section Scope
     if (_pinkSlipSectionFilter == 'My Class') {
-      slips = slips.where((l) => l.year == year && l.section == section).toList();
+      slips = slips
+          .where((l) => l.year == year && l.section == section)
+          .toList();
     } else if (_pinkSlipSectionFilter == 'II Year') {
       slips = slips.where((l) => l.year == 2).toList();
     } else if (_pinkSlipSectionFilter == 'III Year') {
@@ -2220,23 +3016,34 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
 
     // Filter by Status
     if (_pinkSlipStatusFilter == 'Pending Review') {
-      slips = slips.where((l) => l.letterStatus == LetterStatus.submitted).toList();
+      slips = slips
+          .where((l) => l.letterStatus == LetterStatus.submitted)
+          .toList();
     } else if (_pinkSlipStatusFilter == 'Forwarded to HOD') {
-      slips = slips.where((l) => l.letterStatus == LetterStatus.forwarded).toList();
+      slips = slips
+          .where((l) => l.letterStatus == LetterStatus.forwarded)
+          .toList();
     } else if (_pinkSlipStatusFilter == 'Approved by HOD') {
-      slips = slips.where((l) => l.letterStatus == LetterStatus.approved).toList();
+      slips = slips
+          .where((l) => l.letterStatus == LetterStatus.approved)
+          .toList();
     } else if (_pinkSlipStatusFilter == 'Rejected') {
-      slips = slips.where((l) => l.letterStatus == LetterStatus.rejected).toList();
+      slips = slips
+          .where((l) => l.letterStatus == LetterStatus.rejected)
+          .toList();
     }
 
     // Filter by Search Query
     if (_pinkSlipSearchQuery.isNotEmpty) {
       final q = _pinkSlipSearchQuery.toLowerCase();
-      slips = slips.where((l) =>
-        l.studentName.toLowerCase().contains(q) ||
-        l.studentRollNumber.contains(q) ||
-        l.reason.toLowerCase().contains(q)
-      ).toList();
+      slips = slips
+          .where(
+            (l) =>
+                l.studentName.toLowerCase().contains(q) ||
+                l.studentRollNumber.contains(q) ||
+                l.reason.toLowerCase().contains(q),
+          )
+          .toList();
     }
 
     if (slips.isEmpty) {
@@ -2244,17 +3051,28 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Container(
           padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
           child: Center(
             child: Column(
               children: [
-                const Icon(Icons.inbox_outlined, size: 36, color: Color(0xFF94A3B8)),
+                const Icon(
+                  Icons.inbox_outlined,
+                  size: 36,
+                  color: Color(0xFF94A3B8),
+                ),
                 const SizedBox(height: 6),
                 Text(
                   _pinkSlipSearchQuery.isNotEmpty
                       ? 'No pink slips matching "$_pinkSlipSearchQuery"'
                       : 'No pink slip records in this filter view.',
-                  style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                  style: const TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),
@@ -2266,12 +3084,18 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
-        children: slips.map((slip) => _PinkSlipTile(
-          leave: slip,
-          onAcceptAndForward: () => _showAdvisorRemarksDialog(slip, isForward: true),
-          onRejectProposal: () => _showAdvisorRemarksDialog(slip, isForward: false),
-          onViewVoucher: () => _showPinkSlipVoucherDialog(slip),
-        )).toList(),
+        children: slips
+            .map(
+              (slip) => _PinkSlipTile(
+                leave: slip,
+                onAcceptAndForward: () =>
+                    _showAdvisorRemarksDialog(slip, isForward: true),
+                onRejectProposal: () =>
+                    _showAdvisorRemarksDialog(slip, isForward: false),
+                onViewVoucher: () => _showPinkSlipVoucherDialog(slip),
+              ),
+            )
+            .toList(),
       ),
     );
   }
@@ -2291,7 +3115,9 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
           style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.bold,
-            color: isForward ? const Color(0xFF047857) : const Color(0xFFDC2626),
+            color: isForward
+                ? const Color(0xFF047857)
+                : const Color(0xFFDC2626),
           ),
         ),
         content: Column(
@@ -2307,7 +3133,9 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
               controller: remarksCtrl,
               maxLines: 2,
               decoration: InputDecoration(
-                labelText: isForward ? 'Advisor Endorsement Remarks' : 'Reason for rejection',
+                labelText: isForward
+                    ? 'Advisor Endorsement Remarks'
+                    : 'Reason for rejection',
                 border: const OutlineInputBorder(),
               ),
               style: const TextStyle(fontSize: 12),
@@ -2315,28 +3143,43 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () {
               setState(() {
                 if (isForward) {
-                  MockDataService.forwardToHod(leave.id, advisorRemarks: remarksCtrl.text.trim());
+                  MockDataService.forwardToHod(
+                    leave.id,
+                    advisorRemarks: remarksCtrl.text.trim(),
+                  );
                 } else {
-                  MockDataService.rejectByAdvisor(leave.id, remarks: remarksCtrl.text.trim());
+                  MockDataService.rejectByAdvisor(
+                    leave.id,
+                    remarks: remarksCtrl.text.trim(),
+                  );
                 }
               });
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(isForward
-                      ? '✓ Proposal endorsed and forwarded to HOD for ${leave.studentName}!'
-                      : 'Proposal returned for ${leave.studentName}.'),
-                  backgroundColor: isForward ? const Color(0xFF047857) : const Color(0xFFDC2626),
+                  content: Text(
+                    isForward
+                        ? '✓ Proposal endorsed and forwarded to HOD for ${leave.studentName}!'
+                        : 'Proposal returned for ${leave.studentName}.',
+                  ),
+                  backgroundColor: isForward
+                      ? const Color(0xFF047857)
+                      : const Color(0xFFDC2626),
                 ),
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: isForward ? const Color(0xFF047857) : const Color(0xFFDC2626),
+              backgroundColor: isForward
+                  ? const Color(0xFF047857)
+                  : const Color(0xFFDC2626),
               foregroundColor: Colors.white,
             ),
             child: Text(isForward ? 'Confirm & Forward' : 'Confirm Rejection'),
@@ -2359,29 +3202,60 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A),
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 child: Column(
                   children: const [
-                    Text('VSB ENGINEERING COLLEGE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1)),
+                    Text(
+                      'VSB ENGINEERING COLLEGE',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        letterSpacing: 1,
+                      ),
+                    ),
                     SizedBox(height: 2),
-                    Text('DEPARTMENT OF ARTIFICIAL INTELLIGENCE & DATA SCIENCE', style: TextStyle(color: Colors.white70, fontSize: 9, fontWeight: FontWeight.w600)),
+                    Text(
+                      'DEPARTMENT OF ARTIFICIAL INTELLIGENCE & DATA SCIENCE',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ],
                 ),
               ),
               const SizedBox(height: 12),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
-                  color: leave.isOnDuty ? const Color(0xFFEFF6FF) : const Color(0xFFFDF2F8),
+                  color: leave.isOnDuty
+                      ? const Color(0xFFEFF6FF)
+                      : const Color(0xFFFDF2F8),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: leave.isOnDuty ? const Color(0xFFBFDBFE) : const Color(0xFFFBCFE8)),
+                  border: Border.all(
+                    color: leave.isOnDuty
+                        ? const Color(0xFFBFDBFE)
+                        : const Color(0xFFFBCFE8),
+                  ),
                 ),
                 child: Text(
-                  leave.isOnDuty ? 'OFFICIAL ON-DUTY (OD) PASS' : 'OFFICIAL PINK SLIP / MOVEMENT VOUCHER',
+                  leave.isOnDuty
+                      ? 'OFFICIAL ON-DUTY (OD) PASS'
+                      : 'OFFICIAL PINK SLIP / MOVEMENT VOUCHER',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
-                    color: leave.isOnDuty ? const Color(0xFF1D4ED8) : const Color(0xFFBE185D),
+                    color: leave.isOnDuty
+                        ? const Color(0xFF1D4ED8)
+                        : const Color(0xFFBE185D),
                   ),
                 ),
               ),
@@ -2401,14 +3275,23 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                     const Divider(height: 10),
                     _voucherRow('Roll Number', leave.studentRollNumber),
                     const Divider(height: 10),
-                    _voucherRow('Section', 'Yr ${leave.year ?? 2}-${leave.section ?? "A"} (AI&DS)'),
+                    _voucherRow(
+                      'Section',
+                      'Yr ${leave.year ?? 2}-${leave.section ?? "A"} (AI&DS)',
+                    ),
                     const Divider(height: 10),
-                    _voucherRow('Previous Leaves', '${leave.totalLeavesTaken} Days Taken'),
+                    _voucherRow(
+                      'Previous Leaves',
+                      '${leave.totalLeavesTaken} Days Taken',
+                    ),
                     const Divider(height: 10),
                     _voucherRow('Reason', leave.reason),
                     if (leave.advisorRemarks != null) ...[
                       const Divider(height: 10),
-                      _voucherRow('Advisor Sign', 'Verified (${leave.advisorRemarks})'),
+                      _voucherRow(
+                        'Advisor Sign',
+                        'Verified (${leave.advisorRemarks})',
+                      ),
                     ],
                     const Divider(height: 10),
                     _voucherRow(
@@ -2416,8 +3299,8 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                       leave.letterStatus == LetterStatus.approved
                           ? '✓ Digitally Authorized'
                           : leave.letterStatus == LetterStatus.forwarded
-                              ? 'Forwarded to HOD for Signature'
-                              : 'Pending Advisor Endorsement',
+                          ? 'Forwarded to HOD for Signature'
+                          : 'Pending Advisor Endorsement',
                     ),
                   ],
                 ),
@@ -2425,19 +3308,38 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
               const SizedBox(height: 14),
               Row(
                 children: [
-                  Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Close'),
+                    ),
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: () {
                         Navigator.pop(ctx);
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('🖨️ Pink Slip Voucher sent to printer!'), backgroundColor: Color(0xFF0284C7)),
+                          const SnackBar(
+                            content: Text(
+                              '🖨️ Pink Slip Voucher sent to printer!',
+                            ),
+                            backgroundColor: Color(0xFF0284C7),
+                          ),
                         );
                       },
-                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F172A), foregroundColor: Colors.white),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0F172A),
+                        foregroundColor: Colors.white,
+                      ),
                       icon: const Icon(Icons.print_rounded, size: 14),
-                      label: const Text('Print Voucher', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      label: const Text(
+                        'Print Voucher',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -2453,8 +3355,27 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(width: 105, child: Text(key, style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600))),
-        Expanded(child: Text(value, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)))),
+        SizedBox(
+          width: 105,
+          child: Text(
+            key,
+            style: const TextStyle(
+              fontSize: 10.5,
+              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF0F172A),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -2491,12 +3412,14 @@ class _StatCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
-                child: Text(label,
-                    style: const TextStyle(
-                      color: Color(0xFF64748B),
-                      fontWeight: FontWeight.w600,
-                      fontSize: 11.5,
-                    )),
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: Color(0xFF64748B),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 11.5,
+                  ),
+                ),
               ),
               Icon(icon, size: 20, color: iconColor),
             ],
@@ -2511,7 +3434,10 @@ class _StatCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 2),
-          Text(subtitle, style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8))),
+          Text(
+            subtitle,
+            style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8)),
+          ),
         ],
       ),
     );
@@ -2587,7 +3513,11 @@ class _PinkSlipTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isPendingWithAdvisor ? const Color(0xFFFDE68A) : const Color(0xFFE2E8F0)),
+        border: Border.all(
+          color: isPendingWithAdvisor
+              ? const Color(0xFFFDE68A)
+              : const Color(0xFFE2E8F0),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.02),
@@ -2604,7 +3534,9 @@ class _PinkSlipTile extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: leave.isOnDuty ? const Color(0xFFEFF6FF) : const Color(0xFFFDF2F8),
+                  color: leave.isOnDuty
+                      ? const Color(0xFFEFF6FF)
+                      : const Color(0xFFFDF2F8),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -2612,7 +3544,9 @@ class _PinkSlipTile extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 9.5,
                     fontWeight: FontWeight.bold,
-                    color: leave.isOnDuty ? const Color(0xFF2563EB) : const Color(0xFFDB2777),
+                    color: leave.isOnDuty
+                        ? const Color(0xFF2563EB)
+                        : const Color(0xFFDB2777),
                   ),
                 ),
               ),
@@ -2623,10 +3557,10 @@ class _PinkSlipTile extends StatelessWidget {
                   color: isApproved
                       ? const Color(0xFFD1FAE5)
                       : isRejected
-                          ? const Color(0xFFFEE2E2)
-                          : isForwarded
-                              ? const Color(0xFFE0E7FF)
-                              : const Color(0xFFFEF3C7),
+                      ? const Color(0xFFFEE2E2)
+                      : isForwarded
+                      ? const Color(0xFFE0E7FF)
+                      : const Color(0xFFFEF3C7),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -2637,22 +3571,33 @@ class _PinkSlipTile extends StatelessWidget {
                     color: isApproved
                         ? const Color(0xFF047857)
                         : isRejected
-                            ? const Color(0xFFDC2626)
-                            : isForwarded
-                                ? const Color(0xFF4338CA)
-                                : const Color(0xFFD97706),
+                        ? const Color(0xFFDC2626)
+                        : isForwarded
+                        ? const Color(0xFF4338CA)
+                        : const Color(0xFFD97706),
                   ),
                 ),
               ),
               const Spacer(),
               Text(
                 '${leave.leaveDate.day.toString().padLeft(2, '0')}/${leave.leaveDate.month.toString().padLeft(2, '0')}/${leave.leaveDate.year}',
-                style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8), fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF94A3B8),
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          Text(leave.studentName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF0F172A))),
+          Text(
+            leave.studentName,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 13.5,
+              color: Color(0xFF0F172A),
+            ),
+          ),
           Text(
             'Roll: ${leave.studentRollNumber} • Class: Yr ${leave.year ?? 2}-${leave.section ?? "A"} • Prev Leaves: ${leave.totalLeavesTaken} Days',
             style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
@@ -2667,7 +3612,11 @@ class _PinkSlipTile extends StatelessWidget {
             ),
             child: Text(
               'Reason: ${leave.reason}',
-              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500, color: Color(0xFF1E293B)),
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF1E293B),
+              ),
             ),
           ),
           if (leave.hasAttachment) ...[
@@ -2681,12 +3630,20 @@ class _PinkSlipTile extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.picture_as_pdf_rounded, size: 16, color: Colors.red),
+                  const Icon(
+                    Icons.picture_as_pdf_rounded,
+                    size: 16,
+                    color: Colors.red,
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       '${leave.attachmentFileName}',
-                      style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                      style: const TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A),
+                      ),
                     ),
                   ),
                   InkWell(
@@ -2699,7 +3656,14 @@ class _PinkSlipTile extends StatelessWidget {
                         ),
                       );
                     },
-                    child: const Text('Inspect Proof', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF6366F1))),
+                    child: const Text(
+                      'Inspect Proof',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF6366F1),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -2709,14 +3673,22 @@ class _PinkSlipTile extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               'Advisor Note: ${leave.advisorRemarks}',
-              style: const TextStyle(fontSize: 10.5, color: Color(0xFF475569), fontStyle: FontStyle.italic),
+              style: const TextStyle(
+                fontSize: 10.5,
+                color: Color(0xFF475569),
+                fontStyle: FontStyle.italic,
+              ),
             ),
           ],
           if (leave.hodRemarks != null) ...[
             const SizedBox(height: 4),
             Text(
               'HOD Digital Stamp: ${leave.hodRemarks}',
-              style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFF047857)),
+              style: const TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF047857),
+              ),
             ),
           ],
           const SizedBox(height: 10),
@@ -2727,11 +3699,19 @@ class _PinkSlipTile extends StatelessWidget {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF475569),
                   side: const BorderSide(color: Color(0xFFCBD5E1)),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
                 icon: const Icon(Icons.receipt_outlined, size: 13),
-                label: const Text('View Voucher', style: TextStyle(fontSize: 10.5)),
+                label: const Text(
+                  'View Voucher',
+                  style: TextStyle(fontSize: 10.5),
+                ),
               ),
               const Spacer(),
               if (isPendingWithAdvisor) ...[
@@ -2740,21 +3720,37 @@ class _PinkSlipTile extends StatelessWidget {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFFDC2626),
                     side: const BorderSide(color: Color(0xFFFCA5A5)),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
-                  child: const Text('✕ Reject', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    '✕ Reject',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton.icon(
                   onPressed: onAcceptAndForward,
                   icon: const Icon(Icons.send_rounded, size: 13),
-                  label: const Text('✓ Endorse & Forward', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  label: const Text(
+                    '✓ Endorse & Forward',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF6366F1),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
               ],

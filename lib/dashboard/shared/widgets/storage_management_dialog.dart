@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/services/mock_data_service.dart';
+import '../../../core/services/data_service.dart';
 
 class StorageManagementDialog extends StatefulWidget {
   const StorageManagementDialog({super.key});

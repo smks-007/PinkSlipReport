@@ -8,7 +8,7 @@ import '../../../core/models/student_model.dart';
 import '../../../core/models/promotion_model.dart';
 import '../../../core/models/notice_model.dart';
 import '../../../core/services/auth_service.dart';
-import '../../../core/services/mock_data_service.dart';
+import '../../../core/services/data_service.dart';
 import '../../../core/data/student_directory_data.dart';
 import '../../../core/widgets/smart_pro_logo.dart';
 import '../../shared/widgets/letter_attachment_viewer_dialog.dart';

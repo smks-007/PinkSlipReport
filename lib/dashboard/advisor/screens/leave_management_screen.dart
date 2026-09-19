@@ -4,7 +4,7 @@ import '../../../core/constants/app_styles.dart';
 import '../../../core/models/leave_model.dart';
 import '../../../core/models/user_model.dart';
 import '../../../core/services/auth_service.dart';
-import '../../../core/services/mock_data_service.dart';
+import '../../../core/services/data_service.dart';
 import '../../shared/widgets/create_pink_slip_dialog.dart';
 import '../../shared/widgets/letter_attachment_viewer_dialog.dart';
 

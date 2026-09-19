@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'core/models/user_model.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import 'auth/screens/sign_in_screen.dart';
 import 'auth/screens/forgot_password_screen.dart';
 import 'dashboard/advisor/screens/advisor_dashboard_screen.dart';
@@ -12,7 +12,8 @@ import 'dashboard/student/screens/student_dashboard_screen.dart';
 import 'dashboard/timetable/screens/timetable_screen.dart';
 import 'core/services/supabase_service.dart';
 import 'core/services/auth_service.dart';
-import 'core/services/mock_data_service.dart';
+import 'core/services/data_service.dart';
+import 'core/models/user_model.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,7 +25,7 @@ void main() async {
     await MockDataService.syncFromSupabase();
   } catch (e) {
     if (kDebugMode) {
-      debugPrint('⚠️ Background sync failed: $e');
+      debugPrint('Background sync failed: $e');
     }
   }
 }
