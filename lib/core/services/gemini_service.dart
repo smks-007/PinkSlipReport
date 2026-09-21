@@ -43,21 +43,52 @@ class GeminiService {
         .map((l) => '• ${l.studentName} (${l.studentRollNumber}, ${l.year}-${l.section}): ${l.categoryDisplay} - ${l.reason} [Status: ${l.letterStatusDisplay}]')
         .join('\n');
 
+    final allStudents = MockDataService.allStudents;
+    final totalStrength = allStudents.length;
+    final sections = MockDataService.getAvailableSections();
+
+    // Dynamic section absentees
+    final sectionAbsenteeList = <String>[];
+    for (int y = 1; y <= 4; y++) {
+      final ySecs = MockDataService.getAvailableSections(y);
+      for (final s in ySecs) {
+        final absCount = MockDataService.getSectionAbsent(y, s);
+        final roman = y == 1 ? 'I' : y == 2 ? 'II' : y == 3 ? 'III' : 'IV';
+        sectionAbsenteeList.add('$roman-$s: $absCount');
+      }
+    }
+    final sectionAbsenteesStr = sectionAbsenteeList.join(', ');
+
+    // Dynamic batch breakdowns
+    final batchBreakdownList = <String>[];
+    for (int y = 4; y >= 1; y--) {
+      final yStudents = allStudents.where((s) => s.year == y).toList();
+      if (yStudents.isEmpty) continue;
+      final roman = y == 1 ? 'I' : y == 2 ? 'II' : y == 3 ? 'III' : 'IV';
+      final batchName = yStudents.first.batchYear;
+      final secCounts = <String>[];
+      final ySecs = MockDataService.getAvailableSections(y);
+      for (final s in ySecs) {
+        final c = yStudents.where((stu) => stu.section == s).length;
+        secCounts.add('Sec $s: $c');
+      }
+      batchBreakdownList.add('- $roman Year ($batchName): ${yStudents.length} Students (${secCounts.join(', ')})');
+    }
+    final batchTopologyStr = batchBreakdownList.join('\n');
+
     return '''
 === INSTITUTION & DEPARTMENT GROUNDING DATA ===
 Institution: V.S.B. Engineering College, Karur
 Department: Department of Artificial Intelligence & Data Science (AI & DS)
-Academic Year: 2026-2027
+Academic Year: ${DateTime.now().year}-${DateTime.now().year + 1}
 
 Department Leadership:
-- Overall Head of Department (III & IV Year): Dr. K. Manivannan (Ph.D.) - hod.manivannan@vsb.ac.in
-- Junior Wing Head of Department (I & II Year): Mrs. V. Kavitha - kavitha.hod@vsb.ac.in
+- Overall Head of Department (III & IV Year): ${AuthService.overallHod.name} (${AuthService.overallHod.email})
+- Junior Wing Head of Department (I & II Year): ${AuthService.juniorHod.name} (${AuthService.juniorHod.email})
 
 Student & Section Topology:
-- Total Department Strength: 622 Students across 10 Active Sections
-- IV Year (2023 Batch): 125 Students (Sec A: 60, Sec B: 65)
-- III Year (2024 Batch): 250 Students (Sec A: 65, Sec B: 61, Sec C: 61, Sec D: 63)
-- II Year (2025 Batch): 252 Students (Sec A: 63, Sec B: 63, Sec C: 60, Sec D: 66)
+- Total Department Strength: $totalStrength Students across ${sections.length} Active Sections
+$batchTopologyStr
 
 Class Advisors Directory:
 $advisorList
@@ -68,7 +99,7 @@ $crList
 Live Attendance Status (Today):
 - Total Present: ${MockDataService.presentToday} Students (${MockDataService.attendancePercentage.toStringAsFixed(1)}% Turnout)
 - Total Absentees: ${MockDataService.absentToday} Students
-- Section Absentees: II-A: 3, II-B: 4, II-C: 3, II-D: 4, III-A: 4, III-B: 3, III-C: 3, III-D: 4, IV-A: 2, IV-B: 3
+- Section Absentees: $sectionAbsenteesStr
 
 HOD Approvals Queue ($pendingCount Pending Actions):
 $pendingList

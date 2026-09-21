@@ -35,18 +35,52 @@ class TimetableDataService {
 
   static List<String> get availableSections => ['A', 'B', 'C', 'D'];
 
-  static SectionTimetable getSectionTimetable(String section) {
-    return _sections[section.toUpperCase()] ?? _sectionA;
+  static List<String> getAvailableSectionsForYear(int year) {
+    if (year == 4) return ['A', 'B'];
+    return ['A', 'B', 'C', 'D'];
+  }
+
+  static SectionTimetable _createDefaultTimetable(String section, int year) {
+    final roman = year == 1 ? 'I' : year == 2 ? 'II' : year == 3 ? 'III' : 'IV';
+    final sem = year == 1 ? 'I' : year == 2 ? 'III' : year == 3 ? 'V' : 'VII';
+    return SectionTimetable(
+      section: section,
+      year: '$roman Year',
+      semester: '$sem Semester',
+      department: 'Artificial Intelligence and Data Science',
+      classRoom: 'MB $roman $section-Hall',
+      classAdvisor: 'Section $section Advisor',
+      counselingDetails: 'Counseling by Class Advisor',
+      subjects: const [],
+      schedule: {
+        for (final day in days) day: [],
+      },
+    );
+  }
+
+  static SectionTimetable getSectionTimetable(String section, {int year = 2}) {
+    final clean = section.toUpperCase().trim();
+    final key = '$year-$clean';
+    if (_sections.containsKey(key)) {
+      return _sections[key]!;
+    }
+    if (_sections.containsKey(clean)) {
+      return _sections[clean]!;
+    }
+    return _createDefaultTimetable(clean, year);
   }
 
   /// Asynchronously fetch timetable from Supabase public.timetables, updating cache with resilient fallback
   static Future<SectionTimetable> fetchTimetableFromDb(String section, {int year = 2}) async {
     final cleanSection = section.toUpperCase().trim();
-    final defaultSection = getSectionTimetable(cleanSection);
+    final defaultSection = getSectionTimetable(cleanSection, year: year);
 
     try {
-      final sectionId = 'II-$cleanSection';
-      var records = await SupabaseService().fetchTimetable(sectionId);
+      final roman = year == 1 ? 'I' : year == 2 ? 'II' : year == 3 ? 'III' : 'IV';
+      var records = await SupabaseService().fetchTimetable('$roman-$cleanSection');
+      if (records.isEmpty) {
+        records = await SupabaseService().fetchTimetable('$year-$cleanSection');
+      }
       if (records.isEmpty) {
         records = await SupabaseService().fetchTimetable(cleanSection);
       }

@@ -8,7 +8,6 @@ import '../../../core/models/leave_model.dart';
 import '../../../core/models/promotion_model.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/data_service.dart';
-import '../../../core/data/student_directory_data.dart';
 import '../../../core/widgets/smart_pro_logo.dart';
 import '../../shared/widgets/create_pink_slip_dialog.dart';
 import '../../shared/widgets/storage_management_dialog.dart';
@@ -91,7 +90,7 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
   Widget build(BuildContext context) {
     final year = _currentAdvisor.year ?? 2;
     final section = _currentAdvisor.section ?? 'A';
-    final students = StudentDirectoryData.bySection['$year-$section'] ?? [];
+    final students = MockDataService.getStudentsBySection(year, section);
     final filteredStudents = students.where((s) {
       if (_studentSearchQuery.isEmpty) return true;
       return s.name.toLowerCase().contains(_studentSearchQuery.toLowerCase()) ||
@@ -1888,7 +1887,7 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
     final year = _currentAdvisor.year ?? 2;
     final section = _currentAdvisor.section ?? 'A';
     final sectionStudents =
-        StudentDirectoryData.bySection['$year-$section'] ?? [];
+        MockDataService.getStudentsBySection(year, section);
 
     // Find section absentees
     final absentStudents = sectionStudents
@@ -2026,7 +2025,7 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                     }).toList(),
                     onChanged: (val) {
                       if (val != null) {
-                        final st = StudentDirectoryData.byRollNumber[val];
+                        final st = MockDataService.getStudentByRoll(val);
                         if (st != null) {
                           setModalState(() => currentStudent = st);
                         }

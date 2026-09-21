@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/data/student_directory_data.dart';
 import '../../../core/models/leave_model.dart';
 import '../../../core/models/student_model.dart';
 import '../../../core/models/user_model.dart';
@@ -74,10 +73,9 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
 
     _classStudents = MockDataService.getStudentsBySection(year, section);
     if (_classStudents.isEmpty) {
-      _classStudents = StudentDirectoryData.bySection['$year-$section'] ?? [];
-      if (_classStudents.isEmpty) {
-        _classStudents = MockDataService.allStudents.take(20).toList();
-      }
+      _classStudents = MockDataService.allStudents
+          .where((s) => s.year == year)
+          .toList();
     }
 
     if (widget.initialStudent != null) {

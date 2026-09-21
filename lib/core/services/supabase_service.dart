@@ -59,59 +59,23 @@ class SupabaseService {
   String resolveEmail(String input) {
     final clean = input.trim().toLowerCase();
 
-    // 1. HOD mapping (handles 'manivannan', 'manivanan' typo, 'hod.manivannan', 'hod.manivanan@vsb.ac.in', etc.)
-    if (clean.contains('manivannan') ||
-        clean == 'hod' ||
-        clean.startsWith('hod.manivannan')) {
+    // 1. If already valid email, return immediately
+    if (clean.contains('@')) return clean;
+
+    // 2. Student Roll Number pattern (digits)
+    if (RegExp(r'^\d{6,12}$').hasMatch(clean)) {
+      return '$clean@student.smartcampus.edu';
+    }
+
+    // 3. Known HOD username handles
+    if (clean == 'hod' || clean.startsWith('hod.manivannan') || clean == 'manivannan') {
       return 'manivannan.hod@vsb.ac.in';
     }
-    if (clean.contains('kavitha') ||
-        clean == 'hod12' ||
-        clean.startsWith('hod.kavitha')) {
+    if (clean == 'juniorhod' || clean.startsWith('hod.kavitha') || clean == 'kavitha' || clean == 'hod12') {
       return 'hod.kavitha@vsb.ac.in';
     }
 
-    // 2. Section Advisor mapping (handles both username handles and section abbreviations)
-    const advisorEmailMap = {
-      'advisor.anandhan': 'advisor.2a@vsb.ac.in',
-      'advisor.2a': 'advisor.2a@vsb.ac.in',
-      'advisor.rajendiran': 'advisor.2b@vsb.ac.in',
-      'advisor.2b': 'advisor.2b@vsb.ac.in',
-      'advisor.bharathidasan': 'advisor.2c@vsb.ac.in',
-      'advisor.2c': 'advisor.2c@vsb.ac.in',
-      'advisor.palraj': 'advisor.2d@vsb.ac.in',
-      'advisor.2d': 'advisor.2d@vsb.ac.in',
-      'advisor.vishnupriya': 'advisor.3a@vsb.ac.in',
-      'advisor.3a': 'advisor.3a@vsb.ac.in',
-      'advisor.murugesan': 'advisor.3b@vsb.ac.in',
-      'advisor.3b': 'advisor.3b@vsb.ac.in',
-      'advisor.bharathi': 'advisor.3c@vsb.ac.in',
-      'advisor.3c': 'advisor.3c@vsb.ac.in',
-      'advisor.velusamy': 'advisor.3d@vsb.ac.in',
-      'advisor.3d': 'advisor.3d@vsb.ac.in',
-      'advisor.muthuselvan': 'advisor.4a@vsb.ac.in',
-      'advisor.4a': 'advisor.4a@vsb.ac.in',
-      'advisor.nandhinidevi': 'advisor.4b@vsb.ac.in',
-      'advisor.4b': 'advisor.4b@vsb.ac.in',
-    };
-
-    final prefix = clean.split('@').first;
-    if (advisorEmailMap.containsKey(clean)) {
-      return advisorEmailMap[clean]!;
-    }
-    if (advisorEmailMap.containsKey(prefix)) {
-      return advisorEmailMap[prefix]!;
-    }
-
-    // 3. If already valid email
-    if (clean.contains('@')) return clean;
-
-    // 4. Student Roll Number match (e.g. 25243100)
-    final rollMatch = RegExp(r'\b(2[345]243\d{3})\b').firstMatch(clean);
-    if (rollMatch != null) {
-      return '${rollMatch.group(1)}@student.smartcampus.edu';
-    }
-
+    // 4. Default domain resolution for staff & advisor handles
     return '$clean@vsb.ac.in';
   }
 

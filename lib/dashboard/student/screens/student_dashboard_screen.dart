@@ -26,10 +26,25 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
   String _leavesFilter = 'All'; // All, Leave, On-Duty
 
   UserModel get _currentUser =>
-      AuthService().currentUser ?? AuthService.classRepresentatives[2];
+      AuthService().currentUser ??
+      (AuthService.classRepresentatives.isNotEmpty
+          ? AuthService.classRepresentatives.first
+          : const UserModel(
+              id: 'cr-default',
+              name: 'Student Representative',
+              email: 'student@vsb.ac.in',
+              role: UserRole.student,
+              department: 'Artificial Intelligence and Data Science',
+              year: 2,
+              section: 'A',
+            ));
 
   int get _sectionYear => _currentUser.year ?? 2;
-  String get _sectionLetter => _currentUser.section ?? 'B';
+  String get _sectionLetter =>
+      _currentUser.section ??
+      (MockDataService.getAvailableSections(_sectionYear).isNotEmpty
+          ? MockDataService.getAvailableSections(_sectionYear).first
+          : 'A');
 
   List<StudentModel> get _classStudents {
     final list = MockDataService.getStudentsBySection(_sectionYear, _sectionLetter);

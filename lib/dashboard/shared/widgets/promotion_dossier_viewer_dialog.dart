@@ -3,7 +3,6 @@ import '../../../../core/models/promotion_model.dart';
 import '../../../../core/models/user_model.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../core/services/data_service.dart';
-import '../../../../core/data/student_directory_data.dart';
 
 /// Full interactive Academic Progression & Batch Promotion Dossier Viewer.
 /// Allows Advisors and HOD to inspect attached credit sheets, exam records, student rosters,
@@ -540,7 +539,7 @@ class _PromotionDossierViewerDialogState extends State<PromotionDossierViewerDia
   }
 
   Widget _buildStudentRosterTab(PromotionRequest p) {
-    final students = StudentDirectoryData.bySection['${p.fromYear}-${p.section}'] ?? [];
+    final students = MockDataService.getStudentsBySection(p.fromYear, p.section);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

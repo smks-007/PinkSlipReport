@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_styles.dart';
-import '../../../core/models/user_model.dart';
-import '../../../core/models/leave_model.dart';
 import '../../../core/models/student_model.dart';
-import '../../../core/models/promotion_model.dart';
+import '../../../core/models/leave_model.dart';
+import '../../../core/models/user_model.dart';
 import '../../../core/models/notice_model.dart';
+import '../../../core/models/promotion_model.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/data_service.dart';
-import '../../../core/data/student_directory_data.dart';
 import '../../../core/widgets/smart_pro_logo.dart';
 import '../../shared/widgets/letter_attachment_viewer_dialog.dart';
 import '../../shared/widgets/storage_management_dialog.dart';
@@ -66,7 +65,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
     if (user != null && user.role == UserRole.hod) {
       return user.name;
     }
-    return 'Dr. K. Manivannan';
+    return 'Head of Department';
   }
 
   String get _currentHodTitle {
@@ -77,10 +76,8 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
     return 'Head of Department • Department of AI&DS';
   }
 
-  List<String> get _currentSections {
-    if (_selectedYear == 4) return ['A', 'B'];
-    return ['A', 'B', 'C', 'D'];
-  }
+  List<String> get _currentSections =>
+      MockDataService.getAvailableSections(_selectedYear);
 
   Map<String, dynamic> get _sectionStats {
     final strength = MockDataService.getSectionStrength(_selectedYear, _selectedSection);
@@ -1404,7 +1401,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     }).toList(),
                     onChanged: (val) {
                       if (val != null) {
-                        final st = StudentDirectoryData.byRollNumber[val];
+                        final st = MockDataService.getStudentByRoll(val);
                         if (st != null) {
                           setModalState(() {
                             selectedStudent = st;

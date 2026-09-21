@@ -12,7 +12,7 @@ class ForgotPasswordScreen extends StatefulWidget {
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailCtrl = TextEditingController(text: 'manivannan.hod@vsb.ac.in');
+  final _emailCtrl = TextEditingController();
   int _selectedRoleTab = 0; // 0 = HOD, 1 = Class Advisor
   bool _isLoading = false;
 
@@ -25,11 +25,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   void _onRoleTabChanged(int index) {
     setState(() {
       _selectedRoleTab = index;
-      if (index == 0) {
-        _emailCtrl.text = 'manivannan.hod@vsb.ac.in';
-      } else {
-        _emailCtrl.text = 'advisor.2a@vsb.ac.in';
-      }
     });
   }
 

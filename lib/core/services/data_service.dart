@@ -521,12 +521,48 @@ class MockDataService {
   static List<StudentModel> get allStudents =>
       List.unmodifiable(_dynamicStudents.where((s) => !s.isPurged));
 
+  /// Find student dynamically from memory or database
+  static StudentModel? getStudentByRoll(String rollNumber) {
+    final clean = rollNumber.trim().toUpperCase();
+    for (final s in _dynamicStudents) {
+      if (s.rollNumber.toUpperCase() == clean || s.id.toUpperCase() == clean) {
+        return s;
+      }
+    }
+    return StudentDirectoryData.byRollNumber[clean];
+  }
+
+  /// Get distinct available sections dynamically based on loaded students or year
+  static List<String> getAvailableSections([int? year]) {
+    final query = _dynamicStudents.where((s) => !s.isPurged && (year == null || s.year == year));
+    final distinctSections = query.map((s) => s.section).toSet().toList();
+    if (distinctSections.isNotEmpty) {
+      distinctSections.sort();
+      return distinctSections;
+    }
+    if (year == 4) return ['A', 'B'];
+    return ['A', 'B', 'C', 'D'];
+  }
+
+  /// Total count of distinct (year, section) classes across the department (e.g. 10 sections)
+  static int get totalDepartmentSectionsCount {
+    final advisorSections = AuthService.sectionAdvisors.length;
+    final pairs = _dynamicStudents
+        .where((s) => !s.isPurged)
+        .map((s) => '${s.year}-${s.section}')
+        .toSet();
+    if (advisorSections > 0 && advisorSections >= pairs.length) {
+      return advisorSections;
+    }
+    return pairs.isNotEmpty ? pairs.length : 10;
+  }
+
   static List<StudentModel> getStudentsBySection(int year, String section) {
     final list = _dynamicStudents
         .where(
           (s) =>
               s.year == year &&
-              s.section == section &&
+              s.section.toUpperCase() == section.toUpperCase() &&
               !s.isPurged &&
               s.academicStatus != StudentAcademicStatus.graduated,
         )
@@ -655,44 +691,41 @@ class MockDataService {
 
   // ──────────────────── 2026 Academic Calendar (Sep - Dec) ────────────────────
 
-  /// Academic term calendar months
-  static const List<Map<String, dynamic>> academicMonths2026 = [
-    {
-      'month': 9,
-      'year': 2026,
-      'name': 'September 2026',
-      'short': 'Sep 26',
-      'days': 30,
-    },
-    {
-      'month': 10,
-      'year': 2026,
-      'name': 'October 2026',
-      'short': 'Oct 26',
-      'days': 31,
-    },
-    {
-      'month': 11,
-      'year': 2026,
-      'name': 'November 2026',
-      'short': 'Nov 26',
-      'days': 30,
-    },
-    {
-      'month': 12,
-      'year': 2026,
-      'name': 'December 2026',
-      'short': 'Dec 26',
-      'days': 31,
-    },
-  ];
+  /// Dynamically generated academic calendar months (e.g. current academic year or given year)
+  static List<Map<String, dynamic>> getAcademicMonths({int? baseYear}) {
+    final y = baseYear ?? DateTime.now().year;
+    const monthNames = [
+      '', 'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    const monthShorts = [
+      '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    final months = <Map<String, dynamic>>[];
+    for (int m = 1; m <= 12; m++) {
+      final daysInMonth = DateTime(y, m + 1, 0).day;
+      months.add({
+        'month': m,
+        'year': y,
+        'name': '${monthNames[m]} $y',
+        'short': '${monthShorts[m]} ${y.toString().length >= 4 ? y.toString().substring(2) : y}',
+        'days': daysInMonth,
+      });
+    }
+    return months;
+  }
 
-  /// Get list of working academic dates for a specific month in 2026
-  static List<DateTime> getDatesForMonth(int month, {int year = 2026}) {
-    final daysInMonth = month == 9 || month == 11 ? 30 : 31;
+  /// Backward-compatible getter providing dynamic months
+  static List<Map<String, dynamic>> get academicMonths2026 => getAcademicMonths();
+
+  /// Get list of working academic dates for a specific month (auto-calculates days in month)
+  static List<DateTime> getDatesForMonth(int month, {int? year}) {
+    final y = year ?? DateTime.now().year;
+    final daysInMonth = DateTime(y, month + 1, 0).day;
     final List<DateTime> dates = [];
     for (int d = 1; d <= daysInMonth; d++) {
-      final dt = DateTime(year, month, d);
+      final dt = DateTime(y, month, d);
       // Skip Sundays (weekday == 7) for normal instructional days
       if (dt.weekday != DateTime.sunday) {
         dates.add(dt);
@@ -1700,19 +1733,16 @@ class MockDataService {
       }
     }
 
-    // Default computation if attendance records not yet synced
-    final isAbsent = isStudentAbsent(student.rollNumber);
-    if (isAbsent) {
-      return 92.8;
-    }
-    if (student.totalLeavesTaken > 0) {
-      final pct = 100.0 - (student.totalLeavesTaken * 2.6);
-      return pct.clamp(68.0, 100.0);
-    }
-    return 98.4;
+    // Dynamic computation based on tracked working days and documented leaves
+    final totalTrackedDays = _attendanceCache.isNotEmpty ? _attendanceCache.length : 90;
+    final totalLeaves = student.totalLeavesTaken;
+    final isAbsentToday = isStudentAbsent(student.rollNumber);
+    final effectiveAbsences = totalLeaves + (isAbsentToday ? 1 : 0);
+    final calculatedPct = ((totalTrackedDays - effectiveAbsences) / totalTrackedDays) * 100.0;
+    return double.parse(calculatedPct.clamp(0.0, 100.0).toStringAsFixed(1));
   }
 
-  /// Generates the complete CSV string for all 622 students in the department
+  /// Generates the complete CSV string for all students in the department
   static String generateCompleteStudentCsv() {
     final buffer = StringBuffer();
     // Standard RFC-4180 CSV Header
@@ -1759,7 +1789,7 @@ class MockDataService {
   static Future<File> exportStudentCsvToFile() async {
     final content = generateCompleteStudentCsv();
     final tempDir = Directory.systemTemp;
-    final file = File('${tempDir.path}/dept_aids_complete_students_622.csv');
+    final file = File('${tempDir.path}/dept_aids_students_${allStudents.length}.csv');
     return await file.writeAsString(content);
   }
 
@@ -1768,7 +1798,7 @@ class MockDataService {
   static Map<String, dynamic> getStorageMetrics() {
     final activeAlumni = _alumniArchive.where((a) => !a.isPurged).length;
     final purgedAlumni = _alumniArchive.where((a) => a.isPurged).length;
-    final studentCount = allStudents.length; // 622
+    final studentCount = allStudents.length;
     final attendanceLogCount = _allAttendanceRecords.isNotEmpty
         ? _allAttendanceRecords.length
         : _attendanceCache.values.fold<int>(
@@ -1780,11 +1810,15 @@ class MockDataService {
     final slipCount = _leaveRequests.length;
     final noticeCount = _broadcastNotices.length;
     final promotionCount = _promotionRequests.length;
+    final advisorCount = AuthService.sectionAdvisors.length;
+    final hodCount = 2;
+    final facultyAccountCount = advisorCount + hodCount;
+    final sectionsCount = totalDepartmentSectionsCount;
 
     // Real dynamic storage calculations (in KB) based purely on live records
     final studentSizeKB = studentCount * 4.2; // bio, registers, profile data
     final alumniSizeKB = _alumniArchive.length * 3.5;
-    final facultySizeKB = 12 * 26.5; // 10 Advisors + 2 HODs credentials & logs
+    final facultySizeKB = facultyAccountCount * 26.5; // Advisors + HODs credentials & logs
     final attendanceSizeKB = effectiveAttendanceLogs * 0.45; // ~0.45 KB per punch log
     final slipSizeKB = slipCount * 750.0; // PDF attachments & metadata
     final noticeSizeKB = noticeCount * 48.0; // notices, announcements
@@ -1813,9 +1847,9 @@ class MockDataService {
 
     return {
       'totalStudents': studentCount,
-      'totalAdvisors': 10,
-      'totalHods': 2,
-      'totalSections': 10,
+      'totalAdvisors': advisorCount,
+      'totalHods': hodCount,
+      'totalSections': sectionsCount,
       'totalLeaveSlips': slipCount,
       'totalAttendanceRecords': effectiveAttendanceLogs,
       'activeAlumniUnder2YrRetention': activeAlumni,

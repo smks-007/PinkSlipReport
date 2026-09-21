@@ -93,7 +93,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   void _onMonthChanged(int month) {
     setState(() {
       _selectedMonth = month;
-      _selectedDate = DateTime(2026, month, 1);
+      _selectedDate = DateTime(_selectedDate.year, month, 1);
       _loadRecords();
     });
   }
@@ -515,18 +515,25 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   Widget _buildMonthTabs() {
+    final months = MockDataService.getAcademicMonths(baseYear: _selectedDate.year);
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: MockDataService.academicMonths2026.map((m) {
+      height: 44,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: months.length,
+        separatorBuilder: (context, index) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final m = months[index];
           final isSelected = _selectedMonth == m['month'];
           return InkWell(
             onTap: () => _onMonthChanged(m['month'] as int),
             borderRadius: BorderRadius.circular(10),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: isSelected ? const Color(0xFF6366F1) : const Color(0xFFF1F5F9),
                 borderRadius: BorderRadius.circular(10),
@@ -541,7 +548,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               ),
             ),
           );
-        }).toList(),
+        },
       ),
     );
   }

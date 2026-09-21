@@ -1,5 +1,7 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
+
 import '../../core/services/auth_service.dart';
 import '../../core/services/supabase_service.dart';
 
@@ -10,7 +12,8 @@ class SignInScreen extends StatefulWidget {
   State<SignInScreen> createState() => _SignInScreenState();
 }
 
-class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMixin {
+class _SignInScreenState extends State<SignInScreen>
+    with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _usernameCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
@@ -46,7 +49,8 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
     if (!authService.isLockedOut) return;
 
     setState(() {
-      _errorMessage = 'Security lock active. Please wait ${authService.remainingLockoutSeconds}s before retrying.';
+      _errorMessage =
+          'Security lock active. Please wait ${authService.remainingLockoutSeconds}s before retrying.';
     });
 
     _lockoutTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -63,7 +67,8 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
         });
       } else {
         setState(() {
-          _errorMessage = 'Security lock active. Please wait ${remaining}s before retrying.';
+          _errorMessage =
+              'Security lock active. Please wait ${remaining}s before retrying.';
         });
       }
     });
@@ -136,12 +141,19 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                     // Supabase Cloud Gateway Badge (REACTIVE — reflects real connection status)
                     Center(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 5,
+                        ),
                         decoration: BoxDecoration(
-                          color: isSupabaseConnected ? const Color(0xFFF0FDF4) : const Color(0xFFFEF2F2),
+                          color: isSupabaseConnected
+                              ? const Color(0xFFF0FDF4)
+                              : const Color(0xFFFEF2F2),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: isSupabaseConnected ? const Color(0xFFBBF7D0) : const Color(0xFFFECACA),
+                            color: isSupabaseConnected
+                                ? const Color(0xFFBBF7D0)
+                                : const Color(0xFFFECACA),
                           ),
                         ),
                         child: Row(
@@ -151,7 +163,9 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                               width: 8,
                               height: 8,
                               decoration: BoxDecoration(
-                                color: isSupabaseConnected ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                                color: isSupabaseConnected
+                                    ? const Color(0xFF16A34A)
+                                    : const Color(0xFFDC2626),
                                 shape: BoxShape.circle,
                               ),
                             ),
@@ -163,7 +177,9 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
-                                color: isSupabaseConnected ? const Color(0xFF15803D) : const Color(0xFFDC2626),
+                                color: isSupabaseConnected
+                                    ? const Color(0xFF15803D)
+                                    : const Color(0xFFDC2626),
                               ),
                             ),
                           ],
@@ -177,7 +193,10 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                     if (_errorMessage != null) ...[
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFFEF2F2),
                           borderRadius: BorderRadius.circular(12),
@@ -185,7 +204,11 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 18),
+                            const Icon(
+                              Icons.error_outline_rounded,
+                              color: Color(0xFFDC2626),
+                              size: 18,
+                            ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
@@ -206,7 +229,11 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                     // Input Label
                     const Text(
                       'Official Username, Email, or Roll Number',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: Color(0xFF0F172A),
+                      ),
                     ),
                     const SizedBox(height: 8),
 
@@ -214,19 +241,48 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                     TextFormField(
                       controller: _usernameCtrl,
                       decoration: InputDecoration(
-                        hintText: 'e.g., hod.manivannan, advisor.anandhan, 25243100',
-                        prefixIcon: const Icon(Icons.person_outline_rounded, color: Color(0xFF0284C7)),
+                        hintText:
+                            'e.g., hod.manivannan, advisor.anandhan, 25243100',
+                        prefixIcon: const Icon(
+                          Icons.person_outline_rounded,
+                          color: Color(0xFF0284C7),
+                        ),
                         filled: true,
                         fillColor: Colors.white,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFBAE6FD))),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF0284C7), width: 1.5)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFBAE6FD),
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE2E8F0),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF0284C7),
+                            width: 1.5,
+                          ),
+                        ),
                       ),
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter your username, email, or roll number' : null,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Please enter your username, email, or roll number'
+                          : null,
                     ),
 
                     const SizedBox(height: 16),
-                    const Text('Password', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
+                    const Text(
+                      'Password',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
                     const SizedBox(height: 8),
 
                     // Password Input
@@ -235,20 +291,50 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                       obscureText: _obscurePassword,
                       decoration: InputDecoration(
                         hintText: 'Enter your password',
-                        prefixIcon: const Icon(Icons.lock_outline_rounded, color: Color(0xFF0284C7)),
+                        prefixIcon: const Icon(
+                          Icons.lock_outline_rounded,
+                          color: Color(0xFF0284C7),
+                        ),
                         suffixIcon: IconButton(
-                          icon: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: Colors.grey),
-                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                            color: Colors.grey,
+                          ),
+                          onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
                         ),
                         filled: true,
                         fillColor: Colors.white,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFBAE6FD))),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF0284C7), width: 1.5)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFBAE6FD),
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE2E8F0),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF0284C7),
+                            width: 1.5,
+                          ),
+                        ),
                       ),
                       validator: (v) {
-                        if (v == null || v.isEmpty) return 'Please enter your password';
-                        if (v.length < 6) return 'Password must be at least 6 characters';
+                        if (v == null || v.isEmpty) {
+                          return 'Please enter your password';
+                        }
+                        if (v.length < 6) {
+                          return 'Password must be at least 6 characters';
+                        }
                         return null;
                       },
                     ),
@@ -257,8 +343,16 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: () => Navigator.pushNamed(context, '/forgot-password'),
-                        child: const Text('Forgot Password?', style: TextStyle(color: Color(0xFF0284C7), fontWeight: FontWeight.w600, fontSize: 12)),
+                        onPressed: () =>
+                            Navigator.pushNamed(context, '/forgot-password'),
+                        child: const Text(
+                          'Forgot Password?',
+                          style: TextStyle(
+                            color: Color(0xFF0284C7),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                          ),
+                        ),
                       ),
                     ),
 
@@ -278,7 +372,8 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                           borderRadius: BorderRadius.circular(14),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF0284C7).withValues(alpha: 0.35),
+                              color: const Color(0xFF0284C7)
+                                  .withValues(alpha: 0.35),
                               blurRadius: 14,
                               offset: const Offset(0, 6),
                             ),
@@ -289,7 +384,9 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.transparent,
                             shadowColor: Colors.transparent,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
                           ),
                           child: _isLoading
                               ? const SizedBox(
@@ -303,11 +400,20 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                               : const Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(Icons.login_rounded, color: Colors.white, size: 20),
+                                    Icon(
+                                      Icons.login_rounded,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
                                     SizedBox(width: 8),
                                     Text(
                                       'Sign In',
-                                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 0.5,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -322,11 +428,19 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.shield_outlined, size: 14, color: Colors.grey.shade500),
+                          Icon(
+                            Icons.shield_outlined,
+                            size: 14,
+                            color: Colors.grey.shade500,
+                          ),
                           const SizedBox(width: 6),
                           Text(
                             'Secured by Supabase Auth • AES-256 Encrypted',
-                            style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.w500),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade500,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ],
                       ),
@@ -398,7 +512,10 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.25),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.6), width: 1.5),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.6),
+                        width: 1.5,
+                      ),
                     ),
                     child: const Icon(
                       Icons.account_balance_rounded,

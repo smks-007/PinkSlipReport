@@ -538,6 +538,9 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  /// Alias for syncFacultyFromDB for backwards compatibility
+  Future<void> syncAdvisorsFromDb() => syncFacultyFromDB();
+
   /// Sign out and clear all session state
   Future<void> logout() async {
     await SupabaseService().signOut();

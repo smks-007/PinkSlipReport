@@ -1,0 +1,96 @@
+# Make App Fully Database-Driven & Pink Slip Auto-Absent
+
+Replace all mock/hardcoded data in the Flutter app so every piece of displayed information comes from the Supabase cloud database. When an advisor issues a pink slip, automatically mark the student **absent** in the `daily_attendance` table.
+
+## User Review Required
+
+> [!IMPORTANT]
+> This is a large architectural change. The app currently uses **~1300 lines of hardcoded mock data** in `MockDataService` (fake absentee lists, fake leave requests, fake defaulter calculations, fake analytics trends). Replacing all of this with live Supabase queries means:
+> - The app will be slower on first load (network calls vs in-memory data)
+> - If Supabase is unreachable, the app will show empty/error states instead of mock data
+> - Features like "promotion engine", "alumni archive", "academic calendar" will remain client-side since they have no corresponding Supabase tables
+
+> [!WARNING]
+> The existing **21 unit tests** rely on `StudentDirectoryData` (the static 622-student directory) and `MockDataService` hardcoded leave requests. Making everything 100% live-database would break all tests since tests don't have network access. The plan preserves `StudentDirectoryData` as the offline fallback and keeps tests working.
+
+## Open Questions
+
+1. **Dates with no attendance data**: The Supabase `daily_attendance` table only has records for Sep 7 and Sep 8 (1244 rows = 622 × 2). For other dates (Sep 1-6, Oct, Nov, Dec), should the app show "No data" or should we seed more attendance data?
+2. **Promotion / Alumni / Academic Calendar**: These features have no Supabase tables. Should they remain as client-side logic, or should we create new tables for them?
+3. **Defaulter calculation**: Currently uses a fake hash-based formula. Should defaulters be computed from actual `daily_attendance` records (count present/absent per student across all dates)?
+
+---
+
+## Proposed Changes
+
+### Supabase Service — New Fetch Methods
+
+#### [MODIFY] [supabase_service.dart](file:///d:/Dept/PinkSlipReport-main/lib/core/services/supabase_service.dart)
+
+Add new methods:
+- `fetchAttendanceForDate(DateTime date)` → queries `daily_attendance` joined with `students` to get `roll_number`, `section_id`, `is_present`, `in_time`, `out_time` for a specific date
+- `fetchLeaveSlipsWithStudentNames()` → queries `leave_slips` joined with `students` to resolve student names and roll numbers instead of just `student_id`
+- `insertLeaveSlipAndMarkAbsent(...)` → inserts a new `leave_slips` record AND upserts `daily_attendance` with `is_present = false` in a single operation (pink slip → auto-absent)
+
+---
+
+### MockDataService — Replace Mock Data with Live DB Sync
+
+#### [MODIFY] [mock_data_service.dart](file:///d:/Dept/PinkSlipReport-main/lib/core/services/mock_data_service.dart)
+
+**Key changes:**
+
+1. **Remove `todaysAbsentRollNumbers`** (lines 206-263) — the hardcoded `Set<String>` of 89 absent roll numbers. Replace with attendance data fetched from `daily_attendance`.
+
+2. **Replace `getAttendanceForDate()` mock generation** (lines 297-371) — currently generates fake records using hash-based pseudo-random distribution. Replace with:
+   - First check `_attendanceCache` (already exists)
+   - If cache miss, query Supabase `daily_attendance` for that date+section
+   - Map DB rows to `AttendanceRecord` objects
+   - Fall back to "all present" if no DB records exist
+
+3. **Replace hardcoded `_leaveRequests`** (lines 689-840) — the 6 fake leave records. Replace initial list with `[]` and populate from `syncFromSupabase()` which already fetches from `leave_slips`.
+
+4. **Replace `getDefaultersBySection()` mock calculation** (lines 651-672) — currently uses hash trick. Replace with actual computation from `daily_attendance` records across all available dates.
+
+5. **`syncFromSupabase()` expansion** — add Step 3: fetch attendance records for the current date and populate `_attendanceCache`.
+
+6. **`createAdvisorPinkSlip()` auto-absent logic** — when `markPresent == false`, also call `SupabaseService().recordAttendance()` to mark the student absent in the cloud DB. The local cache update already happens.
+
+7. **Update `presentToday` / `absentToday` / `attendancePercentage`** getters to compute from the cached attendance data (which now comes from DB) instead of using `todaysAbsentRollNumbers`.
+
+---
+
+### Dashboard — Ensure All Data Flows from DB
+
+#### [MODIFY] [hod_dashboard_screen.dart](file:///d:/Dept/PinkSlipReport-main/lib/dashboard/hod/screens/hod_dashboard_screen.dart)
+
+- No structural changes needed. The dashboard already reads from `MockDataService` getters. Once `MockDataService` is backed by live data, the dashboard will automatically show DB data.
+
+#### [MODIFY] [attendance_screen.dart](file:///d:/Dept/PinkSlipReport-main/lib/dashboard/advisor/screens/attendance_screen.dart)
+
+- No structural changes needed. Already calls `MockDataService.getAttendanceForDate()`.
+
+#### [MODIFY] [create_pink_slip_dialog.dart](file:///d:/Dept/PinkSlipReport-main/lib/dashboard/shared/widgets/create_pink_slip_dialog.dart)
+
+- No structural changes needed. Already calls `MockDataService.createAdvisorPinkSlip()` which will be updated with auto-absent logic.
+
+---
+
+## Verification Plan
+
+### Automated Tests
+```bash
+flutter analyze
+flutter test
+```
+
+### Manual Verification
+- Build debug APK and install on emulator
+- Log in as HOD and verify:
+  - Student count (622) comes from DB
+  - Attendance numbers (present/absent) come from `daily_attendance` table
+  - Leave slips show real data from `leave_slips` table with resolved student names
+- Log in as Advisor and:
+  - Issue a pink slip for a student
+  - Verify the student is automatically marked absent in the attendance register
+  - Verify the `daily_attendance` table in Supabase reflects the change

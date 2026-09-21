@@ -3,8 +3,7 @@ import '../models/student_model.dart';
 import '../models/leave_model.dart';
 import '../models/attendance_model.dart';
 import '../models/user_model.dart';
-import '../data/student_directory_data.dart';
-import 'mock_data_service.dart';
+import 'data_service.dart';
 import 'auth_service.dart';
 
 /// Execution Step logged during Autonomous AI-Agent Reasoning Cycle
@@ -70,13 +69,13 @@ class AiAgentService {
     final clean = query.trim().toUpperCase();
     if (clean.isEmpty) return null;
 
-    // Direct roll lookup
-    if (StudentDirectoryData.byRollNumber.containsKey(clean)) {
-      return StudentDirectoryData.byRollNumber[clean];
-    }
+    // Direct roll lookup via dynamic service
+    final direct = MockDataService.getStudentByRoll(clean);
+    if (direct != null) return direct;
 
     // Search by partial roll or name
-    final matches = StudentDirectoryData.allStudents.where((s) {
+    final all = MockDataService.allStudents;
+    final matches = all.where((s) {
       return s.rollNumber.contains(clean) ||
           s.name.toUpperCase().contains(clean) ||
           s.id.toUpperCase() == clean;
@@ -89,14 +88,30 @@ class AiAgentService {
     final student = findStudent(query);
     if (student == null) return null;
 
-    // Find class advisor
+    // Find class advisor (match assigned advisorId first, then section fallback)
     String advisorName = 'Department Class Advisor';
     String advisorContact = 'advisor@vsb.ac.in';
     for (final adv in AuthService.sectionAdvisors) {
-      if (adv.year == student.year && adv.section == student.section) {
+      final aId = adv.id.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+      final sId = student.advisorId.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+      final isDirectIdMatch = aId == sId ||
+          (sId == 'adviia' && aId == 'adv2a') ||
+          (sId == 'adviib' && aId == 'adv2b') ||
+          (sId == 'adviic' && aId == 'adv2c') ||
+          (sId == 'adviid' && aId == 'adv2d');
+      if (isDirectIdMatch) {
         advisorName = adv.name;
         advisorContact = adv.email;
         break;
+      }
+    }
+    if (advisorName == 'Department Class Advisor') {
+      for (final adv in AuthService.sectionAdvisors) {
+        if (adv.year == student.year && adv.section == student.section) {
+          advisorName = adv.name;
+          advisorContact = adv.email;
+          break;
+        }
       }
     }
 
@@ -160,23 +175,18 @@ class AiAgentService {
     final profile = getStudentDeepProfile(rollNumber);
     final double currentPct = profile != null ? (profile['cumulativePercentage'] as double) : 85.0;
 
-    // Dynamically calculate instructional days from active academic term calendar
+    // Statutory 90 instructional working days per academic term
+    const int totalTermDays = 90;
     final now = DateTime.now();
     final termStart = DateTime(now.year, 9, 1);
-    final termEnd = DateTime(now.year, 12, 31);
-    int totalTermDays = 0;
     int elapsedDays = 0;
     DateTime cursor = termStart;
-    while (!cursor.isAfter(termEnd)) {
+    while (!cursor.isAfter(now)) {
       if (cursor.weekday != DateTime.sunday && !MockDataService.isCollegeHoliday(cursor)) {
-        totalTermDays++;
-        if (!cursor.isAfter(now)) {
-          elapsedDays++;
-        }
+        elapsedDays++;
       }
       cursor = cursor.add(const Duration(days: 1));
     }
-    if (totalTermDays == 0) totalTermDays = 90;
     if (elapsedDays <= 0) elapsedDays = 1;
     if (elapsedDays > totalTermDays) elapsedDays = totalTermDays;
 

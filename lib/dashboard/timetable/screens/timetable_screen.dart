@@ -25,20 +25,23 @@ class _TimetableScreenState extends State<TimetableScreen>
   late String _selectedSection;
   late String _selectedDay;
   late SectionTimetable _currentTimetable;
+  int _selectedYear = 2;
+  bool _isLoading = false;
 
-  final List<String> _sections = TimetableDataService.availableSections;
+  List<String> get _sections => TimetableDataService.getAvailableSectionsForYear(_selectedYear);
   final List<String> _days = TimetableDataService.days;
 
   @override
   void initState() {
     super.initState();
     final user = AuthService().currentUser;
-    if (user != null && user.role == UserRole.advisor && user.section != null) {
-      _selectedSection = user.section!;
+    if (user != null && user.role == UserRole.advisor) {
+      _selectedSection = user.section ?? widget.initialSection;
+      _selectedYear = user.year ?? 2;
     } else {
       _selectedSection = widget.initialSection;
     }
-    _currentTimetable = TimetableDataService.getSectionTimetable(_selectedSection);
+    _currentTimetable = TimetableDataService.getSectionTimetable(_selectedSection, year: _selectedYear);
 
     // Auto-select current day of the week, defaulting to Monday on Sunday
     final weekday = DateTime.now().weekday; // 1 = Monday, 7 = Sunday
@@ -46,6 +49,22 @@ class _TimetableScreenState extends State<TimetableScreen>
       _selectedDay = _days[weekday - 1];
     } else {
       _selectedDay = _days[0];
+    }
+
+    _loadTimetableFromDb();
+  }
+
+  Future<void> _loadTimetableFromDb() async {
+    setState(() => _isLoading = true);
+    final tt = await TimetableDataService.fetchTimetableFromDb(
+      _selectedSection,
+      year: _selectedYear,
+    );
+    if (mounted) {
+      setState(() {
+        _currentTimetable = tt;
+        _isLoading = false;
+      });
     }
   }
 
@@ -57,8 +76,9 @@ class _TimetableScreenState extends State<TimetableScreen>
     }
     setState(() {
       _selectedSection = section;
-      _currentTimetable = TimetableDataService.getSectionTimetable(section);
+      _currentTimetable = TimetableDataService.getSectionTimetable(section, year: _selectedYear);
     });
+    _loadTimetableFromDb();
   }
 
   void _onDayChanged(String day) {
@@ -93,6 +113,12 @@ class _TimetableScreenState extends State<TimetableScreen>
           'Class Timetable',
           style: AppStyles.headingMedium.copyWith(fontSize: 18),
         ),
+        bottom: _isLoading
+            ? const PreferredSize(
+                preferredSize: Size.fromHeight(2),
+                child: LinearProgressIndicator(minHeight: 2),
+              )
+            : null,
         actions: [
           IconButton(
             icon: const Icon(Icons.calendar_month_rounded, color: Color(0xFF4285F4)),

@@ -20,8 +20,9 @@ void main() async {
   await SupabaseService().initialize();
   runApp(const SmartProApp());
 
-  // Sync live Supabase data in background (with error handling)
+  // Sync live Supabase data and faculty advisors in background
   try {
+    await AuthService().syncAdvisorsFromDb();
     await MockDataService.syncFromSupabase();
   } catch (e) {
     if (kDebugMode) {
