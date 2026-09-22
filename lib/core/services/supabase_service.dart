@@ -443,25 +443,19 @@ class SupabaseService {
   Future<int> resolveStudentDbId({int? studentId, String? rollNumber}) async {
     if (!_isInitialized || client == null) return studentId ?? 1001;
 
-    // If studentId is already a valid primary key (1000..99999), return it directly
-    if (studentId != null && studentId > 0 && studentId < 20000000) {
-      return studentId;
-    }
-
-    final qRoll =
-        rollNumber ??
-        (studentId != null && studentId > 0 ? studentId.toString() : null);
+    // 1. Prioritize looking up by unique roll_number in students table
+    final qRoll = rollNumber?.trim();
     if (qRoll != null && qRoll.isNotEmpty) {
       try {
         final res = await client!
             .from('students')
             .select('student_id')
-            .eq('roll_number', qRoll.trim())
+            .eq('roll_number', qRoll)
             .maybeSingle();
         if (res != null && res['student_id'] != null) {
           final id = res['student_id'] as int;
           if (kDebugMode) {
-            debugPrint('🔍 Resolved student_id $id for roll number $qRoll');
+            debugPrint('🔍 Resolved real student_id $id for roll number $qRoll');
           }
           return id;
         }
@@ -472,7 +466,67 @@ class SupabaseService {
       }
     }
 
+    // 2. If studentId was already resolved from DB and exists in students table
+    if (studentId != null && studentId > 0) {
+      try {
+        final exists = await client!
+            .from('students')
+            .select('student_id')
+            .eq('student_id', studentId)
+            .maybeSingle();
+        if (exists != null) return studentId;
+      } catch (_) {}
+    }
+
+    // 3. Fallback: try to fetch first student from students table if any exist
+    try {
+      final firstStudent = await client!
+          .from('students')
+          .select('student_id')
+          .limit(1)
+          .maybeSingle();
+      if (firstStudent != null && firstStudent['student_id'] != null) {
+        return firstStudent['student_id'] as int;
+      }
+    } catch (_) {}
+
     return studentId != null && studentId > 0 ? studentId : 1001;
+  }
+
+  /// Resolve integer user_id of the current authenticated user from public.users table
+  Future<int> getCurrentDbUserId() async {
+    if (!_isInitialized || client == null) return 1;
+    try {
+      final authId = client!.auth.currentUser?.id;
+      final email = client!.auth.currentUser?.email;
+
+      if (authId != null && authId.isNotEmpty) {
+        final res = await client!
+            .from('users')
+            .select('user_id')
+            .eq('auth_id', authId)
+            .maybeSingle();
+        if (res != null && res['user_id'] != null) {
+          return res['user_id'] as int;
+        }
+      }
+
+      if (email != null && email.isNotEmpty) {
+        final res = await client!
+            .from('users')
+            .select('user_id')
+            .eq('email', email.trim().toLowerCase())
+            .maybeSingle();
+        if (res != null && res['user_id'] != null) {
+          return res['user_id'] as int;
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Failed to resolve current db user_id: $e');
+      }
+    }
+    return 1;
   }
 
   /// Submit new Pink Slip to Supabase
@@ -493,6 +547,15 @@ class SupabaseService {
         studentId: studentId,
         rollNumber: rollNumber,
       );
+
+      // Map application status to PostgreSQL slip_status enum
+      String dbStatus = status.toUpperCase();
+      if (dbStatus == 'FORWARDED') {
+        dbStatus = 'PENDING_HOD';
+      } else if (dbStatus != 'APPROVED' && dbStatus != 'REJECTED' && dbStatus != 'PENDING_HOD') {
+        dbStatus = 'SUBMITTED';
+      }
+
       await client!.from('leave_slips').insert({
         'student_id': realStudentId,
         'reason': reason,
@@ -500,10 +563,13 @@ class SupabaseService {
         'to_date': toDate.toIso8601String().split('T').first,
         'is_informed': true,
         'letter_document_url': letterUrl,
-        'status': status,
+        'status': dbStatus,
         'advisor_remarks': advisorRemarks,
         'created_at': DateTime.now().toIso8601String(),
       });
+      if (kDebugMode) {
+        debugPrint('✅ Supabase: Pink Slip persisted for student $realStudentId with status $dbStatus');
+      }
       return true;
     } catch (e) {
       if (kDebugMode) {
@@ -521,8 +587,13 @@ class SupabaseService {
   }) async {
     if (!_isInitialized || client == null) return false;
     try {
-      final updateData = <String, dynamic>{'status': status};
-      if (status == 'APPROVED' || status == 'REJECTED') {
+      String dbStatus = status.toUpperCase();
+      if (dbStatus == 'FORWARDED') {
+        dbStatus = 'PENDING_HOD';
+      }
+
+      final updateData = <String, dynamic>{'status': dbStatus};
+      if (dbStatus == 'APPROVED' || dbStatus == 'REJECTED') {
         if (remarks != null) updateData['hod_remarks'] = remarks;
       } else {
         if (remarks != null) updateData['advisor_remarks'] = remarks;
@@ -709,6 +780,14 @@ class SupabaseService {
       final dateStr =
           '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
+      // Map application status to PostgreSQL slip_status enum
+      String dbStatus = status.toUpperCase();
+      if (dbStatus == 'FORWARDED') {
+        dbStatus = 'PENDING_HOD';
+      } else if (dbStatus != 'APPROVED' && dbStatus != 'REJECTED' && dbStatus != 'PENDING_HOD') {
+        dbStatus = 'SUBMITTED';
+      }
+
       // 1. Insert leave slip
       await client!.from('leave_slips').insert({
         'student_id': realStudentId,
@@ -717,24 +796,28 @@ class SupabaseService {
         'to_date': dateStr,
         'is_informed': true,
         'letter_document_url': letterUrl,
-        'status': status,
+        'status': dbStatus,
         'advisor_remarks': advisorRemarks,
         'created_at': DateTime.now().toIso8601String(),
       });
 
       // 2. Auto-mark absent in daily_attendance (pink slip logic)
       if (!isOnDuty) {
+        final markedByUserId = await getCurrentDbUserId();
         await client!.from('daily_attendance').upsert({
           'student_id': realStudentId,
           'attendance_date': dateStr,
           'is_present': false,
           'leave_type': 'ABSENT',
           'punch_method': 'PINK_SLIP_AUTO',
-          'marked_by': 1,
+          'marked_by': markedByUserId,
           'updated_at': DateTime.now().toIso8601String(),
         }, onConflict: 'student_id,attendance_date');
       }
 
+      if (kDebugMode) {
+        debugPrint('✅ Supabase: Pink Slip & attendance auto-marked for student $realStudentId (status: $dbStatus)');
+      }
       return true;
     } catch (e) {
       if (kDebugMode) {

@@ -3,6 +3,7 @@ import 'promotion_model.dart';
 /// Represents a student in the system with academic progression & lifecycle tracking.
 class StudentModel {
   final String id;
+  final int? dbStudentId;
   final String name;
   final String rollNumber;
   final String? registerNumber;
@@ -25,6 +26,7 @@ class StudentModel {
 
   const StudentModel({
     required this.id,
+    this.dbStudentId,
     required this.name,
     required this.rollNumber,
     this.registerNumber,
@@ -69,6 +71,7 @@ class StudentModel {
 
   StudentModel copyWith({
     String? id,
+    int? dbStudentId,
     String? name,
     String? rollNumber,
     String? registerNumber,
@@ -91,6 +94,7 @@ class StudentModel {
   }) {
     return StudentModel(
       id: id ?? this.id,
+      dbStudentId: dbStudentId ?? this.dbStudentId,
       name: name ?? this.name,
       rollNumber: rollNumber ?? this.rollNumber,
       registerNumber: registerNumber ?? this.registerNumber,

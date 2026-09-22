@@ -196,7 +196,7 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
       }
     }
 
-    final newSlip = MockDataService.createAdvisorPinkSlip(
+    final newSlip = await MockDataService.createAdvisorPinkSlipAsync(
       student: _selectedStudent!,
       date: _selectedDate,
       markPresent: _markPresent,

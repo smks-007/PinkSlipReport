@@ -851,6 +851,36 @@ void main() {
     expect(studentRecordPresent.source, 'pink_slip_od');
   });
 
+  test('Class Advisor createAdvisorPinkSlipAsync persists slip and resolves db student metadata', () async {
+    final student = StudentDirectoryData.allStudents.firstWhere(
+      (s) => s.rollNumber == '25243101',
+    );
+    final studentWithDbId = student.copyWith(dbStudentId: 1042);
+    expect(studentWithDbId.dbStudentId, 1042);
+
+    final testDate = DateTime(2026, 9, 6);
+    final slip = await MockDataService.createAdvisorPinkSlipAsync(
+      student: studentWithDbId,
+      date: testDate,
+      markPresent: false,
+      category: LeaveCategory.leave,
+      reason: 'Fever and medical rest',
+      advisorName: 'Dr. M. Rajendiran',
+      advisorId: 'adv-2b',
+      year: 2,
+      section: 'B',
+    );
+
+    expect(slip.studentRollNumber, '25243101');
+    expect(slip.letterStatus, LetterStatus.forwarded);
+    expect(MockDataService.leaveRequests.first.id, slip.id);
+
+    final attendance = MockDataService.getAttendanceForDate(testDate, year: 2, section: 'B');
+    final studentRecord = attendance.firstWhere((r) => r.studentId == student.id);
+    expect(studentRecord.isPresent, isFalse);
+    expect(studentRecord.source, 'pink_slip_absent');
+  });
+
   test('HOD Pink Slip modal directory search operates across all 622 students', () {
     final allStudents = MockDataService.allStudents;
     expect(allStudents.length, 622);

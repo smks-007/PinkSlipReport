@@ -81,10 +81,12 @@ class MockDataService {
 
           final advId = 'adv-$yr${secLetter.toLowerCase()}';
           final regNo = r['register_number'] as String?;
+          final dbId = r['student_id'] as int?;
 
           synced.add(
             StudentModel(
               id: 'stu-$roll',
+              dbStudentId: dbId,
               name: name,
               rollNumber: roll,
               registerNumber: regNo,
@@ -896,6 +898,7 @@ class MockDataService {
     String? attachmentFileSize,
     int? year,
     String? section,
+    bool persistToCloud = true,
   }) {
     final effectiveYear = year ?? student.year;
     final effectiveSection = section ?? student.section;
@@ -980,9 +983,10 @@ class MockDataService {
     }
 
     // ── PINK SLIP AUTO-ABSENT: Persist to Supabase Cloud Database ──
-    final studentNumericId =
-        int.tryParse(student.rollNumber.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-    if (studentNumericId > 0) {
+    final studentNumericId = student.dbStudentId ??
+        int.tryParse(student.rollNumber.replaceAll(RegExp(r'[^0-9]'), '')) ??
+        0;
+    if (studentNumericId > 0 && persistToCloud) {
       SupabaseService().submitLeaveSlipAndMarkAbsent(
         studentId: studentNumericId,
         rollNumber: student.rollNumber,
@@ -990,9 +994,76 @@ class MockDataService {
         date: date,
         isOnDuty: markPresent,
         letterUrl: attachmentFileName,
-        status: markPresent ? 'APPROVED' : 'FORWARDED',
+        status: markPresent ? 'APPROVED' : 'PENDING_HOD',
         advisorRemarks: effectiveAdvisorRemarks,
       );
+    }
+
+    return slip;
+  }
+
+  /// Asynchronous creation of Pink Slip that awaits Supabase cloud database persistence.
+  static Future<LeaveModel> createAdvisorPinkSlipAsync({
+    required StudentModel student,
+    required DateTime date,
+    required bool markPresent,
+    required LeaveCategory category,
+    LeaveType leaveType = LeaveType.informed,
+    required String reason,
+    required String advisorName,
+    String? advisorId,
+    String? advisorRemarks,
+    String? attachmentFileName,
+    String? attachmentFileType,
+    String? attachmentFileSize,
+    int? year,
+    String? section,
+  }) async {
+    final effectiveYear = year ?? student.year;
+    final effectiveSection = section ?? student.section;
+    final effectiveAdvisorRemarks =
+        (advisorRemarks != null && advisorRemarks.trim().isNotEmpty)
+            ? advisorRemarks.trim()
+            : 'Official Pink Slip issued by Class Advisor $advisorName. Attendance marked as ${markPresent ? "PRESENT (OD)" : "ABSENT"}.';
+
+    // Synchronize local in-memory state and UI immediately
+    final slip = createAdvisorPinkSlip(
+      student: student,
+      date: date,
+      markPresent: markPresent,
+      category: category,
+      leaveType: leaveType,
+      reason: reason,
+      advisorName: advisorName,
+      advisorId: advisorId,
+      advisorRemarks: advisorRemarks,
+      attachmentFileName: attachmentFileName,
+      attachmentFileType: attachmentFileType,
+      attachmentFileSize: attachmentFileSize,
+      year: effectiveYear,
+      section: effectiveSection,
+      persistToCloud: false,
+    );
+
+    // Await cloud database persistence to leave_slips and daily_attendance
+    final studentNumericId = student.dbStudentId ??
+        int.tryParse(student.rollNumber.replaceAll(RegExp(r'[^0-9]'), '')) ??
+        0;
+    try {
+      await SupabaseService().submitLeaveSlipAndMarkAbsent(
+        studentId: studentNumericId,
+        rollNumber: student.rollNumber,
+        reason: reason,
+        date: date,
+        isOnDuty: markPresent,
+        letterUrl: attachmentFileName,
+        status: markPresent ? 'APPROVED' : 'PENDING_HOD',
+        advisorRemarks: effectiveAdvisorRemarks,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Supabase createAdvisorPinkSlipAsync error: $e');
+      }
     }
 
     return slip;
@@ -1349,7 +1420,11 @@ class MockDataService {
     _notifyUpdate();
 
     // Persist to Supabase Cloud Database
-    final studentNumericId =
+    final student = _dynamicStudents.cast<StudentModel?>().firstWhere(
+      (s) => s?.rollNumber == newLeave.studentRollNumber,
+      orElse: () => null,
+    );
+    final studentNumericId = student?.dbStudentId ??
         int.tryParse(
           newLeave.studentRollNumber.replaceAll(RegExp(r'[^0-9]'), ''),
         ) ??
@@ -1362,7 +1437,7 @@ class MockDataService {
       toDate: newLeave.leaveDate,
       isOnDuty: newLeave.isOnDuty,
       letterUrl: newLeave.attachmentFileName,
-      status: newLeave.letterStatus == LetterStatus.forwarded ? 'FORWARDED' : 'SUBMITTED',
+      status: newLeave.letterStatus == LetterStatus.forwarded ? 'PENDING_HOD' : 'SUBMITTED',
       advisorRemarks: newLeave.advisorRemarks,
     );
   }
