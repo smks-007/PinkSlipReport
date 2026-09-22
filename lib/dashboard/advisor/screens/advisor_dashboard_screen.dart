@@ -14,6 +14,7 @@ import '../../shared/widgets/storage_management_dialog.dart';
 import '../../shared/widgets/letter_attachment_viewer_dialog.dart';
 import '../../shared/widgets/promotion_dossier_viewer_dialog.dart';
 import '../../shared/widgets/attendance_report_viewer_dialog.dart';
+import '../../../core/utils/responsive_utils.dart';
 
 /// Advisor Dashboard — Dedicated Section Portals for all 10 Section Class Advisors.
 /// Supports section isolation, full student roster, leave/OD forwarding to HOD, and <75% low attendance alerts.
@@ -189,48 +190,62 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
 
   Widget _buildAppBar() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: EdgeInsets.symmetric(
+        horizontal: context.responsiveHorizontalPadding,
+        vertical: 12,
+      ),
       child: Row(
         children: [
           const SmartProLogo(size: 32, showText: false),
           const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: const [
-                  Text(
-                    'SMART',
-                    style: TextStyle(
-                      color: Color(0xFF0F172A),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.2,
-                    ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'SMART',
+                        style: TextStyle(
+                          color: const Color(0xFF0F172A),
+                          fontSize: context.responsiveFontSize(compact: 14, normal: 16),
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      const TextSpan(text: ' '),
+                      TextSpan(
+                        text: 'PRO',
+                        style: TextStyle(
+                          color: const Color(0xFF6366F1),
+                          fontSize: context.responsiveFontSize(compact: 14, normal: 16),
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ],
                   ),
-                  SizedBox(width: 4),
-                  Text(
-                    'PRO',
-                    style: TextStyle(
-                      color: Color(0xFF6366F1),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ],
-              ),
-              const Text(
-                'Dept of AI & DS • Class Advisor Portal',
-                style: TextStyle(
-                  fontSize: 10.5,
-                  color: Color(0xFF64748B),
-                  fontWeight: FontWeight.w500,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            ],
+                Text(
+                  'Dept of AI & DS • Class Advisor Portal',
+                  style: TextStyle(
+                    fontSize: context.responsiveFontSize(
+                      compact: 9.5,
+                      normal: 10.5,
+                    ),
+                    color: const Color(0xFF64748B),
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ],
+            ),
           ),
-          const Spacer(),
           IconButton(
             icon: Stack(
               clipBehavior: Clip.none,
@@ -441,13 +456,18 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'From: ${latest.senderName} • ${latest.targetAudience}',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: Color(0xFF64748B),
+                Expanded(
+                  child: Text(
+                    'From: ${latest.senderName} • ${latest.targetAudience}',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF64748B),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                const SizedBox(width: 8),
                 InkWell(
                   onTap: () => _showNoticesBottomSheet(),
                   child: Container(
@@ -819,8 +839,11 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -856,6 +879,8 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                       fontSize: 11,
                       color: Colors.white,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -866,17 +891,19 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
               style: TextStyle(fontSize: 12.5, color: Colors.white70),
             ),
             const SizedBox(height: 2),
-            Row(
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 4,
               children: [
-                Expanded(
-                  child: Text(
-                    _currentAdvisor.name,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      letterSpacing: -0.5,
-                    ),
+                Text(
+                  _currentAdvisor.name,
+                  style: TextStyle(
+                    fontSize: context.responsiveFontSize(compact: 17, normal: 20),
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: -0.5,
                   ),
                 ),
                 Container(
@@ -1382,14 +1409,19 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      '${student.name} (${student.rollNumber})',
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
+                    Expanded(
+                      child: Text(
+                        '${student.name} (${student.rollNumber})',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Text(
                       '${pct.toStringAsFixed(1)}%',
                       style: const TextStyle(
@@ -1653,8 +1685,11 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 6,
             children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1886,8 +1921,7 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
   void _showForwardAbsenteePinkSlipModal([StudentModel? preselectedStudent]) {
     final year = _currentAdvisor.year ?? 2;
     final section = _currentAdvisor.section ?? 'A';
-    final sectionStudents =
-        MockDataService.getStudentsBySection(year, section);
+    final sectionStudents = MockDataService.getStudentsBySection(year, section);
 
     // Find section absentees
     final absentStudents = sectionStudents
@@ -2289,28 +2323,15 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
+                        _suggestionChip('Hospital', reasonCtrl, setModalState),
+                        _suggestionChip('Hackathon', reasonCtrl, setModalState),
                         _suggestionChip(
-                          '🏥 Hospital & Fever',
+                          'Zonal Sports',
                           reasonCtrl,
                           setModalState,
                         ),
                         _suggestionChip(
-                          '🏆 SIH Hackathon',
-                          reasonCtrl,
-                          setModalState,
-                        ),
-                        _suggestionChip(
-                          '🦷 Dental Clinic',
-                          reasonCtrl,
-                          setModalState,
-                        ),
-                        _suggestionChip(
-                          '🏏 Zonal Sports',
-                          reasonCtrl,
-                          setModalState,
-                        ),
-                        _suggestionChip(
-                          '👨‍👩‍👦 Family Function',
+                          'Family Function',
                           reasonCtrl,
                           setModalState,
                         ),
@@ -2755,31 +2776,34 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 6,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Pink Slip & OD Management',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
-                      ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Pink Slip & OD Management',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F172A),
                     ),
-                    Text(
-                      'Review all 10 sections • Inspect proofs • Accept or Reject',
-                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
+                  ),
+                  Text(
+                    'Review all 10 sections • Inspect proofs • Accept or Reject',
+                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              Row(
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   ElevatedButton.icon(
                     onPressed: () => _showForwardAbsenteePinkSlipModal(),
@@ -2803,7 +2827,6 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 6),
                   TextButton(
                     onPressed: () =>
                         Navigator.pushNamed(context, '/leave-management'),
@@ -3691,7 +3714,11 @@ class _PinkSlipTile extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 10),
-          Row(
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
             children: [
               OutlinedButton.icon(
                 onPressed: onViewVoucher,
@@ -3712,47 +3739,56 @@ class _PinkSlipTile extends StatelessWidget {
                   style: TextStyle(fontSize: 10.5),
                 ),
               ),
-              const Spacer(),
-              if (isPendingWithAdvisor) ...[
-                OutlinedButton(
-                  onPressed: onRejectProposal,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFDC2626),
-                    side: const BorderSide(color: Color(0xFFFCA5A5)),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
+              if (isPendingWithAdvisor)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    OutlinedButton(
+                      onPressed: onRejectProposal,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFDC2626),
+                        side: const BorderSide(color: Color(0xFFFCA5A5)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        '✕ Reject',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      onPressed: onAcceptAndForward,
+                      icon: const Icon(Icons.send_rounded, size: 13),
+                      label: const Text(
+                        '✓ Endorse & Forward',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF6366F1),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
                     ),
-                  ),
-                  child: const Text(
-                    '✕ Reject',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                  ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  onPressed: onAcceptAndForward,
-                  icon: const Icon(Icons.send_rounded, size: 13),
-                  label: const Text(
-                    '✓ Endorse & Forward',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF6366F1),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ],
             ],
           ),
         ],

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/services/auth_service.dart';
 import '../../core/services/supabase_service.dart';
+import '../../core/utils/responsive_utils.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -170,16 +171,19 @@ class _SignInScreenState extends State<SignInScreen>
                               ),
                             ),
                             const SizedBox(width: 6),
-                            Text(
-                              isSupabaseConnected
-                                  ? '⚡ Supabase Cloud Database & JWT Active'
-                                  : '⚠ Database Offline — Check Connection',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: isSupabaseConnected
-                                    ? const Color(0xFF15803D)
-                                    : const Color(0xFFDC2626),
+                            Flexible(
+                              child: Text(
+                                isSupabaseConnected
+                                    ? '⚡ Supabase Cloud Database & JWT Active'
+                                    : '⚠ Database Offline — Check Connection',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: isSupabaseConnected
+                                      ? const Color(0xFF15803D)
+                                      : const Color(0xFFDC2626),
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
@@ -359,9 +363,9 @@ class _SignInScreenState extends State<SignInScreen>
                     const SizedBox(height: 14),
 
                     // Login Button (Sky Blue Gradient)
-                    SizedBox(
+                    Container(
                       width: double.infinity,
-                      height: 52,
+                      constraints: const BoxConstraints(minHeight: 48),
                       child: DecoratedBox(
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
@@ -384,6 +388,7 @@ class _SignInScreenState extends State<SignInScreen>
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.transparent,
                             shadowColor: Colors.transparent,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
                             ),
@@ -434,12 +439,15 @@ class _SignInScreenState extends State<SignInScreen>
                             color: Colors.grey.shade500,
                           ),
                           const SizedBox(width: 6),
-                          Text(
-                            'Secured by Supabase Auth • AES-256 Encrypted',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey.shade500,
-                              fontWeight: FontWeight.w500,
+                          Flexible(
+                            child: Text(
+                              'Secured by Supabase Auth • AES-256 Encrypted',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey.shade500,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -458,9 +466,12 @@ class _SignInScreenState extends State<SignInScreen>
   }
 
   Widget _buildSkyCloudHeader() {
+    final headerHeight = context.clampedHeight(0.33, 190.0, 280.0);
+    final isCompact = context.isCompact;
+
     return Container(
       width: double.infinity,
-      height: 290,
+      height: headerHeight,
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           colors: [Color(0xFF0284C7), Color(0xFF38BDF8), Color(0xFF7DD3FC)],
@@ -480,74 +491,82 @@ class _SignInScreenState extends State<SignInScreen>
         ],
       ),
       child: Stack(
+        clipBehavior: Clip.hardEdge,
         children: [
-          // Background soft cloud silhouettes
+          // Background soft cloud silhouettes positioned proportionately
           Positioned(
-            top: 25,
-            left: 20,
+            top: headerHeight * 0.1,
+            left: context.screenWidth * 0.04,
             child: Icon(
               Icons.cloud,
-              size: 135,
+              size: isCompact ? 90 : 135,
               color: Colors.white.withValues(alpha: 0.22),
             ),
           ),
           Positioned(
-            top: 60,
-            right: 15,
+            top: headerHeight * 0.2,
+            right: context.screenWidth * 0.04,
             child: Icon(
               Icons.cloud,
-              size: 115,
+              size: isCompact ? 80 : 115,
               color: Colors.white.withValues(alpha: 0.20),
             ),
           ),
           SafeArea(
             child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const SizedBox(height: 10),
-                  Container(
-                    width: 58,
-                    height: 58,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.25),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.6),
-                        width: 1.5,
+              child: SingleChildScrollView(
+                physics: const NeverScrollableScrollPhysics(),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(height: isCompact ? 4 : 10),
+                    Container(
+                      width: isCompact ? 46 : 58,
+                      height: isCompact ? 46 : 58,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.25),
+                        borderRadius: BorderRadius.circular(isCompact ? 12 : 16),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.6),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.account_balance_rounded,
+                        size: isCompact ? 24 : 30,
+                        color: Colors.white,
                       ),
                     ),
-                    child: const Icon(
-                      Icons.account_balance_rounded,
-                      size: 30,
-                      color: Colors.white,
+                    SizedBox(height: isCompact ? 6 : 12),
+                    Text(
+                      'PinkSlipReport',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: isCompact ? 18 : 22,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.3,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'PinkSlipReport',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.3,
+                    const SizedBox(height: 2),
+                    Text(
+                      'V.S.B. Engineering College • Dept of AI & DS',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: isCompact ? 9.5 : 11,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                  ),
-                  const SizedBox(height: 3),
-                  const Text(
-                    'V.S.B. Engineering College • Dept of AI & DS',
-                    style: TextStyle(color: Colors.white70, fontSize: 11),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Official Academic Portal',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                    SizedBox(height: isCompact ? 3 : 6),
+                    Text(
+                      'Official Academic Portal',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: isCompact ? 13 : 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

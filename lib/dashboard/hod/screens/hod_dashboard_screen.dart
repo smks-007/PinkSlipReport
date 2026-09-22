@@ -14,6 +14,7 @@ import '../../shared/widgets/letter_attachment_viewer_dialog.dart';
 import '../../shared/widgets/storage_management_dialog.dart';
 import '../../shared/widgets/promotion_dossier_viewer_dialog.dart';
 import '../../shared/widgets/attendance_report_viewer_dialog.dart';
+import '../../../core/utils/responsive_utils.dart';
 
 class HodDashboardScreen extends StatefulWidget {
   const HodDashboardScreen({super.key});
@@ -164,37 +165,44 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
 
   Widget _buildAppBar() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: EdgeInsets.symmetric(horizontal: context.responsiveHorizontalPadding, vertical: 10),
       child: Row(
         children: [
           const SmartProLogo(size: 32, showText: false),
-          const SizedBox(width: 10),
-          Row(
-            children: const [
-              Text(
-                'SMART',
-                style: TextStyle(
-                  color: Color(0xFF0F172A),
-                  fontSize: 17,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.2,
-                ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'SMART',
+                    style: TextStyle(
+                      color: const Color(0xFF0F172A),
+                      fontSize: context.responsiveFontSize(compact: 15, normal: 17),
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const TextSpan(text: ' '),
+                  TextSpan(
+                    text: 'PRO',
+                    style: TextStyle(
+                      color: const Color(0xFF6366F1),
+                      fontSize: context.responsiveFontSize(compact: 15, normal: 17),
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ],
               ),
-              SizedBox(width: 4),
-              Text(
-                'PRO',
-                style: TextStyle(
-                  color: Color(0xFF6366F1),
-                  fontSize: 17,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ],
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-          const Spacer(),
           IconButton(
-            icon: const Icon(Icons.dns_rounded, size: 22, color: Color(0xFF0284C7)),
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            padding: const EdgeInsets.all(6),
+            icon: const Icon(Icons.dns_rounded, size: 20, color: Color(0xFF0284C7)),
             tooltip: 'Storage & System Health',
             onPressed: () => showDialog(
               context: context,
@@ -202,7 +210,9 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.logout_rounded, size: 22, color: Color(0xFFEF4444)),
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            padding: const EdgeInsets.all(6),
+            icon: const Icon(Icons.logout_rounded, size: 20, color: Color(0xFFEF4444)),
             tooltip: 'Sign Out',
             onPressed: () async {
               final confirmed = await showDialog<bool>(
@@ -278,22 +288,22 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 4,
               children: [
-                Flexible(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(20)),
-                    child: Text(
-                      _currentHodTitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                    ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(20)),
+                  child: Text(
+                    _currentHodTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                   ),
                 ),
-                const SizedBox(width: 8),
                 const Text(
                   'AI&DS • 622 Students',
                   style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.5),
@@ -314,6 +324,8 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                       fontSize: 19,
                       fontWeight: FontWeight.bold,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 Container(
@@ -350,7 +362,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
 
   Widget _buildExecutiveSummaryBanner(int awaitingCount, int pendingPromotionsCount) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: EdgeInsets.symmetric(horizontal: context.responsiveHorizontalPadding),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -365,17 +377,45 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
             ),
           ],
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _microSummaryItem('Total Enrolled', '${MockDataService.totalStrength}', '10 Sections', const Color(0xFF6366F1)),
-            Container(width: 1, height: 32, color: const Color(0xFFE2E8F0)),
-            _microSummaryItem('Present Today', '${MockDataService.presentToday}', '${MockDataService.attendancePercentage.toStringAsFixed(1)}% Rate', const Color(0xFF10B981)),
-            Container(width: 1, height: 32, color: const Color(0xFFE2E8F0)),
-            _microSummaryItem('Absentees', '${MockDataService.absentToday}', 'Uninformed/OD', const Color(0xFFEF4444)),
-            Container(width: 1, height: 32, color: const Color(0xFFE2E8F0)),
-            _microSummaryItem('Pending Slips', '$awaitingCount', 'HOD Action', const Color(0xFFF59E0B)),
-          ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth < 360) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(child: _microSummaryItem('Total Enrolled', '${MockDataService.totalStrength}', '10 Sections', const Color(0xFF6366F1))),
+                      Container(width: 1, height: 32, color: const Color(0xFFE2E8F0)),
+                      Expanded(child: _microSummaryItem('Present Today', '${MockDataService.presentToday}', '${MockDataService.attendancePercentage.toStringAsFixed(1)}% Rate', const Color(0xFF10B981))),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Container(height: 1, color: const Color(0xFFF1F5F9)),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(child: _microSummaryItem('Absentees', '${MockDataService.absentToday}', 'Uninformed/OD', const Color(0xFFEF4444))),
+                      Container(width: 1, height: 32, color: const Color(0xFFE2E8F0)),
+                      Expanded(child: _microSummaryItem('Pending Slips', '$awaitingCount', 'HOD Action', const Color(0xFFF59E0B))),
+                    ],
+                  ),
+                ],
+              );
+            }
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                Expanded(child: _microSummaryItem('Total Enrolled', '${MockDataService.totalStrength}', '10 Sections', const Color(0xFF6366F1))),
+                Container(width: 1, height: 32, color: const Color(0xFFE2E8F0)),
+                Expanded(child: _microSummaryItem('Present Today', '${MockDataService.presentToday}', '${MockDataService.attendancePercentage.toStringAsFixed(1)}% Rate', const Color(0xFF10B981))),
+                Container(width: 1, height: 32, color: const Color(0xFFE2E8F0)),
+                Expanded(child: _microSummaryItem('Absentees', '${MockDataService.absentToday}', 'Uninformed/OD', const Color(0xFFEF4444))),
+                Container(width: 1, height: 32, color: const Color(0xFFE2E8F0)),
+                Expanded(child: _microSummaryItem('Pending Slips', '$awaitingCount', 'HOD Action', const Color(0xFFF59E0B))),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -385,10 +425,10 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
+        Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color), overflow: TextOverflow.ellipsis, maxLines: 1),
         const SizedBox(height: 1),
-        Text(label, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Color(0xFF334155))),
-        Text(sub, style: const TextStyle(fontSize: 9, color: Color(0xFF94A3B8))),
+        Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF334155)), overflow: TextOverflow.ellipsis, maxLines: 1),
+        Text(sub, style: const TextStyle(fontSize: 8.5, color: Color(0xFF94A3B8)), overflow: TextOverflow.ellipsis, maxLines: 1),
       ],
     );
   }
@@ -475,16 +515,20 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
             children: [
               Icon(
                 isSelected ? activeIcon : icon,
-                size: 16,
+                size: context.isCompact ? 14 : 16,
                 color: isSelected ? const Color(0xFF0F172A) : const Color(0xFF64748B),
               ),
               const SizedBox(width: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                  color: isSelected ? const Color(0xFF0F172A) : const Color(0xFF64748B),
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: context.isCompact ? 10.0 : 11.5,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                    color: isSelected ? const Color(0xFF0F172A) : const Color(0xFF64748B),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
               ),
               if (badgeCount > 0) ...[
@@ -544,8 +588,11 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
             children: [
               const Text(
                 '⚡ Executive Quick Actions',
@@ -1659,13 +1706,16 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Year $_selectedYear AI&DS — Section $_selectedSection', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                    Text('Class Advisor: ${stats['advisor']}', style: const TextStyle(color: Color(0xFF64748B), fontSize: 12)),
-                  ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Year $_selectedYear AI&DS — Section $_selectedSection', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      Text('Class Advisor: ${stats['advisor']}', style: const TextStyle(color: Color(0xFF64748B), fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Text('${stats['pct']}%', style: const TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold, fontSize: 20)),
               ],
             ),
@@ -1680,44 +1730,44 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               ),
             ),
             const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 4,
               children: [
                 Text('${stats['present']} Present • ${stats['od']} On-Duty', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF047857))),
                 Text('${stats['absent']} Absent Today', style: const TextStyle(fontSize: 12, color: AppColors.absentRed, fontWeight: FontWeight.bold)),
               ],
             ),
             const SizedBox(height: 12),
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => Navigator.pushNamed(context, '/attendance'),
-                    icon: const Icon(Icons.edit_calendar_rounded, size: 15, color: Color(0xFF6366F1)),
-                    label: Text('Edit Register (Sec $_selectedSection)', style: const TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold, fontSize: 11.5)),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color(0xFF6366F1)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                    ),
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.pushNamed(context, '/attendance'),
+                  icon: const Icon(Icons.edit_calendar_rounded, size: 15, color: Color(0xFF6366F1)),
+                  label: Text('Edit Register (Sec $_selectedSection)', style: const TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold, fontSize: 11.5)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFF6366F1)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => AttendanceReportViewerDialog.show(
-                      context,
-                      year: _selectedYear,
-                      section: _selectedSection,
-                    ),
-                    icon: const Icon(Icons.fact_check_rounded, size: 15),
-                    label: const Text('Inspect Reports & Proofs', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF6366F1),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                    ),
+                ElevatedButton.icon(
+                  onPressed: () => AttendanceReportViewerDialog.show(
+                    context,
+                    year: _selectedYear,
+                    section: _selectedSection,
+                  ),
+                  icon: const Icon(Icons.fact_check_rounded, size: 15),
+                  label: const Text('Inspect Reports & Proofs', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF6366F1),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                 ),
               ],
@@ -1748,15 +1798,19 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('📊 Last Week Attendance Graph', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    Text(
-                      _showDepartmentGraph ? 'Overall Department Trend' : 'Year $_selectedYear Section $_selectedSection Daily Stats',
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                    ),
-                  ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('📊 Last Week Attendance Graph', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      Text(
+                        _showDepartmentGraph ? 'Overall Department Trend' : 'Year $_selectedYear Section $_selectedSection Daily Stats',
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
                 TextButton(
                   onPressed: () => setState(() => _showDepartmentGraph = !_showDepartmentGraph),
@@ -1889,115 +1943,121 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                 final label = item['label'] as String;
                 final dayName = item['dayName'] ?? label.split(' ')[0];
 
-                return GestureDetector(
-                  onTap: () {
-                    if (isHoliday) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          backgroundColor: const Color(0xFFD97706),
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          content: Row(
-                            children: [
-                              const Icon(Icons.celebration_rounded, color: Colors.white, size: 20),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  '🏛️ College Declared Leave: ${holidayReason ?? "Institutional Holiday"}',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                return Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      if (isHoliday) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: const Color(0xFFD97706),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            content: Row(
+                              children: [
+                                const Icon(Icons.celebration_rounded, color: Colors.white, size: 20),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '🏛️ College Declared Leave: ${holidayReason ?? "Institutional Holiday"}',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                  ),
                                 ),
+                              ],
+                            ),
+                            duration: const Duration(seconds: 3),
+                          ),
+                        );
+                      }
+                    },
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isHoliday)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF3C7),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: const Color(0xFFFCD34D)),
+                            ),
+                            child: const Text(
+                              'LEAVE',
+                              style: TextStyle(
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFFB45309),
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          )
+                        else
+                          Text(
+                            '${pct.toStringAsFixed(0)}%',
+                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                          ),
+                        const SizedBox(height: 4),
+                        Container(
+                          width: 32,
+                          height: clampedHeight,
+                          decoration: BoxDecoration(
+                            gradient: isHoliday
+                                ? const LinearGradient(
+                                    colors: [Color(0xFFF59E0B), Color(0xFFFBBF24), Color(0xFFFDE68A)],
+                                    begin: Alignment.bottomCenter,
+                                    end: Alignment.topCenter,
+                                  )
+                                : LinearGradient(
+                                    colors: pct >= 95
+                                        ? [const Color(0xFF10B981), const Color(0xFF34D399)]
+                                        : pct >= 85
+                                            ? [const Color(0xFF0284C7), const Color(0xFF38BDF8)]
+                                            : [const Color(0xFFF59E0B), const Color(0xFFFBBF24)],
+                                    begin: Alignment.bottomCenter,
+                                    end: Alignment.topCenter,
+                                  ),
+                            borderRadius: BorderRadius.circular(8),
+                            border: isHoliday
+                                ? Border.all(color: const Color(0xFFD97706), width: 1.5)
+                                : null,
+                            boxShadow: [
+                              BoxShadow(
+                                color: (isHoliday ? const Color(0xFFF59E0B) : (pct >= 95 ? const Color(0xFF10B981) : const Color(0xFF0284C7)))
+                                    .withValues(alpha: 0.25),
+                                blurRadius: 6,
+                                offset: const Offset(0, 3),
                               ),
                             ],
                           ),
-                          duration: const Duration(seconds: 3),
-                        ),
-                      );
-                    }
-                  },
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (isHoliday)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFEF3C7),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: const Color(0xFFFCD34D)),
-                          ),
-                          child: const Text(
-                            'LEAVE',
-                            style: TextStyle(
-                              fontSize: 8.5,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFFB45309),
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        )
-                      else
-                        Text(
-                          '${pct.toStringAsFixed(0)}%',
-                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
-                        ),
-                      const SizedBox(height: 4),
-                      Container(
-                        width: 32,
-                        height: clampedHeight,
-                        decoration: BoxDecoration(
-                          gradient: isHoliday
-                              ? const LinearGradient(
-                                  colors: [Color(0xFFF59E0B), Color(0xFFFBBF24), Color(0xFFFDE68A)],
-                                  begin: Alignment.bottomCenter,
-                                  end: Alignment.topCenter,
+                          child: isHoliday
+                              ? const Center(
+                                  child: Icon(
+                                    Icons.celebration_rounded,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
                                 )
-                              : LinearGradient(
-                                  colors: pct >= 95
-                                      ? [const Color(0xFF10B981), const Color(0xFF34D399)]
-                                      : pct >= 85
-                                          ? [const Color(0xFF0284C7), const Color(0xFF38BDF8)]
-                                          : [const Color(0xFFF59E0B), const Color(0xFFFBBF24)],
-                                  begin: Alignment.bottomCenter,
-                                  end: Alignment.topCenter,
-                                ),
-                          borderRadius: BorderRadius.circular(8),
-                          border: isHoliday
-                              ? Border.all(color: const Color(0xFFD97706), width: 1.5)
                               : null,
-                          boxShadow: [
-                            BoxShadow(
-                              color: (isHoliday ? const Color(0xFFF59E0B) : (pct >= 95 ? const Color(0xFF10B981) : const Color(0xFF0284C7)))
-                                  .withValues(alpha: 0.25),
-                              blurRadius: 6,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
                         ),
-                        child: isHoliday
-                            ? const Center(
-                                child: Icon(
-                                  Icons.celebration_rounded,
-                                  color: Colors.white,
-                                  size: 16,
-                                ),
-                              )
-                            : null,
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        dayName,
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: isHoliday ? const Color(0xFFB45309) : const Color(0xFF64748B),
-                          fontWeight: isHoliday ? FontWeight.w800 : FontWeight.w600,
+                        const SizedBox(height: 6),
+                        Text(
+                          dayName,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: isHoliday ? const Color(0xFFB45309) : const Color(0xFF64748B),
+                            fontWeight: isHoliday ? FontWeight.w800 : FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      if (isHoliday)
-                        const Text(
-                          'Holiday',
-                          style: TextStyle(fontSize: 8.5, color: Color(0xFFD97706), fontWeight: FontWeight.bold),
-                        ),
-                    ],
+                        if (isHoliday)
+                          const Text(
+                            'Holiday',
+                            style: TextStyle(fontSize: 8.5, color: Color(0xFFD97706), fontWeight: FontWeight.bold),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                      ],
+                    ),
                   ),
                 );
               }).toList(),
@@ -2011,8 +2071,11 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
+              child: Wrap(
+                alignment: WrapAlignment.spaceAround,
+                spacing: 8,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   _buildGraphLegendItem(const Color(0xFF10B981), '≥95% High'),
                   _buildGraphLegendItem(const Color(0xFF0284C7), '85-94% Std'),
@@ -2022,7 +2085,14 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     children: const [
                       Icon(Icons.block_rounded, size: 11, color: Color(0xFF94A3B8)),
                       SizedBox(width: 3),
-                      Text('No Sunday', style: TextStyle(fontSize: 9.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+                      Flexible(
+                        child: Text(
+                          'No Sunday',
+                          style: TextStyle(fontSize: 9.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -2047,9 +2117,13 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
           ),
         ),
         const SizedBox(width: 4),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 9.5, color: Color(0xFF475569), fontWeight: FontWeight.w600),
+        Flexible(
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 9.5, color: Color(0xFF475569), fontWeight: FontWeight.w600),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
         ),
       ],
     );
@@ -2080,12 +2154,18 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(m['month'] as String, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-                        Text('${pct.toStringAsFixed(1)}% (${m["status"]})', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF047857))),
-                      ],
+                    SizedBox(
+                      width: double.infinity,
+                      child: Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 2,
+                        children: [
+                          Text(m['month'] as String, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                          Text('${pct.toStringAsFixed(1)}% (${m["status"]})', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF047857))),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 4),
                     ClipRRect(
@@ -2309,20 +2389,32 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                label,
-                style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              Icon(icon, size: 20, color: color),
+              const SizedBox(width: 4),
+              Icon(icon, size: 18, color: color),
             ],
           ),
           const SizedBox(height: 8),
           Text(
             value,
             style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 2),
-          Text(sub, style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8))),
+          Text(
+            sub,
+            style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8)),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ],
       ),
     );
@@ -2618,7 +2710,10 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Top Badges Row
-          Row(
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -2646,7 +2741,6 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -2670,9 +2764,8 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   ),
                 ),
               ),
-              const Spacer(),
               Text(
-                '${leave.leaveDate.day.toString().padLeft(2, '0')}/${leave.leaveDate.month.toString().padLeft(2, '0')}/${leave.leaveDate.year}',
+                '• ${leave.leaveDate.day.toString().padLeft(2, '0')}/${leave.leaveDate.month.toString().padLeft(2, '0')}/${leave.leaveDate.year}',
                 style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w600),
               ),
             ],
@@ -2858,7 +2951,11 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
 
           const SizedBox(height: 10),
           // Action Buttons
-          Row(
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
             children: [
               OutlinedButton.icon(
                 onPressed: () => _showPinkSlipVoucherDialog(leave),
@@ -2871,30 +2968,33 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                 icon: const Icon(Icons.remove_red_eye_outlined, size: 14),
                 label: const Text('View Voucher', style: TextStyle(fontSize: 11)),
               ),
-              const Spacer(),
-              if (isPending) ...[
-                OutlinedButton(
-                  onPressed: () => _showRejectRemarksDialog(leave),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.absentRed,
-                    side: const BorderSide(color: Color(0xFFFCA5A5)),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  child: const Text('✕ Reject', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+              if (isPending)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    OutlinedButton(
+                      onPressed: () => _showRejectRemarksDialog(leave),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.absentRed,
+                        side: const BorderSide(color: Color(0xFFFCA5A5)),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: const Text('✕ Reject', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () => _showApproveWithRemarksDialog(leave),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF047857),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: const Text('✓ Sign & Approve', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () => _showApproveWithRemarksDialog(leave),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF047857),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  child: const Text('✓ Sign & Approve', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-                ),
-              ],
             ],
           ),
         ],

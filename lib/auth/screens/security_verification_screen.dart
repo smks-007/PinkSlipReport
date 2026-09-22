@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/auth_service.dart';
+import '../../core/utils/responsive_utils.dart';
 
 /// Mobile Biometric Security Gateway
 /// Replaces manual OTP codes with hardware-bound mobile biometric authentication
@@ -126,33 +127,42 @@ class _SecurityVerificationScreenState extends State<SecurityVerificationScreen>
                             icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
                             onPressed: () => Navigator.pushReplacementNamed(context, '/sign-in'),
                           ),
-                          const Spacer(),
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.25),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
+                          Expanded(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.25),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
+                                  ),
+                                  child: const Icon(Icons.account_balance_rounded, size: 18, color: Colors.white),
+                                ),
+                                const SizedBox(width: 8),
+                                const Flexible(
+                                  child: Text(
+                                    'PinkSlipReport',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      letterSpacing: 0.5,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
                             ),
-                            child: const Icon(Icons.account_balance_rounded, size: 18, color: Colors.white),
                           ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'PinkSlipReport',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          const Spacer(),
                           const SizedBox(width: 44),
                         ],
                       ),
                       const SizedBox(height: 12),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.22),
                           borderRadius: BorderRadius.circular(20),
@@ -160,16 +170,19 @@ class _SecurityVerificationScreenState extends State<SecurityVerificationScreen>
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Icon(Icons.shield_outlined, color: Colors.white, size: 15),
-                            SizedBox(width: 6),
-                            Text(
-                              'HARDWARE BIOMETRIC SECURITY GATE',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.8,
+                          children: [
+                            const Icon(Icons.shield_outlined, color: Colors.white, size: 15),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                'HARDWARE BIOMETRIC SECURITY GATE',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: context.responsiveFontSize(compact: 9.0, normal: 11.0),
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.8,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
@@ -259,7 +272,10 @@ class _SecurityVerificationScreenState extends State<SecurityVerificationScreen>
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              Row(
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -276,7 +292,6 @@ class _SecurityVerificationScreenState extends State<SecurityVerificationScreen>
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 6),
                                   const Text(
                                     '• AI&DS Dept',
                                     style: TextStyle(
@@ -533,12 +548,14 @@ class _SecurityVerificationScreenState extends State<SecurityVerificationScreen>
                           children: const [
                             Icon(Icons.lock_person_rounded, color: Color(0xFF0F172A), size: 18),
                             SizedBox(width: 8),
-                            Text(
-                              'Department Data Privacy & Security Shield',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w800,
-                                fontSize: 13,
-                                color: Color(0xFF0F172A),
+                            Expanded(
+                              child: Text(
+                                'Department Data Privacy & Security Shield',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 13,
+                                  color: Color(0xFF0F172A),
+                                ),
                               ),
                             ),
                           ],
@@ -573,12 +590,15 @@ class _SecurityVerificationScreenState extends State<SecurityVerificationScreen>
                     children: const [
                       Icon(Icons.security_rounded, size: 14, color: Color(0xFF94A3B8)),
                       SizedBox(width: 6),
-                      Text(
-                        'VSB Engineering College • AI & DS Dept Security Gateway',
-                        style: TextStyle(
-                          color: Color(0xFF94A3B8),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
+                      Flexible(
+                        child: Text(
+                          'VSB Engineering College • AI & DS Dept Security Gateway',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],

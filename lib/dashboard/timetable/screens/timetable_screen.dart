@@ -133,37 +133,43 @@ class _TimetableScreenState extends State<TimetableScreen>
         ],
       ),
       body: SafeArea(
-        child: Column(
-          children: [
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
             // Section Selector Chips (A, B, C, D)
-            _buildSectionSelector(),
+            SliverToBoxAdapter(child: _buildSectionSelector()),
 
             // Section Info Header
-            _buildSectionHeaderCard(),
+            SliverToBoxAdapter(child: _buildSectionHeaderCard()),
 
             // Day Selector Chips (Mon - Sat)
-            _buildDaySelector(),
+            SliverToBoxAdapter(child: _buildDaySelector()),
 
-            const SizedBox(height: 8),
+            const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
             // Periods List
-            Expanded(
-              child: dayPeriods.isEmpty
-                  ? _buildEmptyState()
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                      physics: const BouncingScrollPhysics(),
-                      itemCount: dayPeriods.length,
-                      itemBuilder: (context, index) {
-                        final period = dayPeriods[index];
-                        return _PeriodCard(
-                          entry: period,
-                          isFirst: index == 0,
-                          isLast: index == dayPeriods.length - 1,
-                        );
-                      },
-                    ),
-            ),
+            if (dayPeriods.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: _buildEmptyState(),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final period = dayPeriods[index];
+                      return _PeriodCard(
+                        entry: period,
+                        isFirst: index == 0,
+                        isLast: index == dayPeriods.length - 1,
+                      );
+                    },
+                    childCount: dayPeriods.length,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -243,6 +249,8 @@ class _TimetableScreenState extends State<TimetableScreen>
                           fontSize: 14,
                           color: isSelected ? Colors.white : AppColors.textPrimary,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 2),
                       Text(
@@ -253,6 +261,8 @@ class _TimetableScreenState extends State<TimetableScreen>
                               ? Colors.white.withValues(alpha: 0.85)
                               : AppColors.textSecondary,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
@@ -277,10 +287,16 @@ class _TimetableScreenState extends State<TimetableScreen>
         ),
         child: Column(
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 6,
               children: [
-                Row(
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 4,
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -297,7 +313,6 @@ class _TimetableScreenState extends State<TimetableScreen>
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
                     Text(
                       '${_currentTimetable.year} - Sec ${_currentTimetable.section}',
                       style: AppStyles.bodyLarge.copyWith(fontWeight: FontWeight.w700),
@@ -427,11 +442,13 @@ class _PeriodCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Period Number Badge
             Container(
               width: 44,
-              height: 44,
+              constraints: const BoxConstraints(minHeight: 44),
+              padding: const EdgeInsets.symmetric(vertical: 4),
               decoration: BoxDecoration(
                 color: entry.isLab
                     ? AppColors.purpleSurface
@@ -444,74 +461,96 @@ class _PeriodCard extends StatelessWidget {
                 ),
               ),
               child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'P${entry.periodNumber}',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 14,
-                        color: entry.isLab
-                            ? AppColors.primaryPurple
-                            : AppColors.textPrimary,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  'P${entry.periodNumber}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                    color: entry.isLab
+                        ? AppColors.primaryPurple
+                        : AppColors.textPrimary,
+                  ),
                 ),
               ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
 
-            // Subject & Faculty Details
+            // Subject & Faculty Details + Time Slot
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 6,
+                    runSpacing: 4,
                     children: [
-                      Text(
-                        entry.subjectShort,
-                        style: AppStyles.headingSmall.copyWith(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 6,
+                        runSpacing: 2,
+                        children: [
+                          Text(
+                            entry.subjectShort,
+                            style: AppStyles.headingSmall.copyWith(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                          if (entry.isLab)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.statusApprovedBg,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                'LAB',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.statusApproved,
+                                ),
+                              ),
+                            )
+                          else
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.purpleSurface,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                'THEORY',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primaryPurple,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.pageBackground,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          entry.timeSlot,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      if (entry.isLab)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppColors.statusApprovedBg,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Text(
-                            'LAB',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.statusApproved,
-                            ),
-                          ),
-                        )
-                      else
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppColors.purpleSurface,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Text(
-                            'THEORY',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primaryPurple,
-                            ),
-                          ),
-                        ),
                     ],
                   ),
                   const SizedBox(height: 2),
@@ -530,34 +569,21 @@ class _PeriodCard extends StatelessWidget {
                       const Icon(Icons.person_outline,
                           size: 14, color: AppColors.textSecondary),
                       const SizedBox(width: 4),
-                      Text(
-                        '${entry.facultyName} [${entry.facultyShort}]',
-                        style: AppStyles.bodySmall.copyWith(
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 12,
+                      Expanded(
+                        child: Text(
+                          '${entry.facultyName} [${entry.facultyShort}]',
+                          style: AppStyles.bodySmall.copyWith(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 12,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
                   ),
                 ],
-              ),
-            ),
-
-            // Time Slot Badge
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.pageBackground,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                entry.timeSlot,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondary,
-                ),
               ),
             ),
           ],

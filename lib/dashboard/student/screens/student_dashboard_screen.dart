@@ -129,6 +129,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
               color: Colors.white,
               child: TabBar(
                 controller: _tabController,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
                 indicatorColor: AppColors.primaryPurple,
                 indicatorWeight: 3,
                 labelColor: AppColors.primaryPurple,
@@ -176,7 +178,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
 
   Widget _buildAppBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       color: Colors.white,
       child: Row(
         children: [
@@ -199,20 +201,25 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
             child: const Icon(Icons.school_rounded, color: Colors.white, size: 22),
           ),
           const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'V.S.B. ENGINEERING COLLEGE',
-                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, letterSpacing: 0.5),
-              ),
-              Text(
-                'AI & DS • Class Representative Portal',
-                style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600, fontWeight: FontWeight.w600),
-              ),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'V.S.B. ENGINEERING COLLEGE',
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  'AI & DS • Class Representative Portal',
+                  style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600, fontWeight: FontWeight.w600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
-          const Spacer(),
           IconButton(
             icon: const Icon(Icons.logout_rounded, color: Color(0xFF64748B)),
             tooltip: 'Sign Out',
@@ -278,20 +285,20 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 4,
                       children: [
-                        Flexible(
-                          child: Text(
-                            _currentUser.name,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16.5,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            overflow: TextOverflow.ellipsis,
+                        Text(
+                          _currentUser.name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16.5,
+                            fontWeight: FontWeight.bold,
                           ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
@@ -314,6 +321,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                     Text(
                       'Roll No: ${_currentUser.rollNumber ?? ""} • ${_currentUser.classSection ?? ""} (${_currentUser.batchYear ?? "2025 BATCH"})',
                       style: const TextStyle(color: Color(0xFFA5B4FC), fontSize: 11),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -328,13 +337,12 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
               borderRadius: BorderRadius.circular(14),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _statItem('Class Strength', '$total', Colors.white),
+                Expanded(child: _statItem('Class Strength', '$total', Colors.white)),
                 Container(height: 26, width: 1, color: Colors.white24),
-                _statItem('Present Today', '$present ($pct%)', const Color(0xFF34D399)),
+                Expanded(child: _statItem('Present Today', '$present ($pct%)', const Color(0xFF34D399))),
                 Container(height: 26, width: 1, color: Colors.white24),
-                _statItem('Absentees', '$absent', const Color(0xFFF87171)),
+                Expanded(child: _statItem('Absentees', '$absent', const Color(0xFFF87171))),
               ],
             ),
           ),
@@ -346,9 +354,9 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
   Widget _statItem(String label, String val, Color color) {
     return Column(
       children: [
-        Text(val, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color)),
+        Text(val, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color), overflow: TextOverflow.ellipsis, maxLines: 1),
         const SizedBox(height: 2),
-        Text(label, style: const TextStyle(fontSize: 10, color: Color(0xFFCBD5E1))),
+        Text(label, style: const TextStyle(fontSize: 10, color: Color(0xFFCBD5E1)), overflow: TextOverflow.ellipsis, maxLines: 1),
       ],
     );
   }
@@ -383,14 +391,17 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          child: Row(
-            children: [
-              _filterChip('All ($total)', 'All'),
-              const SizedBox(width: 8),
-              _filterChip('Present ($present)', 'Present', activeColor: const Color(0xFF059669)),
-              const SizedBox(width: 8),
-              _filterChip('Absent ($absent)', 'Absent', activeColor: const Color(0xFFDC2626)),
-            ],
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _filterChip('All ($total)', 'All'),
+                const SizedBox(width: 8),
+                _filterChip('Present ($present)', 'Present', activeColor: const Color(0xFF059669)),
+                const SizedBox(width: 8),
+                _filterChip('Absent ($absent)', 'Absent', activeColor: const Color(0xFFDC2626)),
+              ],
+            ),
           ),
         ),
         Expanded(
@@ -541,6 +552,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
                   width: 44,
@@ -552,29 +564,42 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text('P', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primaryPurple)),
-                      Text('', style: const TextStyle(fontSize: 8.5, color: Color(0xFF64748B))),
+                      Text('P${item['period']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primaryPurple)),
+                      Text(item['room'] ?? '', style: const TextStyle(fontSize: 8.5, color: Color(0xFF64748B))),
                     ],
                   ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(item['subject']!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                      Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          Text(
+                            item['subject']!,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(item['time']!, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF334155))),
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 2),
-                      Text(' • ', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                      Text('${item['code']} • ${item['staff']}', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)), overflow: TextOverflow.ellipsis, maxLines: 1),
                     ],
                   ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(item['time']!, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF334155))),
                 ),
               ],
             ),
@@ -589,14 +614,17 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-          child: Row(
-            children: [
-              _categoryFilterChip('All Requests', 'All'),
-              const SizedBox(width: 8),
-              _categoryFilterChip('Standard Leaves', 'Leave'),
-              const SizedBox(width: 8),
-              _categoryFilterChip('On-Duty (OD)', 'On-Duty'),
-            ],
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _categoryFilterChip('All Requests', 'All'),
+                const SizedBox(width: 8),
+                _categoryFilterChip('Standard Leaves', 'Leave'),
+                const SizedBox(width: 8),
+                _categoryFilterChip('On-Duty (OD)', 'On-Duty'),
+              ],
+            ),
           ),
         ),
         Expanded(
@@ -638,26 +666,34 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
+                            Wrap(
+                              alignment: WrapAlignment.spaceBetween,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 8,
+                              runSpacing: 4,
                               children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: l.isOnDuty ? const Color(0xFFEFF6FF) : const Color(0xFFFDF2F8),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    l.categoryDisplay.toUpperCase(),
-                                    style: TextStyle(
-                                      fontSize: 10.5,
-                                      fontWeight: FontWeight.bold,
-                                      color: l.isOnDuty ? const Color(0xFF2563EB) : const Color(0xFFDB2777),
+                                Wrap(
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  spacing: 8,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: l.isOnDuty ? const Color(0xFFEFF6FF) : const Color(0xFFFDF2F8),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        l.categoryDisplay.toUpperCase(),
+                                        style: TextStyle(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: l.isOnDuty ? const Color(0xFF2563EB) : const Color(0xFFDB2777),
+                                        ),
+                                      ),
                                     ),
-                                  ),
+                                    _buildStatusChip(l.letterStatus),
+                                  ],
                                 ),
-                                const SizedBox(width: 8),
-                                _buildStatusChip(l.letterStatus),
-                                const Spacer(),
                                 Text(
                                   '${l.leaveDate.day}/${l.leaveDate.month}/${l.leaveDate.year}',
                                   style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
@@ -958,11 +994,14 @@ class _SubmitLeaveModalState extends State<_SubmitLeaveModal> {
             children: [
               Row(
                 children: [
-                  const Text(
-                    'Submit Leave / On-Duty Request',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                  const Expanded(
+                    child: Text(
+                      'Submit Leave / On-Duty Request',
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
                   ),
-                  const Spacer(),
                   IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(context),
@@ -974,36 +1013,33 @@ class _SubmitLeaveModalState extends State<_SubmitLeaveModal> {
               const Text('Request Category',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey)),
               const SizedBox(height: 8),
-              Row(
+              Wrap(
+                spacing: 12,
+                runSpacing: 8,
                 children: [
-                  Expanded(
-                    child: ChoiceChip(
-                      label: const Center(child: Text('Standard Leave')),
-                      selected: _category == LeaveCategory.leave,
-                      selectedColor: AppColors.primaryPurple.withValues(alpha: 0.15),
-                      labelStyle: TextStyle(
-                        color: _category == LeaveCategory.leave ? AppColors.primaryPurple : Colors.black87,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      onSelected: (val) {
-                        if (val) setState(() => _category = LeaveCategory.leave);
-                      },
+                  ChoiceChip(
+                    label: const Text('Standard Leave'),
+                    selected: _category == LeaveCategory.leave,
+                    selectedColor: AppColors.primaryPurple.withValues(alpha: 0.15),
+                    labelStyle: TextStyle(
+                      color: _category == LeaveCategory.leave ? AppColors.primaryPurple : Colors.black87,
+                      fontWeight: FontWeight.bold,
                     ),
+                    onSelected: (val) {
+                      if (val) setState(() => _category = LeaveCategory.leave);
+                    },
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ChoiceChip(
-                      label: const Center(child: Text('On-Duty (OD)')),
-                      selected: _category == LeaveCategory.onDuty,
-                      selectedColor: Colors.blue.shade100,
-                      labelStyle: TextStyle(
-                        color: _category == LeaveCategory.onDuty ? Colors.blue.shade800 : Colors.black87,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      onSelected: (val) {
-                        if (val) setState(() => _category = LeaveCategory.onDuty);
-                      },
+                  ChoiceChip(
+                    label: const Text('On-Duty (OD)'),
+                    selected: _category == LeaveCategory.onDuty,
+                    selectedColor: Colors.blue.shade100,
+                    labelStyle: TextStyle(
+                      color: _category == LeaveCategory.onDuty ? Colors.blue.shade800 : Colors.black87,
+                      fontWeight: FontWeight.bold,
                     ),
+                    onSelected: (val) {
+                      if (val) setState(() => _category = LeaveCategory.onDuty);
+                    },
                   ),
                 ],
               ),

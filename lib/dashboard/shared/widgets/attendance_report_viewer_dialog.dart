@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/services/mock_data_service.dart';
+import '../../../../core/utils/responsive_utils.dart';
 
 /// Full interactive Daily Attendance & Defaulter Summary Report Viewer.
 /// Allows Advisors and HOD to inspect attached muster rolls, parent intimation letters,
@@ -66,7 +67,7 @@ class _AttendanceReportViewerDialogState extends State<AttendanceReportViewerDia
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 680, maxHeight: 750),
+        constraints: context.dialogConstraints(maxWidth: 680, maxHeight: 750),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(24),
@@ -112,6 +113,8 @@ class _AttendanceReportViewerDialogState extends State<AttendanceReportViewerDia
                             fontWeight: FontWeight.bold,
                             letterSpacing: 0.5,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 2),
                         Text(
@@ -124,6 +127,8 @@ class _AttendanceReportViewerDialogState extends State<AttendanceReportViewerDia
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0.4,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
@@ -152,17 +157,42 @@ class _AttendanceReportViewerDialogState extends State<AttendanceReportViewerDia
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          _buildStatItem('Attendance', '${percentage.toStringAsFixed(1)}%', const Color(0xFF4F46E5)),
-                          Container(height: 30, width: 1, color: const Color(0xFFCBD5E1)),
-                          _buildStatItem('Present', '$present / $strength', const Color(0xFF16A34A)),
-                          Container(height: 30, width: 1, color: const Color(0xFFCBD5E1)),
-                          _buildStatItem('Absent Today', '$absent', const Color(0xFFDC2626)),
-                          Container(height: 30, width: 1, color: const Color(0xFFCBD5E1)),
-                          _buildStatItem('On-Duty (OD)', '$od', const Color(0xFF0284C7)),
-                        ],
+                      child: LayoutBuilder(
+                        builder: (ctx, constraints) {
+                          if (constraints.maxWidth < 360) {
+                            return Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(child: _buildStatItem('Attendance', '${percentage.toStringAsFixed(1)}%', const Color(0xFF4F46E5))),
+                                    Container(height: 28, width: 1, color: const Color(0xFFCBD5E1)),
+                                    Expanded(child: _buildStatItem('Present', '$present / $strength', const Color(0xFF16A34A))),
+                                  ],
+                                ),
+                                const Divider(height: 16),
+                                Row(
+                                  children: [
+                                    Expanded(child: _buildStatItem('Absent Today', '$absent', const Color(0xFFDC2626))),
+                                    Container(height: 28, width: 1, color: const Color(0xFFCBD5E1)),
+                                    Expanded(child: _buildStatItem('On-Duty (OD)', '$od', const Color(0xFF0284C7))),
+                                  ],
+                                ),
+                              ],
+                            );
+                          }
+                          return Row(
+                            children: [
+                              Expanded(child: _buildStatItem('Attendance', '${percentage.toStringAsFixed(1)}%', const Color(0xFF4F46E5))),
+                              Container(height: 30, width: 1, color: const Color(0xFFCBD5E1)),
+                              Expanded(child: _buildStatItem('Present', '$present / $strength', const Color(0xFF16A34A))),
+                              Container(height: 30, width: 1, color: const Color(0xFFCBD5E1)),
+                              Expanded(child: _buildStatItem('Absent Today', '$absent', const Color(0xFFDC2626))),
+                              Container(height: 30, width: 1, color: const Color(0xFFCBD5E1)),
+                              Expanded(child: _buildStatItem('On-Duty (OD)', '$od', const Color(0xFF0284C7))),
+                            ],
+                          );
+                        },
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -283,54 +313,62 @@ class _AttendanceReportViewerDialogState extends State<AttendanceReportViewerDia
 
             // Footer Toolbar
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: const BoxDecoration(
                 color: Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
                 border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
               ),
-              child: Row(
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 8,
                 children: [
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('📥 Exporting Attendance Register PDF...'),
-                          backgroundColor: Color(0xFF4F46E5),
-                          duration: Duration(seconds: 2),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('📥 Exporting Attendance Register PDF...'),
+                              backgroundColor: Color(0xFF4F46E5),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF334155),
+                          side: const BorderSide(color: Color(0xFFCBD5E1)),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
-                      );
-                    },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF334155),
-                      side: const BorderSide(color: Color(0xFFCBD5E1)),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    icon: const Icon(Icons.download_rounded, size: 15),
-                    label: const Text('Export PDF', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('🖨️ Printing Attendance Register Sheet...'),
-                          backgroundColor: Color(0xFF059669),
-                          duration: Duration(seconds: 2),
+                        icon: const Icon(Icons.download_rounded, size: 15),
+                        label: const Text('Export PDF', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('🖨️ Printing Attendance Register Sheet...'),
+                              backgroundColor: Color(0xFF059669),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF059669),
+                          side: const BorderSide(color: Color(0xFFA7F3D0)),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
-                      );
-                    },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF059669),
-                      side: const BorderSide(color: Color(0xFFA7F3D0)),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    icon: const Icon(Icons.print_rounded, size: 15),
-                    label: const Text('Print Roll', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                        icon: const Icon(Icons.print_rounded, size: 15),
+                        label: const Text('Print Roll', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
                   ),
-                  const Spacer(),
                   ElevatedButton(
                     onPressed: () => Navigator.pop(context),
                     style: ElevatedButton.styleFrom(
@@ -370,34 +408,92 @@ class _AttendanceReportViewerDialogState extends State<AttendanceReportViewerDia
   }) {
     final isSelected = _selectedDocumentName == fileName;
     return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: isSelected ? const Color(0xFFEEF2FF) : Colors.white,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: isSelected ? const Color(0xFF818CF8) : const Color(0xFFE2E8F0)),
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: color, size: 20),
-        ),
-        title: Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-        subtitle: Text('$fileName • $fileSize • $docType', style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
-        trailing: ElevatedButton(
-          onPressed: () => setState(() => _selectedDocumentName = fileName),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: isSelected ? const Color(0xFF4F46E5) : const Color(0xFFF1F5F9),
-            foregroundColor: isSelected ? Colors.white : const Color(0xFF0F172A),
-            elevation: 0,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-          ),
-          child: Text(isSelected ? 'Viewing' : 'Inspect Proof', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
-        ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isNarrow = constraints.maxWidth < 340;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(icon, color: color, size: 18),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '$fileName • $fileSize • $docType',
+                          style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (!isNarrow) ...[
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () => setState(() => _selectedDocumentName = fileName),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isSelected ? const Color(0xFF4F46E5) : const Color(0xFFF1F5F9),
+                        foregroundColor: isSelected ? Colors.white : const Color(0xFF0F172A),
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      ),
+                      child: Text(
+                        isSelected ? 'Viewing' : 'Inspect Proof',
+                        style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              if (isNarrow) ...[
+                const SizedBox(height: 6),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: ElevatedButton(
+                    onPressed: () => setState(() => _selectedDocumentName = fileName),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isSelected ? const Color(0xFF4F46E5) : const Color(0xFFF1F5F9),
+                      foregroundColor: isSelected ? Colors.white : const Color(0xFF0F172A),
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    child: Text(
+                      isSelected ? 'Viewing' : 'Inspect Proof',
+                      style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          );
+        },
       ),
     );
   }

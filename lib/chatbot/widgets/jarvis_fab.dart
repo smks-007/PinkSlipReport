@@ -7,6 +7,7 @@ import '../../core/services/auth_service.dart';
 import '../../core/services/mock_data_service.dart';
 import '../../core/services/gemini_service.dart';
 import '../../core/services/ai_agent_service.dart';
+import '../../core/utils/responsive_utils.dart';
 
 class JarvisFAB extends StatelessWidget {
   const JarvisFAB({super.key});
@@ -613,12 +614,14 @@ class _JarvisChatDrawerState extends State<_JarvisChatDrawer> with SingleTickerP
   Widget build(BuildContext context) {
     final isGeminiConnected = GeminiService().hasApiKey;
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.88,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
+    return Padding(
+      padding: EdgeInsets.only(bottom: context.bottomInset),
+      child: Container(
+        height: context.screenHeight * 0.88,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
       child: Column(
         children: [
           // Header Bar
@@ -686,8 +689,12 @@ class _JarvisChatDrawerState extends State<_JarvisChatDrawer> with SingleTickerP
                         ],
                       ),
                       const SizedBox(height: 2),
-                      Text('HOD Executive Co-Pilot & Autonomous Agent • ${MockDataService.totalStrength} Students Grounded',
-                          style: const TextStyle(color: Color(0xFFA5B4FC), fontSize: 10)),
+                      Text(
+                        'HOD Executive Co-Pilot & Autonomous Agent • ${MockDataService.totalStrength} Students Grounded',
+                        style: const TextStyle(color: Color(0xFFA5B4FC), fontSize: 10),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ],
                   ),
                 ),
@@ -735,6 +742,7 @@ class _JarvisChatDrawerState extends State<_JarvisChatDrawer> with SingleTickerP
             ),
           ),
         ],
+      ),
       ),
     );
   }

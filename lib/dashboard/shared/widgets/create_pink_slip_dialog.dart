@@ -8,6 +8,7 @@ import '../../../core/models/user_model.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/mock_data_service.dart';
 import '../../../core/services/supabase_service.dart';
+import '../../../core/utils/responsive_utils.dart';
 
 /// Interactive dialog for the concerned Class Advisor to create/issue an official Pink Slip,
 /// allowing them to explicitly mark a student as Present (e.g. OD / Event) or Absent (e.g. Leave / Medical).
@@ -257,7 +258,7 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 580, maxHeight: 780),
+        constraints: context.dialogConstraints(maxWidth: 580, maxHeight: 780),
         child: Column(
           children: [
             // Header
@@ -306,20 +307,24 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
                         const SizedBox(height: 2),
                         Row(
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFEDE9FE),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                isAdvisor
-                                    ? '$year Year AI&DS - Sec $section (Class Scope)'
-                                    : 'Department Class Advisor Portal',
-                                style: const TextStyle(
-                                  color: Color(0xFF7E22CE),
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.bold,
+                            Flexible(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEDE9FE),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  isAdvisor
+                                      ? '$year Year AI&DS - Sec $section (Class Scope)'
+                                      : 'Department Class Advisor Portal',
+                                  style: const TextStyle(
+                                    color: Color(0xFF7E22CE),
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ),
@@ -387,19 +392,21 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
                                 ),
                                 child: Column(
                                   children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                    Wrap(
+                                      alignment: WrapAlignment.center,
+                                      crossAxisAlignment: WrapCrossAlignment.center,
+                                      spacing: 4,
+                                      runSpacing: 2,
                                       children: [
                                         Icon(
                                           Icons.cancel_rounded,
                                           size: 18,
                                           color: !_markPresent ? const Color(0xFFDC2626) : Colors.grey,
                                         ),
-                                        const SizedBox(width: 6),
                                         Text(
                                           'Mark ABSENT',
                                           style: TextStyle(
-                                            fontSize: 13,
+                                            fontSize: 12.5,
                                             fontWeight: FontWeight.bold,
                                             color: !_markPresent ? const Color(0xFFDC2626) : const Color(0xFF64748B),
                                           ),
@@ -407,13 +414,15 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
                                       ],
                                     ),
                                     const SizedBox(height: 4),
-                                    Text(
-                                      'Leave / Medical / Sick',
-                                      style: TextStyle(
-                                        fontSize: 10.5,
-                                        color: !_markPresent ? const Color(0xFFB91C1C) : const Color(0xFF94A3B8),
-                                      ),
-                                    ),
+                                     Text(
+                                       'Leave / Medical / Sick',
+                                       style: TextStyle(
+                                         fontSize: 10.5,
+                                         color: !_markPresent ? const Color(0xFFB91C1C) : const Color(0xFF94A3B8),
+                                       ),
+                                       maxLines: 1,
+                                       overflow: TextOverflow.ellipsis,
+                                     ),
                                   ],
                                 ),
                               ),
@@ -454,19 +463,21 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
                                 ),
                                 child: Column(
                                   children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                    Wrap(
+                                      alignment: WrapAlignment.center,
+                                      crossAxisAlignment: WrapCrossAlignment.center,
+                                      spacing: 4,
+                                      runSpacing: 2,
                                       children: [
                                         Icon(
                                           Icons.check_circle_rounded,
                                           size: 18,
                                           color: _markPresent ? const Color(0xFF059669) : Colors.grey,
                                         ),
-                                        const SizedBox(width: 6),
                                         Text(
                                           'Mark PRESENT',
                                           style: TextStyle(
-                                            fontSize: 13,
+                                            fontSize: 12.5,
                                             fontWeight: FontWeight.bold,
                                             color: _markPresent ? const Color(0xFF059669) : const Color(0xFF64748B),
                                           ),
@@ -474,13 +485,15 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
                                       ],
                                     ),
                                     const SizedBox(height: 4),
-                                    Text(
-                                      'On-Duty / Clearance / Event',
-                                      style: TextStyle(
-                                        fontSize: 10.5,
-                                        color: _markPresent ? const Color(0xFF047857) : const Color(0xFF94A3B8),
-                                      ),
-                                    ),
+                                     Text(
+                                       'On-Duty / Clearance / Event',
+                                       style: TextStyle(
+                                         fontSize: 10.5,
+                                         color: _markPresent ? const Color(0xFF047857) : const Color(0xFF94A3B8),
+                                       ),
+                                       maxLines: 1,
+                                       overflow: TextOverflow.ellipsis,
+                                     ),
                                   ],
                                 ),
                               ),
@@ -513,15 +526,21 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
                             value: s,
                             child: Row(
                               children: [
-                                Text(
-                                  s.name,
-                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  '(${s.rollNumber})',
-                                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                                Expanded(
+                                  child: Text.rich(
+                                    TextSpan(
+                                      text: s.name,
+                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                      children: [
+                                        TextSpan(
+                                          text: ' (${s.rollNumber})',
+                                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.normal, color: Color(0xFF64748B)),
+                                        ),
+                                      ],
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               ],
                             ),
@@ -564,9 +583,12 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
                                       children: [
                                         const Icon(Icons.calendar_today_rounded, size: 16, color: AppColors.primaryPurple),
                                         const SizedBox(width: 8),
-                                        Text(
-                                          dateFormatted,
-                                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                        Expanded(
+                                          child: Text(
+                                            dateFormatted,
+                                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -744,44 +766,102 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: const Color(0xFFE2E8F0)),
                         ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFEE2E2),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFDC2626), size: 22),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final isNarrow = constraints.maxWidth < 320;
+                            if (isNarrow) {
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  Text(
-                                    _attachedFileName,
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFFEE2E2),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFDC2626), size: 20),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              _attachedFileName,
+                                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            Text(
+                                              '$_attachedFileType • $_attachedFileSize',
+                                              style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  Text(
-                                    '$_attachedFileType • $_attachedFileSize',
-                                    style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                                  const SizedBox(height: 8),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: OutlinedButton.icon(
+                                      onPressed: _isSubmitting ? null : _attachDocument,
+                                      icon: const Icon(Icons.upload_file, size: 14),
+                                      label: const Text('Change File'),
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        textStyle: const TextStyle(fontSize: 11),
+                                      ),
+                                    ),
                                   ),
                                 ],
-                              ),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: _isSubmitting ? null : _attachDocument,
-                              icon: const Icon(Icons.upload_file, size: 14),
-                              label: const Text('Change File'),
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                textStyle: const TextStyle(fontSize: 11),
-                              ),
-                            ),
-                          ],
+                              );
+                            }
+                            return Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFEE2E2),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFDC2626), size: 22),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _attachedFileName,
+                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      Text(
+                                        '$_attachedFileType • $_attachedFileSize',
+                                        style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                OutlinedButton.icon(
+                                  onPressed: _isSubmitting ? null : _attachDocument,
+                                  icon: const Icon(Icons.upload_file, size: 14),
+                                  label: const Text('Change File'),
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    textStyle: const TextStyle(fontSize: 11),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
                         ),
                       ),
                     ],
@@ -816,7 +896,12 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
                       : (_markPresent
                           ? 'Issue Pink Slip & Mark as PRESENT'
                           : 'Issue Pink Slip & Mark as ABSENT'),
-                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: context.responsiveFontSize(compact: 12, normal: 13.5),
+                    fontWeight: FontWeight.bold,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _markPresent ? const Color(0xFF059669) : const Color(0xFFDC2626),
