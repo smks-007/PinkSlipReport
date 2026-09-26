@@ -63,3 +63,5 @@ app.*.map.json
 *dashboard_screen.png
 node_modules/
 dist/
+
+supabase-backup.sql
