@@ -51,8 +51,15 @@ app.*.map.json
 # Credentials & Environment
 *.env
 *.env.*
+!config/*.env.example
 *.pdf
 *Credentials*
 *.xlsx
+*.xls
+*.csv
+**/exports/
+**/roster/
+**/screenshots/
+*dashboard_screen.png
 node_modules/
 dist/

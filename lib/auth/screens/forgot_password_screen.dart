@@ -337,7 +337,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       controller: _emailCtrl,
                       keyboardType: TextInputType.emailAddress,
                       decoration: InputDecoration(
-                        hintText: 'e.g. manivannan.hod@vsb.ac.in',
+                        hintText: 'Enter your registered college email',
                         prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFF0284C7)),
                         filled: true,
                         fillColor: Colors.white,
@@ -362,18 +362,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     ),
 
                     const SizedBox(height: 12),
-
-                    // Quick Sample Chips
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: [
-                        _buildSampleEmailChip('manivannan.hod@vsb.ac.in', 'HOD ID'),
-                        _buildSampleEmailChip('advisor.2a@vsb.ac.in', 'II-A Advisor'),
-                        _buildSampleEmailChip('advisor.3a@vsb.ac.in', 'III-A Advisor'),
-                        _buildSampleEmailChip('advisor.4a@vsb.ac.in', 'IV-A Advisor'),
-                      ],
-                    ),
 
                     const SizedBox(height: 24),
 
@@ -623,33 +611,4 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     );
   }
 
-  Widget _buildSampleEmailChip(String email, String label) {
-    return InkWell(
-      onTap: () => setState(() => _emailCtrl.text = email),
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: const Color(0xFFE0F2FE),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFBAE6FD)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.touch_app_rounded, size: 12, color: Color(0xFF0284C7)),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Color(0xFF0369A1),
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

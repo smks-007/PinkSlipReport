@@ -117,4 +117,76 @@ class GoogleCalendarService {
       rethrow;
     }
   }
+
+  static const String indianHolidaysCalendarId =
+      'en.indian#holiday@group.v.calendar.google.com';
+
+  /// Fetch holidays or events dynamically from Google Calendar API
+  Future<List<Map<String, dynamic>>> fetchDynamicCalendarEvents({
+    String calendarId = indianHolidaysCalendarId,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    final api = await getCalendarApi();
+    if (api == null) {
+      debugPrint('Google Calendar API client not authenticated');
+      return [];
+    }
+
+    try {
+      final now = DateTime.now();
+      final start = (startDate ?? DateTime(now.year, 1, 1)).toUtc();
+      final end = (endDate ?? DateTime(now.year, 12, 31)).toUtc();
+
+      final events = await api.events.list(
+        calendarId,
+        timeMin: start,
+        timeMax: end,
+        singleEvents: true,
+        orderBy: 'startTime',
+      );
+
+      final List<Map<String, dynamic>> parsedEvents = [];
+      for (final ev in events.items ?? []) {
+        final startDt = ev.start?.date ?? ev.start?.dateTime;
+        if (startDt == null) continue;
+
+        final dateStr =
+            '${startDt.year}-${startDt.month.toString().padLeft(2, '0')}-${startDt.day.toString().padLeft(2, '0')}';
+        final summary = ev.summary ?? 'Holiday';
+        final lower = summary.toLowerCase();
+
+        // Auto-classify event type
+        String eventType = 'HOLIDAY';
+        bool isWorkingDay = false;
+        if (lower.contains('exam')) {
+          eventType = 'EXAM';
+          isWorkingDay = true;
+        } else if (lower.contains('working') ||
+            lower.contains('compensatory')) {
+          eventType = 'WORKING';
+          isWorkingDay = true;
+        } else if (lower.contains('revision') ||
+            lower.contains('symposium') ||
+            lower.contains('orientation')) {
+          eventType = 'SPECIAL';
+          isWorkingDay = true;
+        }
+
+        parsedEvents.add({
+          'event_date': dateStr,
+          'event_type': eventType,
+          'event_name': summary,
+          'description': ev.description,
+          'google_event_id': ev.id,
+          'source': 'GOOGLE_CALENDAR',
+          'is_working_day': isWorkingDay,
+        });
+      }
+      return parsedEvents;
+    } catch (e) {
+      debugPrint('Error fetching events from Google Calendar: $e');
+      return [];
+    }
+  }
 }

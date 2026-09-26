@@ -712,12 +712,6 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Verify Quick Actions Pink Slip Banner
-      expect(
-        find.text('🎫 Forward Absentee / Issue Pink Slip'),
-        findsOneWidget,
-      );
-      expect(find.text('Pink Slip'), findsWidgets);
       expect(find.text('Pink Slip & OD Management'), findsOneWidget);
       expect(find.text('My Class (Yr 2-A)'), findsOneWidget);
       expect(find.text('All 10 Sections (622)'), findsOneWidget);
@@ -879,6 +873,68 @@ void main() {
     final studentRecord = attendance.firstWhere((r) => r.studentId == student.id);
     expect(studentRecord.isPresent, isFalse);
     expect(studentRecord.source, 'pink_slip_absent');
+  });
+
+  test('Class Advisor issues Uninformed Pink Slip with manual reason entry and synchronizes attendance', () async {
+    final student = StudentDirectoryData.allStudents.firstWhere(
+      (s) => s.rollNumber == '25243102',
+    );
+    final testDate = DateTime(2026, 9, 8);
+    const manualReason = 'Student did not report in morning session - parent confirmed absence via phone';
+
+    final slip = await MockDataService.createAdvisorPinkSlipAsync(
+      student: student,
+      date: testDate,
+      markPresent: false,
+      category: LeaveCategory.leave,
+      leaveType: LeaveType.uninformed,
+      reason: manualReason,
+      advisorName: 'Dr. M. Rajendiran',
+      advisorId: 'adv-2b',
+      year: 2,
+      section: 'B',
+    );
+
+    expect(slip.studentRollNumber, '25243102');
+    expect(slip.leaveType, LeaveType.uninformed);
+    expect(slip.reason, manualReason);
+    expect(slip.letterStatus, LetterStatus.forwarded);
+
+    final attendance = MockDataService.getAttendanceForDate(testDate, year: 2, section: 'B');
+    final record = attendance.firstWhere((r) => r.studentId == student.id);
+    expect(record.isPresent, isFalse);
+    expect(record.source, 'pink_slip_absent');
+  });
+
+  test('Class Advisor issues On-Duty Pink Slip with manual duty details and synchronizes attendance as Present', () async {
+    final student = StudentDirectoryData.allStudents.firstWhere(
+      (s) => s.rollNumber == '25243103',
+    );
+    final testDate = DateTime(2026, 9, 8);
+    const manualOdReason = 'On-Duty: Representing college in State Hackathon at Anna University CEG';
+
+    final slip = await MockDataService.createAdvisorPinkSlipAsync(
+      student: student,
+      date: testDate,
+      markPresent: true,
+      category: LeaveCategory.onDuty,
+      leaveType: LeaveType.informed,
+      reason: manualOdReason,
+      advisorName: 'Dr. M. Rajendiran',
+      advisorId: 'adv-2b',
+      year: 2,
+      section: 'B',
+    );
+
+    expect(slip.studentRollNumber, '25243103');
+    expect(slip.category, LeaveCategory.onDuty);
+    expect(slip.reason, manualOdReason);
+    expect(slip.letterStatus, LetterStatus.approved);
+
+    final attendance = MockDataService.getAttendanceForDate(testDate, year: 2, section: 'B');
+    final record = attendance.firstWhere((r) => r.studentId == student.id);
+    expect(record.isPresent, isTrue);
+    expect(record.source, 'pink_slip_od');
   });
 
   test('HOD Pink Slip modal directory search operates across all 622 students', () {

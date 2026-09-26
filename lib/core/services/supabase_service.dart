@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../constants/supabase_config.dart';
 import '../models/user_model.dart';
+import '../models/leave_model.dart';
 
 /// Central Supabase Integration Service for PinkSlipReport
 /// Handles Supabase Client initialization, JWT Auth, and PostgreSQL Database Sync.
@@ -68,10 +69,15 @@ class SupabaseService {
     }
 
     // 3. Known HOD username handles
-    if (clean == 'hod' || clean.startsWith('hod.manivannan') || clean == 'manivannan') {
+    if (clean == 'hod' ||
+        clean.startsWith('hod.manivannan') ||
+        clean == 'manivannan') {
       return 'manivannan.hod@vsb.ac.in';
     }
-    if (clean == 'juniorhod' || clean.startsWith('hod.kavitha') || clean == 'kavitha' || clean == 'hod12') {
+    if (clean == 'juniorhod' ||
+        clean.startsWith('hod.kavitha') ||
+        clean == 'kavitha' ||
+        clean == 'hod12') {
       return 'hod.kavitha@vsb.ac.in';
     }
 
@@ -134,6 +140,19 @@ class SupabaseService {
 
     if (kDebugMode) {
       debugPrint('🎉 Supabase Auth successful for: ${user.email}');
+    }
+
+    // Ensure public.users.auth_id is linked to the active Supabase auth user id
+    try {
+      final userEmail = (user.email ?? email).trim().toLowerCase();
+      await client!
+          .from('users')
+          .update({'auth_id': user.id})
+          .eq('email', userEmail);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Notice updating auth_id in users: $e');
+      }
     }
 
     // Extract profile metadata
@@ -455,7 +474,9 @@ class SupabaseService {
         if (res != null && res['student_id'] != null) {
           final id = res['student_id'] as int;
           if (kDebugMode) {
-            debugPrint('🔍 Resolved real student_id $id for roll number $qRoll');
+            debugPrint(
+              '🔍 Resolved real student_id $id for roll number $qRoll',
+            );
           }
           return id;
         }
@@ -537,6 +558,7 @@ class SupabaseService {
     required DateTime fromDate,
     required DateTime toDate,
     required bool isOnDuty,
+    LeaveType leaveType = LeaveType.informed,
     String? letterUrl,
     String status = 'SUBMITTED',
     String? advisorRemarks,
@@ -552,7 +574,9 @@ class SupabaseService {
       String dbStatus = status.toUpperCase();
       if (dbStatus == 'FORWARDED') {
         dbStatus = 'PENDING_HOD';
-      } else if (dbStatus != 'APPROVED' && dbStatus != 'REJECTED' && dbStatus != 'PENDING_HOD') {
+      } else if (dbStatus != 'APPROVED' &&
+          dbStatus != 'REJECTED' &&
+          dbStatus != 'PENDING_HOD') {
         dbStatus = 'SUBMITTED';
       }
 
@@ -561,14 +585,16 @@ class SupabaseService {
         'reason': reason,
         'from_date': fromDate.toIso8601String().split('T').first,
         'to_date': toDate.toIso8601String().split('T').first,
-        'is_informed': true,
+        'is_informed': leaveType != LeaveType.uninformed,
         'letter_document_url': letterUrl,
         'status': dbStatus,
         'advisor_remarks': advisorRemarks,
         'created_at': DateTime.now().toIso8601String(),
       });
       if (kDebugMode) {
-        debugPrint('✅ Supabase: Pink Slip persisted for student $realStudentId with status $dbStatus');
+        debugPrint(
+          '✅ Supabase: Pink Slip persisted for student $realStudentId with status $dbStatus',
+        );
       }
       return true;
     } catch (e) {
@@ -784,7 +810,9 @@ class SupabaseService {
       String dbStatus = status.toUpperCase();
       if (dbStatus == 'FORWARDED') {
         dbStatus = 'PENDING_HOD';
-      } else if (dbStatus != 'APPROVED' && dbStatus != 'REJECTED' && dbStatus != 'PENDING_HOD') {
+      } else if (dbStatus != 'APPROVED' &&
+          dbStatus != 'REJECTED' &&
+          dbStatus != 'PENDING_HOD') {
         dbStatus = 'SUBMITTED';
       }
 
@@ -816,7 +844,9 @@ class SupabaseService {
       }
 
       if (kDebugMode) {
-        debugPrint('✅ Supabase: Pink Slip & attendance auto-marked for student $realStudentId (status: $dbStatus)');
+        debugPrint(
+          '✅ Supabase: Pink Slip & attendance auto-marked for student $realStudentId (status: $dbStatus)',
+        );
       }
       return true;
     } catch (e) {
@@ -879,6 +909,44 @@ class SupabaseService {
     }
   }
 
+  /// Dynamically insert a promotion request created by an Advisor
+  Future<Map<String, dynamic>?> createPromotionRequest({
+    required int fromYear,
+    required int toYear,
+    required String section,
+    required String batchYear,
+    required int semesterCompleted,
+    required DateTime semesterEndDate,
+    required DateTime eligiblePromotionDate,
+    required int totalStudents,
+    required String advisorName,
+    required String advisorRemarks,
+  }) async {
+    if (!_isInitialized || client == null) return null;
+    try {
+      final res = await client!.from('promotions').insert({
+        'from_year': fromYear,
+        'to_year': toYear,
+        'section': section,
+        'batch_year': batchYear,
+        'semester_completed': semesterCompleted,
+        'semester_end_date': semesterEndDate.toIso8601String().split('T').first,
+        'eligible_promotion_date':
+            eligiblePromotionDate.toIso8601String().split('T').first,
+        'total_students': totalStudents,
+        'status': 'PENDING_ADVISOR',
+        'advisor_name': advisorName,
+        'advisor_remarks': advisorRemarks,
+      }).select().single();
+      return res;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Supabase createPromotionRequest error: $e');
+      }
+      return null;
+    }
+  }
+
   // ──────────────────── ALUMNI ARCHIVE ────────────────────
 
   /// Fetch all alumni archive records from Supabase
@@ -913,6 +981,36 @@ class SupabaseService {
     } catch (e) {
       if (kDebugMode) {
         debugPrint('⚠️ Supabase purgeAlumniRecord error: $e');
+      }
+      return false;
+    }
+  }
+
+  /// Dynamically insert a single alumni record upon graduation
+  Future<bool> insertAlumniRecord(Map<String, dynamic> alumniData) async {
+    if (!_isInitialized || client == null) return false;
+    try {
+      await client!.from('alumni_archive').insert(alumniData);
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Supabase insertAlumniRecord error: $e');
+      }
+      return false;
+    }
+  }
+
+  /// Dynamically batch insert alumni records upon cohort graduation
+  Future<bool> batchInsertAlumniRecords(
+    List<Map<String, dynamic>> records,
+  ) async {
+    if (!_isInitialized || client == null || records.isEmpty) return false;
+    try {
+      await client!.from('alumni_archive').insert(records);
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Supabase batchInsertAlumniRecords error: $e');
       }
       return false;
     }
@@ -958,6 +1056,25 @@ class SupabaseService {
     } catch (e) {
       if (kDebugMode) {
         debugPrint('⚠️ Supabase addCalendarEvent error: $e');
+      }
+      return false;
+    }
+  }
+
+  /// Batch upsert dynamic events (e.g. from Google Calendar) into academic_calendar
+  Future<bool> upsertAcademicCalendarEvents(
+    List<Map<String, dynamic>> events,
+  ) async {
+    if (!_isInitialized || client == null || events.isEmpty) return false;
+    try {
+      await client!.from('academic_calendar').upsert(
+        events,
+        onConflict: 'event_date',
+      );
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Supabase upsertAcademicCalendarEvents error: $e');
       }
       return false;
     }
@@ -1078,6 +1195,15 @@ class SupabaseService {
     try {
       final staffList = await client!
           .from('staff_advisors')
+          .select('*, users!staff_id(user_id, full_name, email, role, department)');
+      if (staffList.isNotEmpty) {
+        return List<Map<String, dynamic>>.from(staffList);
+      }
+    } catch (_) {}
+
+    try {
+      final staffList = await client!
+          .from('staff_advisors')
           .select('*, users(user_id, full_name, email, role, department)');
       if (staffList.isNotEmpty) {
         return List<Map<String, dynamic>>.from(staffList);
@@ -1098,11 +1224,11 @@ class SupabaseService {
       final userFaculty = await client!
           .from('users')
           .select()
-          .filter('role', 'in', '("FACULTY","ADVISOR")');
+          .filter('role', 'in', '("ADVISOR","HOD")');
       return List<Map<String, dynamic>>.from(userFaculty);
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('⚠️ Supabase fetchFacultyAdvisors error: $e');
+        debugPrint('FetchFacultyAdvisors error: $e');
       }
       return [];
     }
@@ -1120,7 +1246,7 @@ class SupabaseService {
       return List<Map<String, dynamic>>.from(res);
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('⚠️ Supabase fetchTimetable error: $e');
+        debugPrint('FetchTimetable error: $e');
       }
       return [];
     }
@@ -1137,7 +1263,7 @@ class SupabaseService {
     required String shortName,
     required String facultyName,
     required String facultyShort,
-    String roomNumber = 'MB III A-201',
+    //String roomNumber = 'MB III A-201',
     bool isLab = false,
   }) async {
     if (!_isInitialized || client == null) return false;
@@ -1152,14 +1278,14 @@ class SupabaseService {
         'short_name': shortName,
         'faculty_name': facultyName,
         'faculty_short': facultyShort,
-        'room_number': roomNumber,
+        //'room_number': roomNumber,
         'is_lab': isLab,
         'updated_at': DateTime.now().toIso8601String(),
       }, onConflict: 'section_id,day_of_week,period_number');
       return true;
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('⚠️ Supabase saveTimetableEntry error: $e');
+        debugPrint('SaveTimetableEntry error: $e');
       }
       return false;
     }

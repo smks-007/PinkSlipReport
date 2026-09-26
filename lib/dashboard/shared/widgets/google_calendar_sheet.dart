@@ -3,6 +3,7 @@ import 'package:googleapis/calendar/v3.dart' as cal;
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_styles.dart';
 import '../../../core/services/google_calendar_service.dart';
+import '../../../core/services/data_service.dart';
 
 /// Modal bottom sheet to view upcoming Google Calendar events and manage Google connection.
 class GoogleCalendarSheet extends StatefulWidget {
@@ -117,6 +118,42 @@ class _GoogleCalendarSheetState extends State<GoogleCalendarSheet> {
     }
   }
 
+  Future<void> _handleSyncToDatabase() async {
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      final count = await MockDataService.syncAcademicCalendarFromGoogle();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              count > 0
+                  ? 'Successfully synced $count academic events to Supabase!'
+                  : 'Sync completed (calendar is up to date).',
+            ),
+            backgroundColor: const Color(0xFF10B981),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Sync error: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
   String _formatDateTime(cal.EventDateTime? dt) {
     if (dt == null) return 'No time specified';
     final date = dt.dateTime?.toLocal() ?? dt.date;
@@ -203,6 +240,12 @@ class _GoogleCalendarSheetState extends State<GoogleCalendarSheet> {
                   ),
                 ),
                 if (user != null) ...[
+                  IconButton(
+                    icon: const Icon(Icons.sync_rounded, size: 22),
+                    tooltip: 'Sync Academic Calendar to Database',
+                    color: const Color(0xFF10B981),
+                    onPressed: _isLoading ? null : _handleSyncToDatabase,
+                  ),
                   IconButton(
                     icon: const Icon(Icons.add_circle_outline_rounded, size: 22),
                     tooltip: 'Create new event',

@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 
 import '../models/student_model.dart';
@@ -9,6 +10,7 @@ import '../models/notice_model.dart';
 import '../data/student_directory_data.dart';
 import 'supabase_service.dart';
 import 'auth_service.dart';
+import 'google_calendar_service.dart';
 
 /// Central Real-Time Database and Telemetry Service for SMART PRO.
 /// Provides 2026 Academic Calendar (Sep-Dec), Date-wise Attendance, Two-Tier HOD Approvals,
@@ -120,7 +122,7 @@ class MockDataService {
           }
           if (kDebugMode) {
             debugPrint(
-              '✅ Synced ${synced.length} students live from Supabase Cloud database!',
+              'Synced ${synced.length} students live from Supabase Cloud database!',
             );
           }
         }
@@ -144,7 +146,8 @@ class MockDataService {
           } else if (statusStr == 'PENDING_HOD' ||
               statusStr == 'FORWARDED' ||
               statusStr == 'SUBMITTED') {
-            status = (statusStr == 'FORWARDED' ||
+            status =
+                (statusStr == 'FORWARDED' ||
                     statusStr == 'PENDING_HOD' ||
                     s['advisor_remarks'] != null)
                 ? LetterStatus.forwarded
@@ -173,10 +176,16 @@ class MockDataService {
 
           if (rollNumber.isEmpty || studentName.isEmpty) {
             final rawId = s['student_id']?.toString() ?? '';
-            final localMatch = StudentDirectoryData.allStudents.cast<StudentModel?>().firstWhere(
-              (m) => m != null && (m.id == rawId || m.rollNumber == rawId || m.id == 'stu-$rawId'),
-              orElse: () => null,
-            );
+            final localMatch = StudentDirectoryData.allStudents
+                .cast<StudentModel?>()
+                .firstWhere(
+                  (m) =>
+                      m != null &&
+                      (m.id == rawId ||
+                          m.rollNumber == rawId ||
+                          m.id == 'stu-$rawId'),
+                  orElse: () => null,
+                );
             if (localMatch != null) {
               studentName = localMatch.name;
               rollNumber = localMatch.rollNumber;
@@ -200,7 +209,9 @@ class MockDataService {
               advisorRemarks: s['advisor_remarks'] as String?,
               hodRemarks: s['hod_remarks'] as String?,
               leaveType: LeaveType.informed,
-              category: (s['is_on_duty'] == true) ? LeaveCategory.onDuty : LeaveCategory.leave,
+              category: (s['is_on_duty'] == true)
+                  ? LeaveCategory.onDuty
+                  : LeaveCategory.leave,
               attachmentFileName: s['letter_document_url'] as String?,
               section: secLetter,
               year: yr,
@@ -213,16 +224,15 @@ class MockDataService {
             slipMap[local.id] = local;
           }
           for (final remote in syncedSlips) {
-            final matchedLocalKey = slipMap.keys.cast<String?>().firstWhere(
-              (k) {
-                final l = slipMap[k]!;
-                return l.studentRollNumber == remote.studentRollNumber &&
-                    l.leaveDate.year == remote.leaveDate.year &&
-                    l.leaveDate.month == remote.leaveDate.month &&
-                    l.leaveDate.day == remote.leaveDate.day;
-              },
-              orElse: () => null,
-            );
+            final matchedLocalKey = slipMap.keys.cast<String?>().firstWhere((
+              k,
+            ) {
+              final l = slipMap[k]!;
+              return l.studentRollNumber == remote.studentRollNumber &&
+                  l.leaveDate.year == remote.leaveDate.year &&
+                  l.leaveDate.month == remote.leaveDate.month &&
+                  l.leaveDate.day == remote.leaveDate.day;
+            }, orElse: () => null);
             if (matchedLocalKey != null) {
               slipMap.remove(matchedLocalKey);
             }
@@ -233,7 +243,7 @@ class MockDataService {
           _leaveRequests.sort((a, b) => b.leaveDate.compareTo(a.leaveDate));
           if (kDebugMode) {
             debugPrint(
-              '✅ Loaded ${syncedSlips.length} leave slips live from Supabase Cloud database!',
+              'Loaded ${syncedSlips.length} leave slips live from Supabase Cloud database!',
             );
           }
         }
@@ -242,7 +252,10 @@ class MockDataService {
       // 3. Fetch Live Attendance dynamically across recent date range (last 14 days)
       final today = DateTime.now();
       final startDate = today.subtract(const Duration(days: 14));
-      final rangeRecords = await supabase.fetchAttendanceDateRange(startDate, today);
+      final rangeRecords = await supabase.fetchAttendanceDateRange(
+        startDate,
+        today,
+      );
 
       if (rangeRecords.isNotEmpty) {
         final Map<String, List<Map<String, dynamic>>> byDate = {};
@@ -260,7 +273,7 @@ class MockDataService {
         }
         if (kDebugMode) {
           debugPrint(
-            '✅ Loaded ${rangeRecords.length} attendance records across ${byDate.length} dates from Supabase!',
+            'Loaded ${rangeRecords.length} attendance records across ${byDate.length} dates from Supabase!',
           );
         }
       } else {
@@ -291,9 +304,12 @@ class MockDataService {
         }
         if (kDebugMode) {
           debugPrint(
-            '✅ Loaded ${_collegeHolidays.length} calendar holidays from Supabase!',
+            'Loaded ${_collegeHolidays.length} calendar holidays from Supabase!',
           );
         }
+      } else {
+        // If Supabase calendar is empty, dynamically auto-populate from Google Calendar API
+        syncAcademicCalendarFromGoogle();
       }
 
       // 5. Fetch Promotions from Supabase
@@ -361,7 +377,7 @@ class MockDataService {
         _promotionRequests.addAll(syncedProms);
         if (kDebugMode) {
           debugPrint(
-            '✅ Loaded ${syncedProms.length} promotion requests from Supabase!',
+            'Loaded ${syncedProms.length} promotion requests from Supabase!',
           );
         }
       }
@@ -399,7 +415,7 @@ class MockDataService {
         _alumniArchive.addAll(syncedAlumni);
         if (kDebugMode) {
           debugPrint(
-            '✅ Loaded ${syncedAlumni.length} alumni records from Supabase!',
+            'Loaded ${syncedAlumni.length} alumni records from Supabase!',
           );
         }
       }
@@ -411,7 +427,7 @@ class MockDataService {
         _allAttendanceRecords.addAll(allAttendance);
         if (kDebugMode) {
           debugPrint(
-            '✅ Loaded ${allAttendance.length} total attendance records for defaulter computation!',
+            'Loaded ${allAttendance.length} total attendance records for defaulter computation!',
           );
         }
       }
@@ -427,7 +443,7 @@ class MockDataService {
         _broadcastNotices.addAll(syncedNotices);
         if (kDebugMode) {
           debugPrint(
-            '✅ Loaded ${_broadcastNotices.length} broadcast notices from Supabase!',
+            'Loaded ${_broadcastNotices.length} broadcast notices from Supabase!',
           );
         }
       }
@@ -437,7 +453,7 @@ class MockDataService {
         await AuthService().refreshCurrentUserFromDB();
       } catch (e) {
         if (kDebugMode) {
-          debugPrint('⚠️ Error refreshing user profile during sync: $e');
+          debugPrint('Error refreshing user profile during sync: $e');
         }
       }
 
@@ -446,7 +462,7 @@ class MockDataService {
         await AuthService().syncFacultyFromDB();
       } catch (e) {
         if (kDebugMode) {
-          debugPrint('⚠️ Error syncing faculty advisors during sync: $e');
+          debugPrint('Error syncing faculty advisors during sync: $e');
         }
       }
 
@@ -455,7 +471,7 @@ class MockDataService {
     } catch (e) {
       lastCloudSyncTime = DateTime.now();
       if (kDebugMode) {
-        debugPrint('⚠️ Error syncing live data from Supabase: $e');
+        debugPrint('Error syncing live data from Supabase: $e');
       }
     }
   }
@@ -536,7 +552,9 @@ class MockDataService {
 
   /// Get distinct available sections dynamically based on loaded students or year
   static List<String> getAvailableSections([int? year]) {
-    final query = _dynamicStudents.where((s) => !s.isPurged && (year == null || s.year == year));
+    final query = _dynamicStudents.where(
+      (s) => !s.isPurged && (year == null || s.year == year),
+    );
     final distinctSections = query.map((s) => s.section).toSet().toList();
     if (distinctSections.isNotEmpty) {
       distinctSections.sort();
@@ -576,7 +594,8 @@ class MockDataService {
     return fallback
         .where(
           (s) =>
-              !s.isPurged && s.academicStatus != StudentAcademicStatus.graduated,
+              !s.isPurged &&
+              s.academicStatus != StudentAcademicStatus.graduated,
         )
         .toList();
   }
@@ -590,8 +609,7 @@ class MockDataService {
       final sections = yr == 4 ? ['A', 'B'] : ['A', 'B', 'C', 'D'];
       for (final sec in sections) {
         total +=
-            getSectionPresent(yr, sec, now) +
-            getSectionOnDuty(yr, sec, now);
+            getSectionPresent(yr, sec, now) + getSectionOnDuty(yr, sec, now);
       }
     }
     return total;
@@ -697,12 +715,34 @@ class MockDataService {
   static List<Map<String, dynamic>> getAcademicMonths({int? baseYear}) {
     final y = baseYear ?? DateTime.now().year;
     const monthNames = [
-      '', 'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
+      '',
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
     const monthShorts = [
-      '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      '',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     final months = <Map<String, dynamic>>[];
     for (int m = 1; m <= 12; m++) {
@@ -711,7 +751,8 @@ class MockDataService {
         'month': m,
         'year': y,
         'name': '${monthNames[m]} $y',
-        'short': '${monthShorts[m]} ${y.toString().length >= 4 ? y.toString().substring(2) : y}',
+        'short':
+            '${monthShorts[m]} ${y.toString().length >= 4 ? y.toString().substring(2) : y}',
         'days': daysInMonth,
       });
     }
@@ -719,7 +760,8 @@ class MockDataService {
   }
 
   /// Backward-compatible getter providing dynamic months
-  static List<Map<String, dynamic>> get academicMonths2026 => getAcademicMonths();
+  static List<Map<String, dynamic>> get academicMonths2026 =>
+      getAcademicMonths();
 
   /// Get list of working academic dates for a specific month (auto-calculates days in month)
   static List<DateTime> getDatesForMonth(int month, {int? year}) {
@@ -786,22 +828,25 @@ class MockDataService {
               date.year == DateTime.now().year);
 
       // Check _allAttendanceRecords (synced live from daily_attendance in Supabase)
-      final dStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-      final matchingDb = _allAttendanceRecords.cast<Map<String, dynamic>?>().firstWhere(
-        (r) {
-          if (r == null) return false;
-          final rDate = r['attendance_date']?.toString();
-          if (rDate != dStr) return false;
+      final dStr =
+          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      final matchingDb = _allAttendanceRecords
+          .cast<Map<String, dynamic>?>()
+          .firstWhere((r) {
+            if (r == null) return false;
+            final rDate = r['attendance_date']?.toString();
+            if (rDate != dStr) return false;
 
-          final rStudent = r['students'] as Map<String, dynamic>?;
-          final rRoll = rStudent?['roll_number']?.toString();
-          if (rRoll != null && rRoll == s.rollNumber) return true;
+            final rStudent = r['students'] as Map<String, dynamic>?;
+            final rRoll = rStudent?['roll_number']?.toString();
+            if (rRoll != null && rRoll == s.rollNumber) return true;
 
-          final rId = r['student_id']?.toString();
-          return rId == s.id || rId == s.rollNumber || 'stu-$rId' == s.id || 'stu_$rId' == s.id;
-        },
-        orElse: () => null,
-      );
+            final rId = r['student_id']?.toString();
+            return rId == s.id ||
+                rId == s.rollNumber ||
+                'stu-$rId' == s.id ||
+                'stu_$rId' == s.id;
+          }, orElse: () => null);
 
       AttendanceStatus status = AttendanceStatus.present;
       String source = 'default_present';
@@ -809,7 +854,8 @@ class MockDataService {
 
       if (matchingDb != null) {
         final isPresent = matchingDb['is_present'] == true;
-        final leaveType = (matchingDb['leave_type'] as String?)?.toUpperCase() ?? '';
+        final leaveType =
+            (matchingDb['leave_type'] as String?)?.toUpperCase() ?? '';
         source = matchingDb['punch_method'] as String? ?? 'cloud_database';
         if (isPresent) {
           status = AttendanceStatus.present;
@@ -905,8 +951,8 @@ class MockDataService {
 
     final effectiveAdvisorRemarks =
         (advisorRemarks != null && advisorRemarks.trim().isNotEmpty)
-            ? advisorRemarks.trim()
-            : 'Official Pink Slip issued by Class Advisor $advisorName. Attendance marked as ${markPresent ? "PRESENT (OD)" : "ABSENT"}.';
+        ? advisorRemarks.trim()
+        : 'Official Pink Slip issued by Class Advisor $advisorName. Attendance marked as ${markPresent ? "PRESENT (OD)" : "ABSENT"}.';
 
     final slip = LeaveModel(
       id: 'ps-${DateTime.now().millisecondsSinceEpoch}',
@@ -983,7 +1029,8 @@ class MockDataService {
     }
 
     // ── PINK SLIP AUTO-ABSENT: Persist to Supabase Cloud Database ──
-    final studentNumericId = student.dbStudentId ??
+    final studentNumericId =
+        student.dbStudentId ??
         int.tryParse(student.rollNumber.replaceAll(RegExp(r'[^0-9]'), '')) ??
         0;
     if (studentNumericId > 0 && persistToCloud) {
@@ -1023,8 +1070,8 @@ class MockDataService {
     final effectiveSection = section ?? student.section;
     final effectiveAdvisorRemarks =
         (advisorRemarks != null && advisorRemarks.trim().isNotEmpty)
-            ? advisorRemarks.trim()
-            : 'Official Pink Slip issued by Class Advisor $advisorName. Attendance marked as ${markPresent ? "PRESENT (OD)" : "ABSENT"}.';
+        ? advisorRemarks.trim()
+        : 'Official Pink Slip issued by Class Advisor $advisorName. Attendance marked as ${markPresent ? "PRESENT (OD)" : "ABSENT"}.';
 
     // Synchronize local in-memory state and UI immediately
     final slip = createAdvisorPinkSlip(
@@ -1046,7 +1093,8 @@ class MockDataService {
     );
 
     // Await cloud database persistence to leave_slips and daily_attendance
-    final studentNumericId = student.dbStudentId ??
+    final studentNumericId =
+        student.dbStudentId ??
         int.tryParse(student.rollNumber.replaceAll(RegExp(r'[^0-9]'), '')) ??
         0;
     try {
@@ -1144,6 +1192,48 @@ class MockDataService {
 
   static Map<String, String> get allCollegeHolidays =>
       Map.unmodifiable(_collegeHolidays);
+
+  /// Dynamically synchronizes academic calendar and official holidays from Google Calendar API
+  static Future<int> syncAcademicCalendarFromGoogle({
+    String? calendarId,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    try {
+      final googleEvents =
+          await GoogleCalendarService().fetchDynamicCalendarEvents(
+        calendarId: calendarId ?? GoogleCalendarService.indianHolidaysCalendarId,
+        startDate: startDate,
+        endDate: endDate,
+      );
+
+      if (googleEvents.isNotEmpty) {
+        await SupabaseService().upsertAcademicCalendarEvents(googleEvents);
+
+        // Update in-memory holidays cache
+        for (final e in googleEvents) {
+          final isWorking = e['is_working_day'] as bool? ?? false;
+          final dateStr = e['event_date'] as String? ?? '';
+          final name = e['event_name'] as String? ?? 'Holiday';
+          if (!isWorking && dateStr.isNotEmpty) {
+            _collegeHolidays[dateStr] = name;
+          }
+        }
+        _notifyUpdate();
+        if (kDebugMode) {
+          debugPrint(
+            'Synchronized ${googleEvents.length} calendar events dynamically from Google Calendar API!',
+          );
+        }
+        return googleEvents.length;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Error syncing academic calendar from Google: $e');
+      }
+    }
+    return 0;
+  }
 
   // ──────────────────── Analytics Graphs & Statistics ────────────────────
 
@@ -1353,7 +1443,12 @@ class MockDataService {
         if (rRoll != null && rRoll == s.rollNumber) return true;
 
         final rId = r['student_id'];
-        if (rId == numericId || rId.toString() == s.id || 'stu-$rId' == s.id || 'stu_$rId' == s.id) return true;
+        if (rId == numericId ||
+            rId.toString() == s.id ||
+            'stu-$rId' == s.id ||
+            'stu_$rId' == s.id) {
+          return true;
+        }
         return false;
       }).toList();
       if (studentRecords.isEmpty) continue;
@@ -1424,7 +1519,8 @@ class MockDataService {
       (s) => s?.rollNumber == newLeave.studentRollNumber,
       orElse: () => null,
     );
-    final studentNumericId = student?.dbStudentId ??
+    final studentNumericId =
+        student?.dbStudentId ??
         int.tryParse(
           newLeave.studentRollNumber.replaceAll(RegExp(r'[^0-9]'), ''),
         ) ??
@@ -1437,7 +1533,9 @@ class MockDataService {
       toDate: newLeave.leaveDate,
       isOnDuty: newLeave.isOnDuty,
       letterUrl: newLeave.attachmentFileName,
-      status: newLeave.letterStatus == LetterStatus.forwarded ? 'PENDING_HOD' : 'SUBMITTED',
+      status: newLeave.letterStatus == LetterStatus.forwarded
+          ? 'PENDING_HOD'
+          : 'SUBMITTED',
       advisorRemarks: newLeave.advisorRemarks,
     );
   }
@@ -1552,6 +1650,20 @@ class MockDataService {
   static void submitPromotionRequest(PromotionRequest request) {
     _promotionRequests.insert(0, request);
     _notifyUpdate();
+
+    // Persist to Supabase asynchronously
+    SupabaseService().createPromotionRequest(
+      fromYear: request.fromYear,
+      toYear: request.toYear,
+      section: request.section,
+      batchYear: request.batchYear,
+      semesterCompleted: request.semesterCompleted,
+      semesterEndDate: request.semesterEndDate,
+      eligiblePromotionDate: request.eligiblePromotionDate,
+      totalStudents: request.totalStudents,
+      advisorName: request.advisorName ?? 'Advisor',
+      advisorRemarks: request.advisorRemarks ?? 'Initiated promotion request',
+    );
   }
 
   static List<PromotionRequest> getPendingPromotionsForAdvisor(
@@ -1596,7 +1708,8 @@ class MockDataService {
       _notifyUpdate();
 
       // Persist to Supabase Database
-      final numericId = int.tryParse(requestId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 1;
+      final numericId =
+          int.tryParse(requestId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 1;
       SupabaseService().updatePromotionStatus(
         promotionId: numericId,
         status: 'FORWARDED_TO_HOD',
@@ -1623,6 +1736,8 @@ class MockDataService {
         dateApprovedByHod: DateTime.now(),
       );
 
+      final List<Map<String, dynamic>> newAlumniRows = [];
+
       // Execute promotion logic on dynamic students
       for (int i = 0; i < _dynamicStudents.length; i++) {
         final stu = _dynamicStudents[i];
@@ -1630,10 +1745,26 @@ class MockDataService {
             (stu.year == req.fromYear && stu.section == req.section)) {
           if (req.isGraduation) {
             // 4th Year -> Graduated & transition to Alumni Archive
-            final gradDate = DateTime(2026, 6, 15);
+            final gradDate = req.semesterEndDate.isBefore(DateTime.now())
+                ? req.semesterEndDate
+                : DateTime.now();
             final expiryDate = gradDate.add(
               const Duration(days: 730),
             ); // 2 years
+
+            // Compute actual dynamic attendance percentage
+            final dynamicAttendance = getStudentAttendancePercentage(stu);
+
+            // Compute actual dynamic OD leaves attended
+            final dynamicODs = _leaveRequests
+                .where(
+                  (l) =>
+                      l.studentRollNumber == stu.rollNumber &&
+                      l.category == LeaveCategory.onDuty &&
+                      l.letterStatus == LetterStatus.approved,
+                )
+                .length;
+
             _dynamicStudents[i] = stu.copyWith(
               academicStatus: StudentAcademicStatus.graduated,
               year: 5,
@@ -1643,7 +1774,7 @@ class MockDataService {
               isArchived: true,
             );
 
-            // Add to alumni archive
+            // Add to in-memory alumni archive
             _alumniArchive.add(
               AlumniRetentionRecord(
                 studentId: stu.id,
@@ -1654,10 +1785,26 @@ class MockDataService {
                 graduationDate: gradDate,
                 retentionPeriodYears: 2,
                 retentionExpiryDate: expiryDate,
-                cumulativeAttendance: 94.2,
-                totalODsAttended: 3,
+                cumulativeAttendance: dynamicAttendance,
+                totalODsAttended: dynamicODs,
               ),
             );
+
+            // Payload for Supabase
+            newAlumniRows.add({
+              if (stu.dbStudentId != null) 'student_id': stu.dbStudentId,
+              'student_name': stu.name,
+              'roll_number': stu.rollNumber,
+              'section': stu.section,
+              'batch_year': stu.batchYear,
+              'graduation_date': gradDate.toIso8601String().split('T').first,
+              'retention_period_years': 2,
+              'retention_expiry_date':
+                  expiryDate.toIso8601String().split('T').first,
+              'cumulative_attendance': dynamicAttendance,
+              'total_ods_attended': dynamicODs,
+              'is_purged': false,
+            });
           } else {
             // Year 1->2, 2->3, 3->4
             final nextYear = req.toYear;
@@ -1671,10 +1818,16 @@ class MockDataService {
         }
       }
 
+      // Persist newly graduated alumni to Supabase
+      if (newAlumniRows.isNotEmpty) {
+        SupabaseService().batchInsertAlumniRecords(newAlumniRows);
+      }
+
       _notifyUpdate();
 
       // Persist to Supabase Database
-      final numericId = int.tryParse(requestId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 1;
+      final numericId =
+          int.tryParse(requestId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 1;
       SupabaseService().updatePromotionStatus(
         promotionId: numericId,
         status: 'APPROVED_BY_HOD',
@@ -1699,7 +1852,8 @@ class MockDataService {
       _notifyUpdate();
 
       // Persist to Supabase Database
-      final numericId = int.tryParse(requestId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 1;
+      final numericId =
+          int.tryParse(requestId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 1;
       SupabaseService().updatePromotionStatus(
         promotionId: numericId,
         status: 'REJECTED',
@@ -1724,6 +1878,20 @@ class MockDataService {
   static void addAlumniRecord(AlumniRetentionRecord record) {
     _alumniArchive.insert(0, record);
     _notifyUpdate();
+    SupabaseService().insertAlumniRecord({
+      'student_name': record.studentName,
+      'roll_number': record.rollNumber,
+      'section': record.section,
+      'batch_year': record.batchYear,
+      'graduation_date':
+          record.graduationDate.toIso8601String().split('T').first,
+      'retention_period_years': record.retentionPeriodYears,
+      'retention_expiry_date':
+          record.retentionExpiryDate.toIso8601String().split('T').first,
+      'cumulative_attendance': record.cumulativeAttendance,
+      'total_ods_attended': record.totalODsAttended,
+      'is_purged': record.isPurged,
+    });
   }
 
   /// Auto-purge trigger: scans all archived alumni records. If retention period (>= 2 years) is exceeded,
@@ -1744,7 +1912,8 @@ class MockDataService {
         purgedCount++;
 
         // Persist purge to Supabase Database
-        final archiveId = int.tryParse(rec.studentId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+        final archiveId =
+            int.tryParse(rec.studentId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
         if (archiveId > 0) {
           SupabaseService().purgeAlumniRecord(archiveId);
         }
@@ -1761,7 +1930,8 @@ class MockDataService {
 
   static String _getAdvisorName(int year, String section) {
     for (final adv in AuthService.sectionAdvisors) {
-      if (adv.year == year && adv.section?.toUpperCase() == section.toUpperCase()) {
+      if (adv.year == year &&
+          adv.section?.toUpperCase() == section.toUpperCase()) {
         return adv.name;
       }
     }
@@ -1809,11 +1979,14 @@ class MockDataService {
     }
 
     // Dynamic computation based on tracked working days and documented leaves
-    final totalTrackedDays = _attendanceCache.isNotEmpty ? _attendanceCache.length : 90;
+    final totalTrackedDays = _attendanceCache.isNotEmpty
+        ? _attendanceCache.length
+        : 90;
     final totalLeaves = student.totalLeavesTaken;
     final isAbsentToday = isStudentAbsent(student.rollNumber);
     final effectiveAbsences = totalLeaves + (isAbsentToday ? 1 : 0);
-    final calculatedPct = ((totalTrackedDays - effectiveAbsences) / totalTrackedDays) * 100.0;
+    final calculatedPct =
+        ((totalTrackedDays - effectiveAbsences) / totalTrackedDays) * 100.0;
     return double.parse(calculatedPct.clamp(0.0, 100.0).toStringAsFixed(1));
   }
 
@@ -1864,7 +2037,9 @@ class MockDataService {
   static Future<File> exportStudentCsvToFile() async {
     final content = generateCompleteStudentCsv();
     final tempDir = Directory.systemTemp;
-    final file = File('${tempDir.path}/dept_aids_students_${allStudents.length}.csv');
+    final file = File(
+      '${tempDir.path}/dept_aids_students_${allStudents.length}.csv',
+    );
     return await file.writeAsString(content);
   }
 
@@ -1880,8 +2055,9 @@ class MockDataService {
             0,
             (prev, list) => prev + list.length,
           );
-    final effectiveAttendanceLogs =
-        attendanceLogCount > 0 ? attendanceLogCount : studentCount;
+    final effectiveAttendanceLogs = attendanceLogCount > 0
+        ? attendanceLogCount
+        : studentCount;
     final slipCount = _leaveRequests.length;
     final noticeCount = _broadcastNotices.length;
     final promotionCount = _promotionRequests.length;
@@ -1893,8 +2069,10 @@ class MockDataService {
     // Real dynamic storage calculations (in KB) based purely on live records
     final studentSizeKB = studentCount * 4.2; // bio, registers, profile data
     final alumniSizeKB = _alumniArchive.length * 3.5;
-    final facultySizeKB = facultyAccountCount * 26.5; // Advisors + HODs credentials & logs
-    final attendanceSizeKB = effectiveAttendanceLogs * 0.45; // ~0.45 KB per punch log
+    final facultySizeKB =
+        facultyAccountCount * 26.5; // Advisors + HODs credentials & logs
+    final attendanceSizeKB =
+        effectiveAttendanceLogs * 0.45; // ~0.45 KB per punch log
     final slipSizeKB = slipCount * 750.0; // PDF attachments & metadata
     final noticeSizeKB = noticeCount * 48.0; // notices, announcements
     final promotionSizeKB = promotionCount * 45.0; // audit trails
@@ -2031,7 +2209,9 @@ class MockDataService {
     _notifyUpdate();
 
     if (kDebugMode) {
-      debugPrint('================================================================');
+      debugPrint(
+        '================================================================',
+      );
       debugPrint('📢 [HOD BROADCAST LOG - MESSAGE RETURNED]');
       debugPrint('🆔 Notice ID: ${notice.id}');
       debugPrint('📌 Title: ${notice.title}');
@@ -2042,7 +2222,9 @@ class MockDataService {
       debugPrint('👤 Sender: ${notice.senderName}');
       debugPrint('🕒 Sent At: ${notice.createdAt.toIso8601String()}');
       debugPrint('💾 Database: Persisted to Supabase (broadcast_notices)');
-      debugPrint('================================================================');
+      debugPrint(
+        '================================================================',
+      );
     }
 
     // Persist live to Supabase Cloud Database
@@ -2067,8 +2249,9 @@ class MockDataService {
       _broadcastNotices[idx] = _broadcastNotices[idx].copyWith(isRead: true);
       _notifyUpdate();
 
-      final numericId =
-          int.tryParse(noticeId.replaceAll(RegExp(r'[^0-9]'), ''));
+      final numericId = int.tryParse(
+        noticeId.replaceAll(RegExp(r'[^0-9]'), ''),
+      );
       if (numericId != null) {
         final supabase = SupabaseService();
         if (supabase.isInitialized) {

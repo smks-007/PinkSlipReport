@@ -24,3 +24,20 @@ ON CONFLICT DO NOTHING;
 
 CREATE INDEX IF NOT EXISTS idx_broadcast_created ON broadcast_notices(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_broadcast_priority ON broadcast_notices(priority);
+
+-- Row Level Security & Permissions
+ALTER TABLE broadcast_notices ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "public_all_broadcast_notices" ON broadcast_notices;
+CREATE POLICY "public_all_broadcast_notices" ON broadcast_notices FOR ALL USING (true) WITH CHECK (true);
+
+GRANT ALL ON broadcast_notices TO anon, authenticated, service_role;
+GRANT USAGE, SELECT ON SEQUENCE broadcast_notices_notice_id_seq TO anon, authenticated, service_role;
+
+-- Ensure staff_advisors can be read by anon/authenticated users
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'staff_advisors') THEN
+        DROP POLICY IF EXISTS "anon_read_staff_advisors" ON staff_advisors;
+        CREATE POLICY "anon_read_staff_advisors" ON staff_advisors FOR SELECT USING (true);
+        GRANT SELECT ON staff_advisors TO anon, authenticated, service_role;
+    END IF;
+END $$;

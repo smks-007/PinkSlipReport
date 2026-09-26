@@ -693,12 +693,18 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
                               if (val != null) {
                                 setState(() {
                                   _leaveType = val;
-                                  if (val == LeaveType.uninformed) {
-                                    _reasonCtrl.text = 'Uninformed Absence';
-                                  } else {
-                                    _reasonCtrl.text = _markPresent
-                                        ? 'On-Duty: Academic Symposium / Project Duty'
-                                        : 'Medical / Sick Leave';
+                                  final currentReason = _reasonCtrl.text.trim();
+                                  if (currentReason.isEmpty ||
+                                      currentReason == 'Uninformed Absence' ||
+                                      currentReason == 'Medical / Sick Leave' ||
+                                      currentReason.startsWith('On-Duty:')) {
+                                    if (val == LeaveType.uninformed) {
+                                      _reasonCtrl.text = 'Uninformed Absence';
+                                    } else {
+                                      _reasonCtrl.text = _markPresent
+                                          ? 'On-Duty: Academic Symposium / Project Duty'
+                                          : 'Medical / Sick Leave';
+                                    }
                                   }
                                 });
                               }

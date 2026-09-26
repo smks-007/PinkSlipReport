@@ -864,18 +864,7 @@ class _SubmitLeaveModalState extends State<_SubmitLeaveModal> {
   @override
   void initState() {
     super.initState();
-    _selectedStudent = widget.initialStudent ?? (widget.students.isNotEmpty
-        ? widget.students.first
-        : const StudentModel(
-            id: 's-demo',
-            name: 'Sample Student',
-            rollNumber: '25243100',
-            department: 'AI&DS',
-            section: 'B',
-            year: 2,
-            batchYear: '2025 BATCH',
-            advisorId: 'adv-001',
-          ));
+    _selectedStudent = widget.initialStudent ?? widget.students.first;
   }
 
   @override

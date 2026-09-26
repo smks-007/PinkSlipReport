@@ -161,11 +161,6 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                   _buildStatsGrid(year, section),
                   const SizedBox(height: 20),
 
-                  _buildSectionTitle('Quick Actions'),
-                  const SizedBox(height: 12),
-                  _buildQuickActions(),
-                  const SizedBox(height: 24),
-
                   // Full Class Student Roster
                   _buildStudentRosterSection(
                     filteredStudents,
@@ -1538,130 +1533,6 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                   subtitle: 'Needs Forwarding',
                   icon: Icons.hourglass_bottom_rounded,
                   iconColor: AppColors.pendingOrange,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuickActions() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        children: [
-          // Primary Pink Slip Forwarder Action Banner
-          InkWell(
-            onTap: () => _showForwardAbsenteePinkSlipModal(),
-            borderRadius: BorderRadius.circular(14),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [
-                    Color(0xFF831843),
-                    Color(0xFFBE185D),
-                    Color(0xFFEC4899),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFBE185D).withValues(alpha: 0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.receipt_long_rounded,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text(
-                          '🎫 Forward Absentee / Issue Pink Slip',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                        ),
-                        SizedBox(height: 2),
-                        Text(
-                          'Scan Hospital Proof • Review Previous Leaves • Endorse to HOD',
-                          style: TextStyle(
-                            color: Color(0xFFFCE7F3),
-                            fontSize: 10.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    color: Colors.white,
-                    size: 14,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          Row(
-            children: [
-              Expanded(
-                child: _QuickActionCard(
-                  icon: Icons.fact_check_outlined,
-                  label: 'Attendance',
-                  color: const Color(0xFF6366F1),
-                  onTap: () => Navigator.pushNamed(context, '/attendance'),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _QuickActionCard(
-                  icon: Icons.receipt_long_rounded,
-                  label: 'Pink Slip',
-                  color: const Color(0xFFEC4899),
-                  onTap: () => _showForwardAbsenteePinkSlipModal(),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _QuickActionCard(
-                  icon: Icons.calendar_month_outlined,
-                  label: 'Timetable',
-                  color: const Color(0xFF0284C7),
-                  onTap: () => Navigator.pushNamed(context, '/timetable'),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _QuickActionCard(
-                  icon: Icons.dns_outlined,
-                  label: 'Storage',
-                  color: const Color(0xFF059669),
-                  onTap: () => showDialog(
-                    context: context,
-                    builder: (ctx) => const StorageManagementDialog(),
-                  ),
                 ),
               ),
             ],
@@ -3461,49 +3332,6 @@ class _StatCard extends StatelessWidget {
             style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8)),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _QuickActionCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _QuickActionCard({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withValues(alpha: 0.18)),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, size: 22, color: color),
-            const SizedBox(height: 5),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.bold,
-                fontSize: 10.5,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

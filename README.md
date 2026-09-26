@@ -64,7 +64,7 @@ PinkSlipReport/
 ### Prerequisites
 * Flutter SDK (`>=3.47.0`)
 * Dart SDK (`>=3.13.0`)
-* Supabase project instance (URL and Anon Key configured via environment variables or `supabase_config.dart`)
+* Supabase project instance (URL and Anon Key injected at build time)
 
 ### Installation & Run
 
@@ -78,6 +78,23 @@ PinkSlipReport/
    ```bash
    flutter pub get
    ```
+
+### Environment configuration
+
+Supabase credentials are never stored in source control. Copy the appropriate
+template from `config/` to a private local file or configure the values in your
+CI/CD secret store, then pass them to Flutter at build time:
+
+```bash
+flutter run \
+  --dart-define=SUPABASE_URL=https://your-project.supabase.co \
+  --dart-define=SUPABASE_ANON_KEY=your-anon-key
+```
+
+Use separate Supabase projects and credentials for development, staging, and
+production. The committed `config/*.env.example` files contain placeholders
+only. Rotate any key that has previously appeared in repository history before
+deploying a protected environment.
 
 3. **Run the application**:
    ```bash
