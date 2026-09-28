@@ -112,7 +112,7 @@ DROP POLICY IF EXISTS "student_insert_own_slips" ON leave_slips;
 CREATE OR REPLACE FUNCTION get_user_role()
 RETURNS user_role AS $$
   SELECT role FROM users WHERE auth_id = auth.uid()
-$$ LANGUAGE sql SECURITY DEFINER STABLE;
+$$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public, auth, extensions;
 
 CREATE OR REPLACE FUNCTION get_advisor_section()
 RETURNS VARCHAR(15) AS $$
@@ -120,7 +120,7 @@ RETURNS VARCHAR(15) AS $$
   FROM staff_advisors sa
   JOIN users u ON sa.staff_id = u.user_id
   WHERE u.auth_id = auth.uid()
-$$ LANGUAGE sql SECURITY DEFINER STABLE;
+$$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public, auth, extensions;
 
 CREATE OR REPLACE FUNCTION get_student_id()
 RETURNS INT AS $$
@@ -128,7 +128,7 @@ RETURNS INT AS $$
   FROM students s
   JOIN users u ON s.student_id = u.user_id
   WHERE u.auth_id = auth.uid()
-$$ LANGUAGE sql SECURITY DEFINER STABLE;
+$$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public, auth, extensions;
 
 -- ──────────────────── 5. PRODUCTION RLS ENFORCEMENT ────────────────────
 
@@ -315,7 +315,7 @@ BEGIN
 
     RETURN v_user_id;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth, extensions;
 
 -- Provision HODs with secure initial password generation (override via app.seed_password if needed)
 DO $$
@@ -341,4 +341,3 @@ BEGIN
     PERFORM provision_auth_user('advisor.2c@vsb.ac.in', v_seed_pwd, 'Mr. A. Bharathidasan', 'ADVISOR', 'II AI&DS - Section C');
     PERFORM provision_auth_user('advisor.2d@vsb.ac.in', v_seed_pwd, 'Mr. R. Palraj', 'ADVISOR', 'II AI&DS - Section D');
 END $$;
-

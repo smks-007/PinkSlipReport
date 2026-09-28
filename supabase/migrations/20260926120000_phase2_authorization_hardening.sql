@@ -22,12 +22,24 @@ REVOKE ALL ON TABLE
   public.timetables
 FROM anon;
 
+-- Minimum table privileges for the atomic pink-slip workflow. RLS policies
+-- below still restrict which rows an authenticated advisor can write.
+GRANT SELECT ON TABLE
+  public.sections, public.users, public.staff_advisors, public.students,
+  public.daily_attendance, public.leave_slips, public.academic_calendar,
+  public.promotions, public.alumni_archive, public.broadcast_notices,
+  public.timetables
+TO authenticated;
+GRANT INSERT ON TABLE public.leave_slips TO authenticated;
+GRANT INSERT, UPDATE ON TABLE public.daily_attendance TO authenticated;
+
 DROP POLICY IF EXISTS "public_all_academic_calendar" ON public.academic_calendar;
 DROP POLICY IF EXISTS "authenticated_all_promotions" ON public.promotions;
 DROP POLICY IF EXISTS "authenticated_all_alumni" ON public.alumni_archive;
 DROP POLICY IF EXISTS "public_all_broadcast_notices" ON public.broadcast_notices;
 DROP POLICY IF EXISTS "anon_read_staff_advisors" ON public.staff_advisors;
 DROP POLICY IF EXISTS "auth_read_users" ON public.users;
+DROP POLICY IF EXISTS "auth_read_advisors" ON public.staff_advisors;
 DROP POLICY IF EXISTS "timetables_read_all" ON public.timetables;
 DROP POLICY IF EXISTS "timetables_write_faculty_hod" ON public.timetables;
 DROP POLICY IF EXISTS "user_read_self_or_hod" ON public.users;
@@ -58,6 +70,19 @@ WHERE id = 'leave_attachments';
 CREATE POLICY "user_read_self_or_hod"
 ON public.users FOR SELECT TO authenticated
 USING (auth_id = auth.uid() OR get_user_role() = 'HOD');
+
+CREATE POLICY "hod_read_all_advisors"
+ON public.staff_advisors FOR SELECT TO authenticated
+USING (get_user_role() = 'HOD');
+
+CREATE POLICY "advisor_read_self"
+ON public.staff_advisors FOR SELECT TO authenticated
+USING (
+  get_user_role() = 'ADVISOR'
+  AND staff_id = (
+    SELECT user_id FROM public.users WHERE auth_id = auth.uid()
+  )
+);
 
 CREATE POLICY "authenticated_read_academic_calendar"
 ON public.academic_calendar FOR SELECT TO authenticated
@@ -115,16 +140,34 @@ WITH CHECK (get_user_role() IN ('ADVISOR', 'HOD'));
 
 CREATE POLICY "authenticated_read_leave_attachments"
 ON storage.objects FOR SELECT TO authenticated
-USING (bucket_id = 'leave_attachments');
+USING (
+  bucket_id = 'leave_attachments'
+  AND (
+    get_user_role() IN ('ADVISOR', 'HOD')
+    OR (storage.foldername(name))[1] = auth.uid()::text
+  )
+);
 
 CREATE POLICY "authenticated_insert_leave_attachments"
 ON storage.objects FOR INSERT TO authenticated
-WITH CHECK (bucket_id = 'leave_attachments');
+WITH CHECK (
+  bucket_id = 'leave_attachments'
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
 
 CREATE POLICY "authenticated_update_leave_attachments"
 ON storage.objects FOR UPDATE TO authenticated
-USING (bucket_id = 'leave_attachments')
-WITH CHECK (bucket_id = 'leave_attachments');
+USING (
+  bucket_id = 'leave_attachments'
+  AND (
+    get_user_role() IN ('ADVISOR', 'HOD')
+    OR (storage.foldername(name))[1] = auth.uid()::text
+  )
+)
+WITH CHECK (
+  bucket_id = 'leave_attachments'
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
 
 REVOKE ALL ON SEQUENCE
   public.academic_calendar_calendar_id_seq,

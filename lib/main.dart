@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -9,26 +8,14 @@ import 'dashboard/advisor/screens/attendance_screen.dart';
 import 'dashboard/advisor/screens/leave_management_screen.dart';
 import 'dashboard/hod/screens/hod_dashboard_screen.dart';
 import 'dashboard/student/screens/student_dashboard_screen.dart';
-import 'dashboard/timetable/screens/timetable_screen.dart';
 import 'core/services/supabase_service.dart';
 import 'core/services/auth_service.dart';
-import 'core/services/data_service.dart';
 import 'core/models/user_model.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SupabaseService().initialize();
   runApp(const SmartProApp());
-
-  // Sync live Supabase data and faculty advisors in background
-  try {
-    await AuthService().syncAdvisorsFromDb();
-    await MockDataService.syncFromSupabase();
-  } catch (e) {
-    if (kDebugMode) {
-      debugPrint('Background sync failed: $e');
-    }
-  }
 }
 
 class SmartProApp extends StatelessWidget {
@@ -129,11 +116,6 @@ class SmartProApp extends StatelessWidget {
           );
         }
         break;
-      case '/timetable':
-        return MaterialPageRoute(
-          builder: (_) => const TimetableScreen(),
-          settings: settings,
-        );
     }
 
     // Unauthorized access or unknown route → redirect to sign-in

@@ -1,11 +1,10 @@
-import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/models/leave_model.dart';
 import '../../../core/models/student_model.dart';
 import '../../../core/models/user_model.dart';
 import '../../../core/services/auth_service.dart';
+import '../../../core/services/pdf_document_service.dart';
 import '../../../core/services/mock_data_service.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../../core/utils/responsive_utils.dart';
@@ -182,7 +181,7 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
 % Issued By     : $advisorName ($advisorId)
 % Generated At  : ${DateTime.now().toIso8601String()}
 %%EOF''';
-        final fileBytes = Uint8List.fromList(utf8.encode(docContent));
+        final fileBytes = PdfDocumentService.createTextPdf(docContent);
         final uploadedUrl = await SupabaseService().uploadLeaveDocument(
           fileBytes,
           _attachedFileName,
@@ -196,22 +195,36 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
       }
     }
 
-    final newSlip = await MockDataService.createAdvisorPinkSlipAsync(
-      student: _selectedStudent!,
-      date: _selectedDate,
-      markPresent: _markPresent,
-      category: _category,
-      leaveType: _leaveType,
-      reason: _reasonCtrl.text.trim(),
-      advisorName: advisorName,
-      advisorId: advisorId,
-      advisorRemarks: _advisorRemarksCtrl.text.trim(),
-      attachmentFileName: finalAttachmentUrl ?? (_hasAttachment ? _attachedFileName : null),
-      attachmentFileType: _hasAttachment ? _attachedFileType : null,
-      attachmentFileSize: _hasAttachment ? _attachedFileSize : null,
-      year: year,
-      section: section,
-    );
+    late final LeaveModel newSlip;
+    try {
+      newSlip = await MockDataService.createAdvisorPinkSlipAsync(
+        student: _selectedStudent!,
+        date: _selectedDate,
+        markPresent: _markPresent,
+        category: _category,
+        leaveType: _leaveType,
+        reason: _reasonCtrl.text.trim(),
+        advisorName: advisorName,
+        advisorId: advisorId,
+        advisorRemarks: _advisorRemarksCtrl.text.trim(),
+        attachmentFileName: finalAttachmentUrl ?? (_hasAttachment ? _attachedFileName : null),
+        attachmentFileType: _hasAttachment ? _attachedFileType : null,
+        attachmentFileSize: _hasAttachment ? _attachedFileSize : null,
+        year: year,
+        section: section,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Pink Slip was not stored: $e'),
+          backgroundColor: AppColors.absentRed,
+          duration: const Duration(seconds: 6),
+        ),
+      );
+      return;
+    }
 
     if (mounted) {
       setState(() => _isSubmitting = false);

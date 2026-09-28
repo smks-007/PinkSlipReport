@@ -502,9 +502,33 @@ class MockDataService {
       if (yearRoman == 'IV') yr = 4;
 
       final key = _formatDateKey(date, yr, secLetter);
-      final records = rows.map((row) {
+      final rowsByRoll = <String, Map<String, dynamic>>{};
+      for (final row in rows) {
         final studentData = row['students'] as Map<String, dynamic>?;
         final rollNumber = studentData?['roll_number'] as String? ?? '';
+        if (rollNumber.isNotEmpty) rowsByRoll[rollNumber] = row;
+      }
+
+      // Supabase may return only rows that have been recorded. Merge those
+      // rows into the complete roster so one absent record cannot make the
+      // rest of a section disappear from the attendance view.
+      final targetStudents = getStudentsBySection(yr, secLetter);
+      final records = targetStudents.map((student) {
+        final row = rowsByRoll[student.rollNumber];
+        if (row == null) {
+          return AttendanceRecord(
+            id: 'att-${student.id}-${date.year}${date.month}${date.day}',
+            studentId: student.id,
+            date: date,
+            status: AttendanceStatus.present,
+            source: 'default_present',
+            recordedBy: 'Supabase Cloud',
+            createdAt: date,
+          );
+        }
+
+        final studentData = row['students'] as Map<String, dynamic>?;
+        final rollNumber = studentData?['roll_number'] as String? ?? student.rollNumber;
         final isPresent = row['is_present'] as bool? ?? true;
         final leaveType = (row['leave_type'] as String?)?.toUpperCase() ?? '';
 
@@ -1098,7 +1122,7 @@ class MockDataService {
         int.tryParse(student.rollNumber.replaceAll(RegExp(r'[^0-9]'), '')) ??
         0;
     try {
-      await SupabaseService().submitLeaveSlipAndMarkAbsent(
+      final persisted = await SupabaseService().submitLeaveSlipAndMarkAbsent(
         studentId: studentNumericId,
         rollNumber: student.rollNumber,
         reason: reason,
@@ -1108,10 +1132,19 @@ class MockDataService {
         status: markPresent ? 'APPROVED' : 'PENDING_HOD',
         advisorRemarks: effectiveAdvisorRemarks,
       );
+      if (!persisted) {
+        final detail = SupabaseService().lastPersistenceError;
+        throw StateError(
+          detail == null || detail.isEmpty
+              ? 'The pink slip could not be stored in Supabase.'
+              : 'The pink slip could not be stored in Supabase: $detail',
+        );
+      }
     } catch (e) {
       if (kDebugMode) {
         debugPrint('⚠️ Supabase createAdvisorPinkSlipAsync error: $e');
       }
+      rethrow;
     }
 
     return slip;

@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/models/leave_model.dart';
@@ -9,6 +7,7 @@ import '../../../core/services/auth_service.dart';
 import '../../../core/services/mock_data_service.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../shared/widgets/letter_attachment_viewer_dialog.dart';
+import '../../../core/services/pdf_document_service.dart';
 
 class StudentDashboardScreen extends StatefulWidget {
   const StudentDashboardScreen({super.key});
@@ -145,10 +144,6 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                     icon: const Icon(Icons.attach_file_rounded, size: 19),
                     text: 'Leaves & OD (${sectionLeaves.length})',
                   ),
-                  const Tab(
-                    icon: Icon(Icons.schedule_rounded, size: 19),
-                    text: 'Timetable',
-                  ),
                 ],
               ),
             ),
@@ -158,7 +153,6 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                 children: [
                   _buildRosterTab(totalCount, presentCount, absentCount),
                   _buildLettersTab(sectionLeaves),
-                  _buildTimetableTab(),
                 ],
               ),
             ),
@@ -525,90 +519,6 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
     );
   }
 
-  Widget _buildTimetableTab() {
-    final schedule = [
-      {'period': '1', 'time': '08:45 - 09:35', 'subject': 'Machine Learning', 'code': 'AI301', 'staff': 'Mrs. S. Muthulakshmi', 'room': 'LH-204'},
-      {'period': '2', 'time': '09:35 - 10:25', 'subject': 'Natural Language Processing', 'code': 'AI302', 'staff': 'Dr. M. Rajendiran', 'room': 'LH-204'},
-      {'period': '3', 'time': '10:45 - 11:35', 'subject': 'Deep Learning Architectures', 'code': 'AI303', 'staff': 'Dr. D. Anandan', 'room': 'LH-204'},
-      {'period': '4', 'time': '11:35 - 12:25', 'subject': 'Big Data Analytics', 'code': 'AI304', 'staff': 'Mr. A. Bharathidasan', 'room': 'LH-204'},
-      {'period': '5', 'time': '01:15 - 02:05', 'subject': 'AI Project Lab (Session 1)', 'code': 'AI311', 'staff': 'Mrs. P. Kavitha / Faculty', 'room': 'AI-Lab 2'},
-      {'period': '6', 'time': '02:05 - 02:55', 'subject': 'AI Project Lab (Session 2)', 'code': 'AI311', 'staff': 'Mrs. P. Kavitha / Faculty', 'room': 'AI-Lab 2'},
-      {'period': '7', 'time': '03:10 - 04:00', 'subject': 'Library / Mentoring Hour', 'code': 'AI312', 'staff': 'Class Advisor', 'room': 'LH-204'},
-    ];
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      physics: const BouncingScrollPhysics(),
-      itemCount: schedule.length,
-      itemBuilder: (ctx, i) {
-        final item = schedule[i];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 10),
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-            side: const BorderSide(color: Color(0xFFE2E8F0)),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: AppColors.purpleSurface,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text('P${item['period']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primaryPurple)),
-                      Text(item['room'] ?? '', style: const TextStyle(fontSize: 8.5, color: Color(0xFF64748B))),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Wrap(
-                        alignment: WrapAlignment.spaceBetween,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: [
-                          Text(
-                            item['subject']!,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(item['time']!, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF334155))),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text('${item['code']} • ${item['staff']}', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)), overflow: TextOverflow.ellipsis, maxLines: 1),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   Widget _buildLettersTab(List<LeaveModel> leaves) {
     return Column(
       children: [
@@ -917,7 +827,7 @@ class _SubmitLeaveModalState extends State<_SubmitLeaveModal> {
 % Reason        : ${_reasonCtrl.text.trim()}
 % Generated At  : ${DateTime.now().toIso8601String()}
 %%EOF''';
-        final fileBytes = Uint8List.fromList(utf8.encode(docContent));
+        final fileBytes = PdfDocumentService.createTextPdf(docContent);
         final uploadedUrl = await SupabaseService().uploadLeaveDocument(
           fileBytes,
           _attachedFileName,

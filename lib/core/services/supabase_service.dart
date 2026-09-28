@@ -14,6 +14,8 @@ class SupabaseService {
 
   bool _isInitialized = false;
   bool get isInitialized => _isInitialized;
+  String? _lastPersistenceError;
+  String? get lastPersistenceError => _lastPersistenceError;
 
   SupabaseClient? get client =>
       _isInitialized ? Supabase.instance.client : null;
@@ -142,34 +144,6 @@ class SupabaseService {
       debugPrint('🎉 Supabase Auth successful for: ${user.email}');
     }
 
-    // Ensure public.users.auth_id is linked to the active Supabase auth user id
-    try {
-      final userEmail = (user.email ?? email).trim().toLowerCase();
-      await client!
-          .from('users')
-          .update({'auth_id': user.id})
-          .eq('email', userEmail);
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('Notice updating auth_id in users: $e');
-      }
-    }
-
-    // Extract profile metadata
-    final metadata = user.userMetadata ?? {};
-    final rawRole = (metadata['role'] as String?)?.toUpperCase() ?? '';
-
-    UserRole userRole;
-    if (rawRole == 'HOD' ||
-        email.contains('hod') ||
-        email.contains('manivannan')) {
-      userRole = UserRole.hod;
-    } else if (rawRole == 'ADVISOR' || email.contains('advisor')) {
-      userRole = UserRole.advisor;
-    } else {
-      userRole = UserRole.student;
-    }
-
     // Fetch official profile from public.users table
     Map<String, dynamic>? dbProfile;
     try {
@@ -179,6 +153,16 @@ class SupabaseService {
         debugPrint('⚠️ Warning fetching dbProfile during sign in: $e');
       }
     }
+
+    // Database role is authoritative. Email aliases and client metadata must
+    // never grant elevated privileges.
+    final metadata = user.userMetadata ?? {};
+    final rawRole = dbProfile?['role']?.toString().toUpperCase() ?? '';
+    final userRole = switch (rawRole) {
+      'HOD' => UserRole.hod,
+      'ADVISOR' => UserRole.advisor,
+      _ => UserRole.student,
+    };
 
     final dbFullName = dbProfile?['full_name'] as String?;
     final resolvedName = (dbFullName != null && dbFullName.trim().isNotEmpty)
@@ -415,21 +399,35 @@ class SupabaseService {
     required int studentId,
     required DateTime date,
     required bool isPresent,
-    int markedByUserId = 1,
+    int? markedByUserId,
     String? leaveType,
     String punchMethod = 'MANUAL_OVERRIDE',
   }) async {
     if (!_isInitialized || client == null) return false;
     try {
+      final resolvedMarkedBy = markedByUserId ?? await getCurrentDbUserId();
+      if (resolvedMarkedBy == null) return false;
+      const validLeaveTypes = {'INFORMED', 'UNINFORMED', 'OD', 'MEDICAL'};
+      const validPunchMethods = {
+        'BIOMETRIC_FINGERPRINT',
+        'FACE_DETECTION',
+        'MANUAL_OVERRIDE',
+      };
+      final normalizedLeaveType = leaveType?.toUpperCase();
+      final normalizedPunchMethod = punchMethod.toUpperCase();
       final dateStr =
           '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
       await client!.from('daily_attendance').upsert({
         'student_id': studentId,
         'attendance_date': dateStr,
         'is_present': isPresent,
-        'leave_type': leaveType,
-        'punch_method': punchMethod,
-        'marked_by': markedByUserId,
+        'leave_type': validLeaveTypes.contains(normalizedLeaveType)
+            ? normalizedLeaveType
+            : null,
+        'punch_method': validPunchMethods.contains(normalizedPunchMethod)
+            ? normalizedPunchMethod
+            : 'MANUAL_OVERRIDE',
+        'marked_by': resolvedMarkedBy,
         'updated_at': DateTime.now().toIso8601String(),
       }, onConflict: 'student_id,attendance_date');
       return true;
@@ -459,8 +457,8 @@ class SupabaseService {
   }
 
   /// Resolve Supabase integer student_id from either integer id or rollNumber
-  Future<int> resolveStudentDbId({int? studentId, String? rollNumber}) async {
-    if (!_isInitialized || client == null) return studentId ?? 1001;
+  Future<int?> resolveStudentDbId({int? studentId, String? rollNumber}) async {
+    if (!_isInitialized || client == null) return null;
 
     // 1. Prioritize looking up by unique roll_number in students table
     final qRoll = rollNumber?.trim();
@@ -499,24 +497,12 @@ class SupabaseService {
       } catch (_) {}
     }
 
-    // 3. Fallback: try to fetch first student from students table if any exist
-    try {
-      final firstStudent = await client!
-          .from('students')
-          .select('student_id')
-          .limit(1)
-          .maybeSingle();
-      if (firstStudent != null && firstStudent['student_id'] != null) {
-        return firstStudent['student_id'] as int;
-      }
-    } catch (_) {}
-
-    return studentId != null && studentId > 0 ? studentId : 1001;
+    return null;
   }
 
   /// Resolve integer user_id of the current authenticated user from public.users table
-  Future<int> getCurrentDbUserId() async {
-    if (!_isInitialized || client == null) return 1;
+  Future<int?> getCurrentDbUserId() async {
+    if (!_isInitialized || client == null) return null;
     try {
       final authId = client!.auth.currentUser?.id;
       final email = client!.auth.currentUser?.email;
@@ -547,7 +533,7 @@ class SupabaseService {
         debugPrint('⚠️ Failed to resolve current db user_id: $e');
       }
     }
-    return 1;
+    return null;
   }
 
   /// Submit new Pink Slip to Supabase
@@ -569,6 +555,9 @@ class SupabaseService {
         studentId: studentId,
         rollNumber: rollNumber,
       );
+      if (realStudentId == null) {
+        throw StateError('The selected student could not be resolved in Supabase.');
+      }
 
       // Map application status to PostgreSQL slip_status enum
       String dbStatus = status.toUpperCase();
@@ -797,12 +786,16 @@ class SupabaseService {
     String status = 'SUBMITTED',
     String? advisorRemarks,
   }) async {
+    _lastPersistenceError = null;
     if (!_isInitialized || client == null) return false;
     try {
       final realStudentId = await resolveStudentDbId(
         studentId: studentId,
         rollNumber: rollNumber,
       );
+      if (realStudentId == null) {
+        throw StateError('The selected student could not be resolved in Supabase.');
+      }
       final dateStr =
           '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
@@ -816,32 +809,17 @@ class SupabaseService {
         dbStatus = 'SUBMITTED';
       }
 
-      // 1. Insert leave slip
-      await client!.from('leave_slips').insert({
-        'student_id': realStudentId,
-        'reason': reason,
-        'from_date': dateStr,
-        'to_date': dateStr,
-        'is_informed': true,
-        'letter_document_url': letterUrl,
-        'status': dbStatus,
-        'advisor_remarks': advisorRemarks,
-        'created_at': DateTime.now().toIso8601String(),
+      // Submit both records in one database transaction. This prevents a
+      // leave slip from surviving when attendance synchronization fails.
+      await client!.rpc('submit_pink_slip_and_mark_attendance', params: {
+        'p_student_id': realStudentId,
+        'p_reason': reason,
+        'p_date': dateStr,
+        'p_is_on_duty': isOnDuty,
+        'p_letter_url': letterUrl,
+        'p_status': dbStatus,
+        'p_advisor_remarks': advisorRemarks,
       });
-
-      // 2. Auto-mark absent in daily_attendance (pink slip logic)
-      if (!isOnDuty) {
-        final markedByUserId = await getCurrentDbUserId();
-        await client!.from('daily_attendance').upsert({
-          'student_id': realStudentId,
-          'attendance_date': dateStr,
-          'is_present': false,
-          'leave_type': 'ABSENT',
-          'punch_method': 'PINK_SLIP_AUTO',
-          'marked_by': markedByUserId,
-          'updated_at': DateTime.now().toIso8601String(),
-        }, onConflict: 'student_id,attendance_date');
-      }
 
       if (kDebugMode) {
         debugPrint(
@@ -850,6 +828,7 @@ class SupabaseService {
       }
       return true;
     } catch (e) {
+      _lastPersistenceError = e.toString();
       if (kDebugMode) {
         debugPrint('⚠️ Supabase submitLeaveSlipAndMarkAbsent error: $e');
       }
@@ -1165,9 +1144,11 @@ class SupabaseService {
         RegExp(r'[^a-zA-Z0-9._-]'),
         '_',
       );
+      final userId = client!.auth.currentUser?.id;
+      if (userId == null || userId.isEmpty) return null;
       final targetFolder = folder ?? 'leaves';
       final path =
-          '$targetFolder/${DateTime.now().millisecondsSinceEpoch}_$sanitizedName';
+          '$userId/$targetFolder/${DateTime.now().millisecondsSinceEpoch}_$sanitizedName';
 
       await client!.storage
           .from('leave_attachments')
@@ -1177,10 +1158,9 @@ class SupabaseService {
             fileOptions: const FileOptions(upsert: true),
           );
 
-      final publicUrl = client!.storage
+      return await client!.storage
           .from('leave_attachments')
-          .getPublicUrl(path);
-      return publicUrl;
+          .createSignedUrl(path, 3600);
     } catch (e) {
       if (kDebugMode) {
         debugPrint('⚠️ Supabase uploadLeaveDocument error: $e');

@@ -405,6 +405,7 @@ class AuthService extends ChangeNotifier {
 
         // Trigger real-time sync with Supabase Cloud using authenticated JWT
         try {
+          await syncFacultyFromDB();
           await MockDataService.syncFromSupabase();
         } catch (e) {
           if (kDebugMode) {
