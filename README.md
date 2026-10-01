@@ -19,7 +19,7 @@
   * 30+ working day calendar horizon for all 622 AIDS students across 10 sections (`II-AIDS-A..D`, `III-AIDS-A..D`, `IV-AIDS-A..B`).
   * Instant 1-click batch presence/absent/OD toggling with immutable prior approval locking (*"If updated, don't overwrite"*).
 * **📑 2-Tier Leave & On-Duty Approval Workflow**:
-  * **Student**: Apply for Leaves/ODs with letter upload and digital reason submission.
+  * **Student**: Read-only access to their own details and attendance percentage. Students and class representatives cannot submit leaves, ODs, or pink slips.
   * **Class Advisor**: Review, endorse, and forward to HOD or reject with remarks.
   * **HOD**: Final executive approval/rejection with automated attendance ledger pre-locking.
 * **📊 Visual Intelligence & Analytics**:

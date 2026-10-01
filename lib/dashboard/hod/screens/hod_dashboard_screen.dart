@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_styles.dart';
 import '../../../core/models/student_model.dart';
@@ -7,8 +8,10 @@ import '../../../core/models/leave_model.dart';
 import '../../../core/models/user_model.dart';
 import '../../../core/models/notice_model.dart';
 import '../../../core/models/promotion_model.dart';
+import '../../../core/models/department_absence.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/data_service.dart';
+import '../../../core/services/supabase_service.dart';
 import '../../../core/widgets/smart_pro_logo.dart';
 import '../../shared/widgets/letter_attachment_viewer_dialog.dart';
 import '../../shared/widgets/storage_management_dialog.dart';
@@ -17,10 +20,225 @@ import '../../shared/widgets/attendance_report_viewer_dialog.dart';
 import '../../../core/utils/responsive_utils.dart';
 
 class HodDashboardScreen extends StatefulWidget {
-  const HodDashboardScreen({super.key});
+  const HodDashboardScreen({
+    super.key,
+    this.loadDepartmentAbsences,
+    this.loadSectionAbsences,
+  });
+
+  final Future<DepartmentAbsenceReport> Function(DateTime date)?
+  loadDepartmentAbsences;
+  final Future<DepartmentAbsenceReport> Function(
+    DateTime date,
+    String sectionId,
+  )?
+  loadSectionAbsences;
 
   @override
   State<HodDashboardScreen> createState() => _HodDashboardScreenState();
+}
+
+class _DepartmentAbsenceSheet extends StatefulWidget {
+  const _DepartmentAbsenceSheet({
+    required this.date,
+    required this.title,
+    this.statusLabel = 'absent',
+    this.emptyLabel = 'No absences recorded for this day.',
+    this.summaryColor = const Color(0xFFB91C1C),
+    required this.loadAbsences,
+  });
+
+  final DateTime date;
+  final String title;
+  final String statusLabel;
+  final String emptyLabel;
+  final Color summaryColor;
+  final Future<DepartmentAbsenceReport> Function(DateTime date) loadAbsences;
+
+  @override
+  State<_DepartmentAbsenceSheet> createState() =>
+      _DepartmentAbsenceSheetState();
+}
+
+class _DepartmentAbsenceSheetState extends State<_DepartmentAbsenceSheet> {
+  late Future<DepartmentAbsenceReport> _report;
+  String _query = '';
+  String _section = 'All';
+
+  @override
+  void initState() {
+    super.initState();
+    _report = widget.loadAbsences(widget.date);
+  }
+
+  void _retry() => setState(() => _report = widget.loadAbsences(widget.date));
+
+  String get _dateLabel =>
+      '${_weekday(widget.date.weekday)}, ${widget.date.day.toString().padLeft(2, '0')}/${widget.date.month.toString().padLeft(2, '0')}/${widget.date.year}';
+
+  String _weekday(int weekday) =>
+      const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][weekday - 1];
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: FractionallySizedBox(
+        heightFactor: 0.82,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: FutureBuilder<DepartmentAbsenceReport>(
+            future: _report,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError || !snapshot.hasData) {
+                return _failure();
+              }
+              return _content(snapshot.requireData);
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _failure() => Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(
+          Icons.error_outline_rounded,
+          size: 36,
+          color: Color(0xFFDC2626),
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          'Could not load department absences.',
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 12),
+        FilledButton(onPressed: _retry, child: const Text('Retry')),
+      ],
+    ),
+  );
+
+  Widget _content(DepartmentAbsenceReport report) {
+    final sections = report.absences.map((a) => a.section).toSet().toList()
+      ..sort();
+    final filtered = report.absences.where((absence) {
+      final text =
+          '${absence.name} ${absence.rollNumber} ${absence.registerNumber}'
+              .toLowerCase();
+      return (_section == 'All' || absence.section == _section) &&
+          text.contains(_query.trim().toLowerCase());
+    }).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                widget.title,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+            IconButton(
+              tooltip: 'Close',
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.close_rounded),
+            ),
+          ],
+        ),
+        const SizedBox(height: 3),
+        Text(_dateLabel, style: const TextStyle(color: Color(0xFF64748B))),
+        const SizedBox(height: 14),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFEF2F2),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFFECACA)),
+          ),
+          child: Text(
+            report.recordedCount == 0
+                ? 'Attendance has not been recorded for this day.'
+                : '${report.absences.length} ${widget.statusLabel} student${report.absences.length == 1 ? '' : 's'}',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+              color: widget.summaryColor,
+            ),
+          ),
+        ),
+        if (report.recordedCount > 0 && report.absences.isEmpty) ...[
+          const SizedBox(height: 18),
+          Expanded(
+            child: Center(child: Text(widget.emptyLabel)),
+          ),
+        ] else if (report.recordedCount > 0) ...[
+          const SizedBox(height: 14),
+          TextField(
+            onChanged: (value) => setState(() => _query = value),
+            decoration: const InputDecoration(
+              prefixIcon: Icon(Icons.search),
+              hintText: 'Search name, roll number, or register number',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 36,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: ['All', ...sections]
+                  .map(
+                    (section) => Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(section),
+                        selected: _section == section,
+                        onSelected: (_) => setState(() => _section = section),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: filtered.isEmpty
+                ? const Center(
+                    child: Text('No absent students match this filter.'),
+                  )
+                : ListView.separated(
+                    itemCount: filtered.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (_, index) {
+                      final absence = filtered[index];
+                      return ListTile(
+                        leading: const CircleAvatar(
+                          child: Icon(Icons.person_outline),
+                        ),
+                        title: Text(absence.name),
+                        subtitle: Text(
+                          '${absence.rollNumber} • ${absence.registerNumber}',
+                        ),
+                        trailing: Text(
+                          absence.section,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ] else
+          const Spacer(),
+      ],
+    );
+  }
 }
 
 class _HodDashboardScreenState extends State<HodDashboardScreen> {
@@ -28,7 +246,11 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
   int _selectedYear = 2;
   String _selectedSection = 'A';
   bool _showDepartmentGraph = false;
-  String _pinkSlipFilter = 'All'; // All, Awaiting, Approved, OD, Leave, Rejected
+  DateTime? _selectedDepartmentGraphDate;
+  DateTime? _selectedSectionGraphDate;
+  DateTime _liveStatsDate = DateTime.now();
+  String _pinkSlipFilter =
+      'All'; // All, Awaiting, Approved, OD, Leave, Rejected
   final TextEditingController _pinkSlipSearchCtrl = TextEditingController();
   String _pinkSlipQuery = '';
 
@@ -56,9 +278,11 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
   }
 
   int get _awaitingCount => MockDataService.leaveRequests
-      .where((l) =>
-          l.letterStatus == LetterStatus.forwarded ||
-          l.letterStatus == LetterStatus.submitted)
+      .where(
+        (l) =>
+            l.letterStatus == LetterStatus.forwarded ||
+            l.letterStatus == LetterStatus.submitted,
+      )
       .length;
 
   String get _currentHodName {
@@ -80,12 +304,182 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
   List<String> get _currentSections =>
       MockDataService.getAvailableSections(_selectedYear);
 
+  Future<void> _showDepartmentAbsences(DateTime date) async {
+    final selectedDate = DateTime(date.year, date.month, date.day);
+    setState(() => _selectedDepartmentGraphDate = selectedDate);
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) => _DepartmentAbsenceSheet(
+        date: selectedDate,
+        title: 'Department absences',
+        loadAbsences:
+            widget.loadDepartmentAbsences ??
+            SupabaseService().fetchDepartmentAbsences,
+      ),
+    );
+  }
+
+  String get _selectedSectionId {
+    const yearLabels = ['I', 'II', 'III', 'IV'];
+    return '${yearLabels[_selectedYear - 1]}-AIDS-${_selectedSection.toUpperCase()}';
+  }
+
+  Future<void> _showSectionAbsences(DateTime date) async {
+    final selectedDate = DateTime(date.year, date.month, date.day);
+    final sectionId = _selectedSectionId;
+    setState(() => _selectedSectionGraphDate = selectedDate);
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) => _DepartmentAbsenceSheet(
+        date: selectedDate,
+        title: '$sectionId absences',
+        loadAbsences: (_) => (widget.loadSectionAbsences ??
+            SupabaseService().fetchSectionAbsences)(selectedDate, sectionId),
+      ),
+    );
+  }
+
+  Future<void> _showTodayAttendanceStatus(String status) async {
+    final isOnDuty = status == 'OD';
+    final today = DateTime.now();
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) => _DepartmentAbsenceSheet(
+        date: today,
+        title: isOnDuty ? 'Today\'s On Duty students' : 'Today\'s absentees',
+        statusLabel: isOnDuty ? 'On Duty' : 'absent',
+        emptyLabel: isOnDuty
+            ? 'No students are marked On Duty today.'
+            : 'No absences recorded for today.',
+        summaryColor: isOnDuty
+            ? const Color(0xFF2563EB)
+            : const Color(0xFFB91C1C),
+        loadAbsences: (_) =>
+            SupabaseService().fetchTodayDepartmentAttendance(status),
+      ),
+    );
+  }
+
+  void _openPendingSlipApprovals() {
+    setState(() => _currentTabIndex = 2);
+  }
+
+  Future<void> _pickLiveStatsDate() async {
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: _liveStatsDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      helpText: 'Select attendance date',
+    );
+    if (selected != null) {
+      setState(() => _liveStatsDate = selected);
+    }
+  }
+
+  Future<void> _showLiveStatsAttendanceActions() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Attendance details',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+              const SizedBox(height: 4),
+              Text(_formatDate(_liveStatsDate)),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFFEE2E2),
+                  child: Icon(Icons.person_off_outlined, color: Color(0xFFDC2626)),
+                ),
+                title: const Text('Leave students'),
+                subtitle: const Text('View students absent on leave'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _showLiveStatsStatus('LEAVE');
+                },
+              ),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFDBEAFE),
+                  child: Icon(Icons.work_outline, color: Color(0xFF2563EB)),
+                ),
+                title: const Text('On Duty students'),
+                subtitle: const Text('View students marked On Duty'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _showLiveStatsStatus('OD');
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showLiveStatsStatus(String status) async {
+    final isOnDuty = status == 'OD';
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) => _DepartmentAbsenceSheet(
+        date: _liveStatsDate,
+        title: isOnDuty ? 'On Duty students' : 'Leave students',
+        statusLabel: isOnDuty ? 'On Duty' : 'on leave',
+        emptyLabel: isOnDuty
+            ? 'No students are marked On Duty for this day.'
+            : 'No students are marked on leave for this day.',
+        summaryColor: isOnDuty
+            ? const Color(0xFF2563EB)
+            : const Color(0xFFB91C1C),
+        loadAbsences: (_) => SupabaseService().fetchDepartmentAttendanceStatus(
+          _liveStatsDate,
+          status,
+        ),
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) =>
+      '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+
   Map<String, dynamic> get _sectionStats {
-    final strength = MockDataService.getSectionStrength(_selectedYear, _selectedSection);
-    final present = MockDataService.getSectionPresent(_selectedYear, _selectedSection);
-    final absent = MockDataService.getSectionAbsent(_selectedYear, _selectedSection);
-    final od = MockDataService.getSectionOnDuty(_selectedYear, _selectedSection);
-    final pct = MockDataService.getSectionAttendancePercentage(_selectedYear, _selectedSection);
+    final strength = MockDataService.getSectionStrength(
+      _selectedYear,
+      _selectedSection,
+    );
+    final present = MockDataService.getSectionPresent(
+      _selectedYear,
+      _selectedSection,
+    );
+    final absent = MockDataService.getSectionAbsent(
+      _selectedYear,
+      _selectedSection,
+    );
+    final od = MockDataService.getSectionOnDuty(
+      _selectedYear,
+      _selectedSection,
+    );
+    final pct = MockDataService.getSectionAttendancePercentage(
+      _selectedYear,
+      _selectedSection,
+    );
 
     String advisor = 'Department Advisor';
     for (final adv in AuthService.sectionAdvisors) {
@@ -115,7 +509,8 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
           builder: (context, _, child) {
             final stats = _sectionStats;
             final defaulters = MockDataService.getAllDepartmentDefaulters();
-            final pendingPromotions = MockDataService.getPendingPromotionsForHod();
+            final pendingPromotions =
+                MockDataService.getPendingPromotionsForHod();
 
             return SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
@@ -129,11 +524,17 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   const SizedBox(height: 12),
 
                   // Executive Summary Banner
-                  _buildExecutiveSummaryBanner(_awaitingCount, pendingPromotions.length),
+                  _buildExecutiveSummaryBanner(
+                    _awaitingCount,
+                    pendingPromotions.length,
+                  ),
                   const SizedBox(height: 14),
 
                   // Executive Segmented Navigation Bar
-                  _buildExecutiveSegmentedNavBar(_awaitingCount, pendingPromotions.length),
+                  _buildExecutiveSegmentedNavBar(
+                    _awaitingCount,
+                    pendingPromotions.length,
+                  ),
                   const SizedBox(height: 16),
 
                   // Tab 0: Executive Overview & Analytics
@@ -165,7 +566,10 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
 
   Widget _buildAppBar() {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: context.responsiveHorizontalPadding, vertical: 10),
+      padding: EdgeInsets.symmetric(
+        horizontal: context.responsiveHorizontalPadding,
+        vertical: 10,
+      ),
       child: Row(
         children: [
           const SmartProLogo(size: 32, showText: false),
@@ -178,7 +582,10 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     text: 'SMART',
                     style: TextStyle(
                       color: const Color(0xFF0F172A),
-                      fontSize: context.responsiveFontSize(compact: 15, normal: 17),
+                      fontSize: context.responsiveFontSize(
+                        compact: 15,
+                        normal: 17,
+                      ),
                       fontWeight: FontWeight.w900,
                       letterSpacing: 1.2,
                     ),
@@ -188,7 +595,10 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     text: 'PRO',
                     style: TextStyle(
                       color: const Color(0xFF6366F1),
-                      fontSize: context.responsiveFontSize(compact: 15, normal: 17),
+                      fontSize: context.responsiveFontSize(
+                        compact: 15,
+                        normal: 17,
+                      ),
                       fontWeight: FontWeight.w900,
                       letterSpacing: 1.2,
                     ),
@@ -202,7 +612,11 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
           IconButton(
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             padding: const EdgeInsets.all(6),
-            icon: const Icon(Icons.dns_rounded, size: 20, color: Color(0xFF0284C7)),
+            icon: const Icon(
+              Icons.dns_rounded,
+              size: 20,
+              color: Color(0xFF0284C7),
+            ),
             tooltip: 'Storage & System Health',
             onPressed: () => showDialog(
               context: context,
@@ -212,7 +626,11 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
           IconButton(
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             padding: const EdgeInsets.all(6),
-            icon: const Icon(Icons.logout_rounded, size: 20, color: Color(0xFFEF4444)),
+            icon: const Icon(
+              Icons.logout_rounded,
+              size: 20,
+              color: Color(0xFFEF4444),
+            ),
             tooltip: 'Sign Out',
             onPressed: () async {
               final confirmed = await showDialog<bool>(
@@ -221,8 +639,17 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   title: const Text('Sign Out'),
                   content: const Text('Are you sure you want to sign out?'),
                   actions: [
-                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                    TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sign Out', style: TextStyle(color: Color(0xFFEF4444)))),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text(
+                        'Sign Out',
+                        style: TextStyle(color: Color(0xFFEF4444)),
+                      ),
+                    ),
                   ],
                 ),
               );
@@ -250,12 +677,20 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
         ),
         child: Row(
           children: const [
-            Icon(Icons.verified_user_rounded, color: Color(0xFF047857), size: 18),
+            Icon(
+              Icons.verified_user_rounded,
+              color: Color(0xFF047857),
+              size: 18,
+            ),
             SizedBox(width: 8),
             Expanded(
               child: Text(
                 'HOD Central Authority — Real-Time Live Sync & Attendance Verification Enabled',
-                style: TextStyle(color: Color(0xFF047857), fontWeight: FontWeight.bold, fontSize: 11.5),
+                style: TextStyle(
+                  color: Color(0xFF047857),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11.5,
+                ),
               ),
             ),
           ],
@@ -295,23 +730,61 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               runSpacing: 4,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(20)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                   child: Text(
                     _currentHodTitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Text(
+                    _formatDate(DateTime.now()),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 const Text(
                   'AI&DS • 622 Students',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.5),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11.5,
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
-            const Text('Welcome back,', style: TextStyle(color: Colors.white70, fontSize: 12)),
+            const Text(
+              'Welcome back,',
+              style: TextStyle(color: Colors.white70, fontSize: 12),
+            ),
             const SizedBox(height: 2),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -329,7 +802,10 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
@@ -337,7 +813,11 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: const [
-                      Icon(Icons.verified_user_rounded, color: Colors.white, size: 14),
+                      Icon(
+                        Icons.verified_user_rounded,
+                        color: Colors.white,
+                        size: 14,
+                      ),
                       SizedBox(width: 4),
                       Text(
                         'Verified HOD',
@@ -353,16 +833,24 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               ],
             ),
             const SizedBox(height: 4),
-            const Text('V.S.B. Engineering College • Academic Term Sep-Dec 2026', style: TextStyle(color: Colors.white70, fontSize: 12)),
+            const Text(
+              'V.S.B. Engineering College • Academic Term Sep-Dec 2026',
+              style: TextStyle(color: Colors.white70, fontSize: 12),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildExecutiveSummaryBanner(int awaitingCount, int pendingPromotionsCount) {
+  Widget _buildExecutiveSummaryBanner(
+    int awaitingCount,
+    int pendingPromotionsCount,
+  ) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: context.responsiveHorizontalPadding),
+      padding: EdgeInsets.symmetric(
+        horizontal: context.responsiveHorizontalPadding,
+      ),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -385,9 +873,27 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                 children: [
                   Row(
                     children: [
-                      Expanded(child: _microSummaryItem('Total Enrolled', '${MockDataService.totalStrength}', '10 Sections', const Color(0xFF6366F1))),
-                      Container(width: 1, height: 32, color: const Color(0xFFE2E8F0)),
-                      Expanded(child: _microSummaryItem('Present Today', '${MockDataService.presentToday}', '${MockDataService.attendancePercentage.toStringAsFixed(1)}% Rate', const Color(0xFF10B981))),
+                      Expanded(
+                        child: _microSummaryItem(
+                          'Total Enrolled',
+                          '${MockDataService.totalStrength}',
+                          '10 Sections',
+                          const Color(0xFF6366F1),
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        height: 32,
+                        color: const Color(0xFFE2E8F0),
+                      ),
+                      Expanded(
+                        child: _microSummaryItem(
+                          'Present Today',
+                          '${MockDataService.presentToday}',
+                          '${MockDataService.attendancePercentage.toStringAsFixed(1)}% Rate',
+                          const Color(0xFF10B981),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 10),
@@ -395,10 +901,40 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      Expanded(child: _microSummaryItem('Absentees', '${MockDataService.absentToday}', 'Uninformed/OD', const Color(0xFFEF4444))),
-                      Container(width: 1, height: 32, color: const Color(0xFFE2E8F0)),
-                      Expanded(child: _microSummaryItem('Pending Slips', '$awaitingCount', 'HOD Action', const Color(0xFFF59E0B))),
+                      Expanded(
+                        child: _microSummaryItem(
+                          'Absentees',
+                          '${MockDataService.absentToday}',
+                          'Tap to view',
+                          const Color(0xFFEF4444),
+                          onTap: () => _showTodayAttendanceStatus('ABSENT'),
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        height: 32,
+                        color: const Color(0xFFE2E8F0),
+                      ),
+                      Expanded(
+                        child: _microSummaryItem(
+                          'On Duty',
+                          '${MockDataService.onDutyToday}',
+                          'Tap to view',
+                          const Color(0xFF2563EB),
+                          onTap: () => _showTodayAttendanceStatus('OD'),
+                        ),
+                      ),
                     ],
+                  ),
+                  const SizedBox(height: 10),
+                  Container(height: 1, color: const Color(0xFFF1F5F9)),
+                  const SizedBox(height: 10),
+                  _microSummaryItem(
+                    'Pending Slips',
+                    '$awaitingCount',
+                    'Tap to approve',
+                    const Color(0xFFF59E0B),
+                    onTap: _openPendingSlipApprovals,
                   ),
                 ],
               );
@@ -406,13 +942,53 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
             return Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                Expanded(child: _microSummaryItem('Total Enrolled', '${MockDataService.totalStrength}', '10 Sections', const Color(0xFF6366F1))),
+                Expanded(
+                  child: _microSummaryItem(
+                    'Total Enrolled',
+                    '${MockDataService.totalStrength}',
+                    '10 Sections',
+                    const Color(0xFF6366F1),
+                  ),
+                ),
                 Container(width: 1, height: 32, color: const Color(0xFFE2E8F0)),
-                Expanded(child: _microSummaryItem('Present Today', '${MockDataService.presentToday}', '${MockDataService.attendancePercentage.toStringAsFixed(1)}% Rate', const Color(0xFF10B981))),
+                Expanded(
+                  child: _microSummaryItem(
+                    'Present Today',
+                    '${MockDataService.presentToday}',
+                    '${MockDataService.attendancePercentage.toStringAsFixed(1)}% Rate',
+                    const Color(0xFF10B981),
+                  ),
+                ),
                 Container(width: 1, height: 32, color: const Color(0xFFE2E8F0)),
-                Expanded(child: _microSummaryItem('Absentees', '${MockDataService.absentToday}', 'Uninformed/OD', const Color(0xFFEF4444))),
+                Expanded(
+                  child: _microSummaryItem(
+                    'Absentees',
+                    '${MockDataService.absentToday}',
+                    'Tap to view',
+                    const Color(0xFFEF4444),
+                    onTap: () => _showTodayAttendanceStatus('ABSENT'),
+                  ),
+                ),
                 Container(width: 1, height: 32, color: const Color(0xFFE2E8F0)),
-                Expanded(child: _microSummaryItem('Pending Slips', '$awaitingCount', 'HOD Action', const Color(0xFFF59E0B))),
+                Expanded(
+                  child: _microSummaryItem(
+                    'On Duty',
+                    '${MockDataService.onDutyToday}',
+                    'Tap to view',
+                    const Color(0xFF2563EB),
+                    onTap: () => _showTodayAttendanceStatus('OD'),
+                  ),
+                ),
+                Container(width: 1, height: 32, color: const Color(0xFFE2E8F0)),
+                Expanded(
+                  child: _microSummaryItem(
+                    'Pending Slips',
+                    '$awaitingCount',
+                    'Tap to approve',
+                    const Color(0xFFF59E0B),
+                    onTap: _openPendingSlipApprovals,
+                  ),
+                ),
               ],
             );
           },
@@ -421,19 +997,57 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
     );
   }
 
-  Widget _microSummaryItem(String label, String value, String sub, Color color) {
-    return Column(
+  Widget _microSummaryItem(
+    String label,
+    String value,
+    String sub,
+    Color color,
+    {VoidCallback? onTap}
+  ) {
+    final content = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color), overflow: TextOverflow.ellipsis, maxLines: 1),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
+        ),
         const SizedBox(height: 1),
-        Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF334155)), overflow: TextOverflow.ellipsis, maxLines: 1),
-        Text(sub, style: const TextStyle(fontSize: 8.5, color: Color(0xFF94A3B8)), overflow: TextOverflow.ellipsis, maxLines: 1),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF334155),
+          ),
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
+        ),
+        Text(
+          sub,
+          style: const TextStyle(fontSize: 8.5, color: Color(0xFF94A3B8)),
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
+        ),
       ],
+    );
+    if (onTap == null) return content;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(padding: const EdgeInsets.all(4), child: content),
     );
   }
 
-  Widget _buildExecutiveSegmentedNavBar(int awaitingCount, int pendingPromotionsCount) {
+  Widget _buildExecutiveSegmentedNavBar(
+    int awaitingCount,
+    int pendingPromotionsCount,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
@@ -516,7 +1130,9 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               Icon(
                 isSelected ? activeIcon : icon,
                 size: context.isCompact ? 14 : 16,
-                color: isSelected ? const Color(0xFF0F172A) : const Color(0xFF64748B),
+                color: isSelected
+                    ? const Color(0xFF0F172A)
+                    : const Color(0xFF64748B),
               ),
               const SizedBox(width: 4),
               Flexible(
@@ -525,7 +1141,9 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   style: TextStyle(
                     fontSize: context.isCompact ? 10.0 : 11.5,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                    color: isSelected ? const Color(0xFF0F172A) : const Color(0xFF64748B),
+                    color: isSelected
+                        ? const Color(0xFF0F172A)
+                        : const Color(0xFF64748B),
                   ),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
@@ -534,14 +1152,21 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               if (badgeCount > 0) ...[
                 const SizedBox(width: 4),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 1,
+                  ),
                   decoration: BoxDecoration(
                     color: badgeColor,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     '$badgeCount',
-                    style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
@@ -552,7 +1177,10 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
     );
   }
 
-  Widget _buildTab0Overview(Map<String, dynamic> stats, List<Map<String, dynamic>> defaulters) {
+  Widget _buildTab0Overview(
+    Map<String, dynamic> stats,
+    List<Map<String, dynamic>> defaulters,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -561,7 +1189,24 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
         const SizedBox(height: 18),
 
         // Department Attendance Overview KPIs
-        _buildSectionTitle('Department Live Statistics (622 Students)'),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Department Live Statistics',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: _pickLiveStatsDate,
+                icon: const Icon(Icons.calendar_today_outlined, size: 15),
+                label: Text(_formatDate(_liveStatsDate)),
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 10),
         _buildDepartmentKPIs(),
         const SizedBox(height: 18),
@@ -596,7 +1241,11 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
             children: [
               const Text(
                 '⚡ Executive Quick Actions',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF0F172A)),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13.5,
+                  color: Color(0xFF0F172A),
+                ),
               ),
               Text(
                 'Instant HOD Operations',
@@ -676,13 +1325,20 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0F172A)),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: Color(0xFF0F172A),
+                    ),
                   ),
                   Text(
                     subtitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF64748B),
+                    ),
                   ),
                 ],
               ),
@@ -735,7 +1391,9 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
   void _showBroadcastNoticeModal() {
     int modalTab = 0; // 0: Compose, 1: Broadcast Logs
     String selectedTemplate = 'Attendance Defaulters';
-    final titleCtrl = TextEditingController(text: 'Urgent: Department Attendance & IA Review');
+    final titleCtrl = TextEditingController(
+      text: 'Urgent: Department Attendance & IA Review',
+    );
     final msgCtrl = TextEditingController(
       text: 'All Section Advisors and Class Representatives are requested to verify today\'s attendance muster rolls and submit defaulter lists to the HOD office by 4:00 PM.',
     );
@@ -777,15 +1435,24 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF6366F1).withValues(alpha: 0.1),
+                              color: const Color(0xFF6366F1)
+                                  .withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: const Icon(Icons.campaign_rounded, color: Color(0xFF6366F1), size: 20),
+                            child: const Icon(
+                              Icons.campaign_rounded,
+                              color: Color(0xFF6366F1),
+                              size: 20,
+                            ),
                           ),
                           const SizedBox(width: 10),
                           const Text(
                             'Broadcast Department Notice',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: Color(0xFF0F172A),
+                            ),
                           ),
                         ],
                       ),
@@ -812,15 +1479,19 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 8),
                               decoration: BoxDecoration(
-                                color: modalTab == 0 ? Colors.white : Colors.transparent,
+                                color: modalTab == 0
+                                    ? Colors.white
+                                    : Colors.transparent,
                                 borderRadius: BorderRadius.circular(8),
                                 boxShadow: modalTab == 0
                                     ? [
                                         BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.05),
+                                          color: Colors.black.withValues(
+                                            alpha: 0.05,
+                                          ),
                                           blurRadius: 4,
                                           offset: const Offset(0, 2),
-                                        )
+                                        ),
                                       ]
                                     : null,
                               ),
@@ -830,7 +1501,9 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                                   Icon(
                                     Icons.edit_note_rounded,
                                     size: 16,
-                                    color: modalTab == 0 ? const Color(0xFF6366F1) : const Color(0xFF64748B),
+                                    color: modalTab == 0
+                                        ? const Color(0xFF6366F1)
+                                        : const Color(0xFF64748B),
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
@@ -838,7 +1511,9 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
-                                      color: modalTab == 0 ? const Color(0xFF0F172A) : const Color(0xFF64748B),
+                                      color: modalTab == 0
+                                          ? const Color(0xFF0F172A)
+                                          : const Color(0xFF64748B),
                                     ),
                                   ),
                                 ],
@@ -852,15 +1527,19 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 8),
                               decoration: BoxDecoration(
-                                color: modalTab == 1 ? Colors.white : Colors.transparent,
+                                color: modalTab == 1
+                                    ? Colors.white
+                                    : Colors.transparent,
                                 borderRadius: BorderRadius.circular(8),
                                 boxShadow: modalTab == 1
                                     ? [
                                         BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.05),
+                                          color: Colors.black.withValues(
+                                            alpha: 0.05,
+                                          ),
                                           blurRadius: 4,
                                           offset: const Offset(0, 2),
-                                        )
+                                        ),
                                       ]
                                     : null,
                               ),
@@ -870,7 +1549,9 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                                   Icon(
                                     Icons.history_rounded,
                                     size: 16,
-                                    color: modalTab == 1 ? const Color(0xFF6366F1) : const Color(0xFF64748B),
+                                    color: modalTab == 1
+                                        ? const Color(0xFF6366F1)
+                                        : const Color(0xFF64748B),
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
@@ -878,7 +1559,9 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
-                                      color: modalTab == 1 ? const Color(0xFF0F172A) : const Color(0xFF64748B),
+                                      color: modalTab == 1
+                                          ? const Color(0xFF0F172A)
+                                          : const Color(0xFF64748B),
                                     ),
                                   ),
                                 ],
@@ -893,23 +1576,74 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
 
                   if (modalTab == 0) ...[
                     // Target Audience
-                    const Text('Target Audience', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                    const Text(
+                      'Target Audience',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     DropdownButtonFormField<String>(
                       initialValue: audience,
                       decoration: InputDecoration(
                         filled: true,
                         fillColor: const Color(0xFFF8FAFC),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE2E8F0),
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
                       ),
                       items: const [
-                        DropdownMenuItem(value: 'All 10 Sections (622 Students)', child: Text('📢 All 10 Sections (622 Students)', style: TextStyle(fontSize: 12))),
-                        DropdownMenuItem(value: 'All Section Advisors (10 Faculty)', child: Text('👨‍🏫 All Section Advisors (10 Faculty)', style: TextStyle(fontSize: 12))),
-                        DropdownMenuItem(value: 'Class Representatives (CRs)', child: Text('⭐ Class Representatives (CRs)', style: TextStyle(fontSize: 12))),
-                        DropdownMenuItem(value: 'II Year Only (2025 Batch)', child: Text('📘 II Year Only (Sec A, B, C, D)', style: TextStyle(fontSize: 12))),
-                        DropdownMenuItem(value: 'III Year Only (2024 Batch)', child: Text('📗 III Year Only (Sec A, B, C, D)', style: TextStyle(fontSize: 12))),
-                        DropdownMenuItem(value: 'IV Year Only (2023 Batch)', child: Text('📙 IV Year Only (Sec A, B)', style: TextStyle(fontSize: 12))),
+                        DropdownMenuItem(
+                          value: 'All 10 Sections (622 Students)',
+                          child: Text(
+                            '📢 All 10 Sections (622 Students)',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 'All Section Advisors (10 Faculty)',
+                          child: Text(
+                            '👨‍🏫 All Section Advisors (10 Faculty)',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Class Representatives (CRs)',
+                          child: Text(
+                            '⭐ Class Representatives (CRs)',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 'II Year Only (2025 Batch)',
+                          child: Text(
+                            '📘 II Year Only (Sec A, B, C, D)',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 'III Year Only (2024 Batch)',
+                          child: Text(
+                            '📗 III Year Only (Sec A, B, C, D)',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 'IV Year Only (2023 Batch)',
+                          child: Text(
+                            '📙 IV Year Only (Sec A, B)',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ),
                       ],
                       onChanged: (val) {
                         if (val != null) setModalState(() => audience = val);
@@ -918,21 +1652,64 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     const SizedBox(height: 12),
 
                     // Priority Level
-                    const Text('Notice Priority & Category', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                    const Text(
+                      'Notice Priority & Category',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     DropdownButtonFormField<String>(
                       initialValue: priority,
                       decoration: InputDecoration(
                         filled: true,
                         fillColor: const Color(0xFFF8FAFC),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE2E8F0),
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
                       ),
                       items: const [
-                        DropdownMenuItem(value: 'High Priority', child: Text('🚨 Urgent / High Priority Alert', style: TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.bold))),
-                        DropdownMenuItem(value: 'Academic Circular', child: Text('📝 Academic Circular & Assessment', style: TextStyle(fontSize: 12))),
-                        DropdownMenuItem(value: 'Attendance Intimation', child: Text('⏱️ Attendance & Defaulter Notice', style: TextStyle(fontSize: 12))),
-                        DropdownMenuItem(value: 'Symposium & Events', child: Text('🏆 Symposium & Hackathon Guidelines', style: TextStyle(fontSize: 12))),
+                        DropdownMenuItem(
+                          value: 'High Priority',
+                          child: Text(
+                            '🚨 Urgent / High Priority Alert',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.red,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Academic Circular',
+                          child: Text(
+                            '📝 Academic Circular & Assessment',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Attendance Intimation',
+                          child: Text(
+                            '⏱️ Attendance & Defaulter Notice',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Symposium & Events',
+                          child: Text(
+                            '🏆 Symposium & Hackathon Guidelines',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ),
                       ],
                       onChanged: (val) {
                         if (val != null) setModalState(() => priority = val);
@@ -941,25 +1718,39 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     const SizedBox(height: 12),
 
                     // Preset Templates
-                    const Text('Quick Notice Templates', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                    const Text(
+                      'Quick Notice Templates',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children: [
                           ActionChip(
-                            label: const Text('Attendance Defaulters', style: TextStyle(fontSize: 11)),
+                            label: const Text(
+                              'Attendance Defaulters',
+                              style: TextStyle(fontSize: 11),
+                            ),
                             onPressed: () {
                               setModalState(() {
                                 selectedTemplate = 'Attendance Defaulters';
-                                titleCtrl.text = '⚠️ Low Attendance (<75%) Parent Call';
+                                titleCtrl.text =
+                                    '⚠️ Low Attendance (<75%) Parent Call';
                                 msgCtrl.text = 'All students with attendance below 75% are directed to meet their Section Advisor along with their parents on Friday.';
                               });
                             },
                           ),
                           const SizedBox(width: 8),
                           ActionChip(
-                            label: const Text('IA Mark Sheets', style: TextStyle(fontSize: 11)),
+                            label: const Text(
+                              'IA Mark Sheets',
+                              style: TextStyle(fontSize: 11),
+                            ),
                             onPressed: () {
                               setModalState(() {
                                 selectedTemplate = 'IA Mark Sheets';
@@ -970,19 +1761,34 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                           ),
                           const SizedBox(width: 8),
                           ActionChip(
-                            label: const Text('Hackathon / OD Proofs', style: TextStyle(fontSize: 11)),
+                            label: const Text(
+                              'Hackathon / OD Proofs',
+                              style: TextStyle(fontSize: 11),
+                            ),
                             onPressed: () {
                               setModalState(() {
                                 selectedTemplate = 'Hackathon / OD Proofs';
-                                titleCtrl.text = '🏆 OD Certificates & Hackathon Proofs';
+                                titleCtrl.text =
+                                    '🏆 OD Certificates & Hackathon Proofs';
                                 msgCtrl.text = 'Submit participation certificates and registration proof for symposiums to the HOD portal for On-Duty leave credit.';
                               });
                             },
                           ),
                           const SizedBox(width: 8),
                           ActionChip(
-                            avatar: const Icon(Icons.edit_note_rounded, size: 16, color: Color(0xFF6366F1)),
-                            label: const Text('Others (Custom Notice)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF6366F1))),
+                            avatar: const Icon(
+                              Icons.edit_note_rounded,
+                              size: 16,
+                              color: Color(0xFF6366F1),
+                            ),
+                            label: const Text(
+                              'Others (Custom Notice)',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF6366F1),
+                              ),
+                            ),
                             backgroundColor: const Color(0xFFEEF2FF),
                             side: const BorderSide(color: Color(0xFF6366F1)),
                             onPressed: () {
@@ -999,7 +1805,14 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     const SizedBox(height: 12),
 
                     // Notice Title
-                    const Text('Notice Title', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                    const Text(
+                      'Notice Title',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     TextField(
                       controller: titleCtrl,
@@ -1007,15 +1820,33 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                         hintText: 'Enter notice headline / circular title...',
                         filled: true,
                         fillColor: const Color(0xFFF8FAFC),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE2E8F0),
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
                       ),
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 12),
 
                     // Notice Content
-                    const Text('Notice Body / Instructions', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                    const Text(
+                      'Notice Body / Instructions',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     TextField(
                       controller: msgCtrl,
@@ -1024,7 +1855,12 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                         hintText: 'Type instructions, deadlines, or remarks for advisors and students...',
                         filled: true,
                         fillColor: const Color(0xFFF8FAFC),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE2E8F0),
+                          ),
+                        ),
                         contentPadding: const EdgeInsets.all(10),
                       ),
                       style: const TextStyle(fontSize: 12),
@@ -1040,7 +1876,11 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                           final msg = msgCtrl.text.trim();
                           if (title.isEmpty || msg.isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Please enter notice title and message body.')),
+                              const SnackBar(
+                                content: Text(
+                                  'Please enter notice title and message body.',
+                                ),
+                              ),
                             );
                             return;
                           }
@@ -1048,14 +1888,15 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                           Navigator.pop(ctx);
 
                           // Broadcast to Supabase Database, notify advisors, and return message log
-                          final sentNotice = await MockDataService.broadcastNotice(
-                            title: title,
-                            message: msg,
-                            targetAudience: audience,
-                            priority: priority,
-                            templateType: selectedTemplate,
-                            senderName: 'HOD ($_currentHodName)',
-                          );
+                          final sentNotice =
+                              await MockDataService.broadcastNotice(
+                                title: title,
+                                message: msg,
+                                targetAudience: audience,
+                                priority: priority,
+                                templateType: selectedTemplate,
+                                senderName: 'HOD ($_currentHodName)',
+                              );
 
                           if (context.mounted) {
                             _showBroadcastLogDialog(sentNotice);
@@ -1065,10 +1906,18 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                           backgroundColor: const Color(0xFF6366F1),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                         icon: const Icon(Icons.send_rounded, size: 18),
-                        label: const Text('Broadcast Notice to Department', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        label: const Text(
+                          'Broadcast Notice to Department',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
                       ),
                     ),
                   ] else ...[
@@ -1079,11 +1928,27 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                         alignment: Alignment.center,
                         child: Column(
                           children: const [
-                            Icon(Icons.history_toggle_off_rounded, size: 40, color: Color(0xFFCBD5E1)),
+                            Icon(
+                              Icons.history_toggle_off_rounded,
+                              size: 40,
+                              color: Color(0xFFCBD5E1),
+                            ),
                             SizedBox(height: 10),
-                            Text('No Broadcast Logs Recorded', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+                            Text(
+                              'No Broadcast Logs Recorded',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
                             SizedBox(height: 4),
-                            Text('Notices sent to department sections will be logged here.', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                            Text(
+                              'Notices sent to department sections will be logged here.',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF94A3B8),
+                              ),
+                            ),
                           ],
                         ),
                       )
@@ -1101,7 +1966,9 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                             decoration: BoxDecoration(
                               color: const Color(0xFFF8FAFC),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                              border: Border.all(
+                                color: const Color(0xFFE2E8F0),
+                              ),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1109,39 +1976,63 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                                 Row(
                                   children: [
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
                                       decoration: BoxDecoration(
-                                        color: isUrgent ? const Color(0xFFEF4444) : const Color(0xFF6366F1),
+                                        color: isUrgent
+                                            ? const Color(0xFFEF4444)
+                                            : const Color(0xFF6366F1),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
                                         log.priority.toUpperCase(),
-                                        style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Colors.white),
+                                        style: const TextStyle(
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.w900,
+                                          color: Colors.white,
+                                        ),
                                       ),
                                     ),
                                     const SizedBox(width: 6),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
                                       decoration: BoxDecoration(
                                         color: const Color(0xFFE2E8F0),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
                                         log.templateType,
-                                        style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                                        style: const TextStyle(
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF475569),
+                                        ),
                                       ),
                                     ),
                                     const Spacer(),
                                     Text(
                                       'ID: ${log.id}',
-                                      style: const TextStyle(fontSize: 9.5, color: Color(0xFF94A3B8), fontFamily: 'monospace'),
+                                      style: const TextStyle(
+                                        fontSize: 9.5,
+                                        color: Color(0xFF94A3B8),
+                                        fontFamily: 'monospace',
+                                      ),
                                     ),
                                   ],
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
                                   log.title,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: Color(0xFF0F172A),
+                                  ),
                                 ),
                                 const SizedBox(height: 6),
                                 Container(
@@ -1150,34 +2041,54 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                                   decoration: BoxDecoration(
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: const Color(0xFFCBD5E1)),
+                                    border: Border.all(
+                                      color: const Color(0xFFCBD5E1),
+                                    ),
                                   ),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       const Text(
                                         'RETURNED BROADCAST MESSAGE:',
-                                        style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Color(0xFF64748B), letterSpacing: 0.5),
+                                        style: TextStyle(
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.w900,
+                                          color: Color(0xFF64748B),
+                                          letterSpacing: 0.5,
+                                        ),
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
                                         log.message,
-                                        style: const TextStyle(fontSize: 11.5, color: Color(0xFF1E293B), height: 1.3),
+                                        style: const TextStyle(
+                                          fontSize: 11.5,
+                                          color: Color(0xFF1E293B),
+                                          height: 1.3,
+                                        ),
                                       ),
                                     ],
                                   ),
                                 ),
                                 const SizedBox(height: 8),
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
                                       'Audience: ${log.targetAudience}',
-                                      style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        color: Color(0xFF64748B),
+                                      ),
                                     ),
                                     const Text(
                                       '✓ Logged to Database',
-                                      style: TextStyle(fontSize: 10, color: Color(0xFF047857), fontWeight: FontWeight.w600),
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Color(0xFF047857),
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -1215,7 +2126,11 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     color: const Color(0xFF10B981).withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 24),
+                  child: const Icon(
+                    Icons.check_circle_rounded,
+                    color: Color(0xFF10B981),
+                    size: 24,
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -1224,11 +2139,18 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     children: const [
                       Text(
                         'Broadcast Log Receipt',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Color(0xFF0F172A),
+                        ),
                       ),
                       Text(
                         'Message logged to database & returned',
-                        style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF64748B),
+                        ),
                       ),
                     ],
                   ),
@@ -1249,32 +2171,51 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFF6366F1),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           sentNotice.priority.toUpperCase(),
-                          style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Colors.white),
+                          style: const TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 6),
                       Text(
                         sentNotice.templateType,
-                        style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF475569),
+                        ),
                       ),
                       const Spacer(),
                       Text(
                         'ID: ${sentNotice.id}',
-                        style: const TextStyle(fontSize: 9.5, color: Color(0xFF94A3B8), fontFamily: 'monospace'),
+                        style: const TextStyle(
+                          fontSize: 9.5,
+                          color: Color(0xFF94A3B8),
+                          fontFamily: 'monospace',
+                        ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Text(
                     sentNotice.title,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Color(0xFF0F172A),
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Container(
@@ -1290,12 +2231,21 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                       children: [
                         const Text(
                           'RETURNED BROADCAST MESSAGE:',
-                          style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Color(0xFF64748B), letterSpacing: 0.5),
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF64748B),
+                            letterSpacing: 0.5,
+                          ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           sentNotice.message,
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF1E293B), height: 1.4),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF1E293B),
+                            height: 1.4,
+                          ),
                         ),
                       ],
                     ),
@@ -1303,12 +2253,19 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      const Icon(Icons.people_alt_rounded, size: 14, color: Color(0xFF6366F1)),
+                      const Icon(
+                        Icons.people_alt_rounded,
+                        size: 14,
+                        color: Color(0xFF6366F1),
+                      ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           'Audience: ${sentNotice.targetAudience}',
-                          style: const TextStyle(fontSize: 10.5, color: Color(0xFF475569)),
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            color: Color(0xFF475569),
+                          ),
                         ),
                       ),
                     ],
@@ -1316,12 +2273,20 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      const Icon(Icons.cloud_done_rounded, size: 14, color: Color(0xFF10B981)),
+                      const Icon(
+                        Icons.cloud_done_rounded,
+                        size: 14,
+                        color: Color(0xFF10B981),
+                      ),
                       const SizedBox(width: 6),
                       const Expanded(
                         child: Text(
                           'Database Log: Saved to Supabase (broadcast_notices)',
-                          style: TextStyle(fontSize: 10, color: Color(0xFF047857), fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Color(0xFF047857),
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],
@@ -1337,9 +2302,14 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF6366F1),
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
-                child: const Text('Dismiss Log Receipt', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                child: const Text(
+                  'Dismiss Log Receipt',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                ),
               ),
             ),
           ],
@@ -1409,15 +2379,24 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF059669).withValues(alpha: 0.1),
+                              color: const Color(0xFF059669)
+                                  .withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: const Icon(Icons.mark_chat_unread_rounded, color: Color(0xFF059669), size: 20),
+                            child: const Icon(
+                              Icons.mark_chat_unread_rounded,
+                              color: Color(0xFF059669),
+                              size: 20,
+                            ),
                           ),
                           const SizedBox(width: 10),
                           const Text(
                             'Parent SMS & WhatsApp Intimation',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: Color(0xFF0F172A),
+                            ),
                           ),
                         ],
                       ),
@@ -1430,20 +2409,36 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   const SizedBox(height: 14),
 
                   // Select Student
-                  const Text('Select Student (Defaulter / Absentee)', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                  const Text(
+                    'Select Student (Defaulter / Absentee)',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   DropdownButtonFormField<String>(
                     initialValue: selectedStudent.rollNumber,
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                     ),
                     items: MockDataService.allStudents.take(60).map((st) {
                       return DropdownMenuItem<String>(
                         value: st.rollNumber,
-                        child: Text('${st.name} (${st.rollNumber}) • Yr ${st.year}-${st.section}', style: const TextStyle(fontSize: 12)),
+                        child: Text(
+                          '${st.name} (${st.rollNumber}) • Yr ${st.year}-${st.section}',
+                          style: const TextStyle(fontSize: 12),
+                        ),
                       );
                     }).toList(),
                     onChanged: (val) {
@@ -1453,7 +2448,10 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                           setModalState(() {
                             selectedStudent = st;
                             final d = defaulters.firstWhere(
-                              (item) => (item['student'] as StudentModel).rollNumber == st.rollNumber,
+                              (item) =>
+                                  (item['student'] as StudentModel)
+                                      .rollNumber ==
+                                  st.rollNumber,
                               orElse: () => {'percentage': 74.0},
                             );
                             currentPct = (d['percentage'] as num).toDouble();
@@ -1466,20 +2464,51 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   const SizedBox(height: 12),
 
                   // Intimation Type
-                  const Text('Intimation Template Format', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                  const Text(
+                    'Intimation Template Format',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   DropdownButtonFormField<String>(
                     initialValue: noticeFormat,
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                     ),
                     items: const [
-                      DropdownMenuItem(value: 'Bilingual Absent Alert (English / Tamil)', child: Text('🚨 Today\'s Absent Alert (English / தமிழ்)', style: TextStyle(fontSize: 12))),
-                      DropdownMenuItem(value: 'Low Attendance (<75%) Warning Letter', child: Text('⚠️ Low Attendance (<75%) Warning', style: TextStyle(fontSize: 12))),
-                      DropdownMenuItem(value: 'Formal Parent Call for HOD Review', child: Text('📞 Urgent Parent-HOD Meeting Call', style: TextStyle(fontSize: 12))),
+                      DropdownMenuItem(
+                        value: 'Bilingual Absent Alert (English / Tamil)',
+                        child: Text(
+                          '🚨 Today\'s Absent Alert (English / தமிழ்)',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                      DropdownMenuItem(
+                        value: 'Low Attendance (<75%) Warning Letter',
+                        child: Text(
+                          '⚠️ Low Attendance (<75%) Warning',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                      DropdownMenuItem(
+                        value: 'Formal Parent Call for HOD Review',
+                        child: Text(
+                          '📞 Urgent Parent-HOD Meeting Call',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
                     ],
                     onChanged: (val) {
                       if (val != null) {
@@ -1493,7 +2522,14 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   const SizedBox(height: 12),
 
                   // Generated Message Box
-                  const Text('Message Body Preview', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                  const Text(
+                    'Message Body Preview',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   TextField(
                     controller: customMsgCtrl,
@@ -1501,7 +2537,10 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
                       contentPadding: const EdgeInsets.all(10),
                     ),
                     style: const TextStyle(fontSize: 12),
@@ -1517,17 +2556,24 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                             Navigator.pop(ctx);
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('📋 Intimation message copied to clipboard!'),
+                                content: Text(
+                                  '📋 Intimation message copied to clipboard!',
+                                ),
                                 backgroundColor: Color(0xFF334155),
                               ),
                             );
                           },
                           icon: const Icon(Icons.copy_rounded, size: 16),
-                          label: const Text('Copy Text', style: TextStyle(fontSize: 12)),
+                          label: const Text(
+                            'Copy Text',
+                            style: TextStyle(fontSize: 12),
+                          ),
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: Color(0xFFCBD5E1)),
                             padding: const EdgeInsets.symmetric(vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
                         ),
                       ),
@@ -1538,7 +2584,9 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                             Navigator.pop(ctx);
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('📱 SMS & WhatsApp Intimation dispatched to parents of ${selectedStudent.name}!'),
+                                content: Text(
+                                  '📱 SMS & WhatsApp Intimation dispatched to parents of ${selectedStudent.name}!',
+                                ),
                                 backgroundColor: const Color(0xFF047857),
                               ),
                             );
@@ -1547,10 +2595,21 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                             backgroundColor: const Color(0xFF059669),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
-                          icon: const Icon(Icons.send_to_mobile_rounded, size: 16),
-                          label: const Text('Dispatch SMS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          icon: const Icon(
+                            Icons.send_to_mobile_rounded,
+                            size: 16,
+                          ),
+                          label: const Text(
+                            'Dispatch SMS',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -1579,18 +2638,39 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
           children: [
             Row(
               children: [
-                const Icon(Icons.warning_rounded, color: Color(0xFFDC2626), size: 20),
+                const Icon(
+                  Icons.warning_rounded,
+                  color: Color(0xFFDC2626),
+                  size: 20,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     '⚠️ Department Defaulters Alert (< 75% Attendance)',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF991B1B)),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF991B1B),
+                    ),
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(color: const Color(0xFFDC2626), borderRadius: BorderRadius.circular(10)),
-                  child: Text('${defaulters.length} Defaulters', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFDC2626),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${defaulters.length} Defaulters',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -1605,18 +2685,32 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               final pct = d['percentage'] as double;
               return Container(
                 margin: const EdgeInsets.only(bottom: 6),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
                       '${student.name} (${student.rollNumber}) • ${student.classDisplay}',
-                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A),
+                      ),
                     ),
                     Text(
                       '${pct.toStringAsFixed(1)}%',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFDC2626)),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFDC2626),
+                      ),
                     ),
                   ],
                 ),
@@ -1631,7 +2725,13 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Text(title, style: AppStyles.headingMedium.copyWith(fontSize: 15, color: const Color(0xFF0F172A))),
+      child: Text(
+        title,
+        style: AppStyles.headingMedium.copyWith(
+          fontSize: 15,
+          color: const Color(0xFF0F172A),
+        ),
+      ),
     );
   }
 
@@ -1645,16 +2745,36 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
           return Padding(
             padding: const EdgeInsets.only(right: 8),
             child: ChoiceChip(
-              label: Text('$year${year == 1 ? 'st' : year == 2 ? 'nd' : year == 3 ? 'rd' : 'th'} Year (${year == 1 ? "2026" : year == 2 ? "2025" : year == 3 ? "2024" : "2023"} Batch)'),
+              label: Text(
+                '$year${year == 1
+                    ? 'st'
+                    : year == 2
+                    ? 'nd'
+                    : year == 3
+                    ? 'rd'
+                    : 'th'} Year (${year == 1
+                    ? "2026"
+                    : year == 2
+                    ? "2025"
+                    : year == 3
+                    ? "2024"
+                    : "2023"} Batch)',
+              ),
               selected: isSelected,
               selectedColor: const Color(0xFF6366F1),
-              labelStyle: TextStyle(color: isSelected ? Colors.white : AppColors.textSecondary, fontWeight: FontWeight.bold, fontSize: 11.5),
+              labelStyle: TextStyle(
+                color: isSelected ? Colors.white : AppColors.textSecondary,
+                fontWeight: FontWeight.bold,
+                fontSize: 11.5,
+              ),
               backgroundColor: Colors.white,
               onSelected: (val) {
                 if (val) {
                   setState(() {
                     _selectedYear = year;
-                    if (year == 4 && (_selectedSection == 'C' || _selectedSection == 'D')) _selectedSection = 'A';
+                    if (year == 4 &&
+                        (_selectedSection == 'C' || _selectedSection == 'D'))
+                      _selectedSection = 'A';
                   });
                 }
               },
@@ -1682,10 +2802,23 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                 decoration: BoxDecoration(
                   color: isSelected ? const Color(0xFF6366F1) : Colors.white,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: isSelected ? const Color(0xFF6366F1) : const Color(0xFFCBD5E1)),
+                  border: Border.all(
+                    color: isSelected
+                        ? const Color(0xFF6366F1)
+                        : const Color(0xFFCBD5E1),
+                  ),
                 ),
                 child: Center(
-                  child: Text(sec, style: TextStyle(color: isSelected ? Colors.white : const Color(0xFF334155), fontWeight: FontWeight.bold, fontSize: 14)),
+                  child: Text(
+                    sec,
+                    style: TextStyle(
+                      color: isSelected
+                          ? Colors.white
+                          : const Color(0xFF334155),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -1700,7 +2833,11 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: const Color(0xFFE2E8F0))),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
         child: Column(
           children: [
             Row(
@@ -1710,13 +2847,36 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Year $_selectedYear AI&DS — Section $_selectedSection', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15), maxLines: 1, overflow: TextOverflow.ellipsis),
-                      Text('Class Advisor: ${stats['advisor']}', style: const TextStyle(color: Color(0xFF64748B), fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      Text(
+                        'Year $_selectedYear AI&DS — Section $_selectedSection',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        'Class Advisor: ${stats['advisor']}',
+                        style: const TextStyle(
+                          color: Color(0xFF64748B),
+                          fontSize: 12,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text('${stats['pct']}%', style: const TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold, fontSize: 20)),
+                Text(
+                  '${stats['pct']}%',
+                  style: const TextStyle(
+                    color: Color(0xFF6366F1),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 10),
@@ -1726,7 +2886,9 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                 value: (stats['pct'] as double) / 100,
                 minHeight: 8,
                 backgroundColor: const Color(0xFFEEF2FF),
-                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)),
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                  Color(0xFF6366F1),
+                ),
               ),
             ),
             const SizedBox(height: 10),
@@ -1736,8 +2898,22 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               spacing: 8,
               runSpacing: 4,
               children: [
-                Text('${stats['present']} Present • ${stats['od']} On-Duty', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF047857))),
-                Text('${stats['absent']} Absent Today', style: const TextStyle(fontSize: 12, color: AppColors.absentRed, fontWeight: FontWeight.bold)),
+                Text(
+                  '${stats['present']} Present • ${stats['od']} On-Duty',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF047857),
+                  ),
+                ),
+                Text(
+                  '${stats['absent']} Absent Today',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.absentRed,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -1747,12 +2923,28 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               children: [
                 OutlinedButton.icon(
                   onPressed: () => Navigator.pushNamed(context, '/attendance'),
-                  icon: const Icon(Icons.edit_calendar_rounded, size: 15, color: Color(0xFF6366F1)),
-                  label: Text('Edit Register (Sec $_selectedSection)', style: const TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold, fontSize: 11.5)),
+                  icon: const Icon(
+                    Icons.edit_calendar_rounded,
+                    size: 15,
+                    color: Color(0xFF6366F1),
+                  ),
+                  label: Text(
+                    'Edit Register (Sec $_selectedSection)',
+                    style: const TextStyle(
+                      color: Color(0xFF6366F1),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11.5,
+                    ),
+                  ),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Color(0xFF6366F1)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                   ),
                 ),
                 ElevatedButton.icon(
@@ -1762,12 +2954,23 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     section: _selectedSection,
                   ),
                   icon: const Icon(Icons.fact_check_rounded, size: 15),
-                  label: const Text('Inspect Reports & Proofs', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                  label: const Text(
+                    'Inspect Reports & Proofs',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF6366F1),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                   ),
                 ),
               ],
@@ -1802,21 +3005,49 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('📊 Last Week Attendance Graph', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
-                      Text(
-                        _showDepartmentGraph ? 'Overall Department Trend' : 'Year $_selectedYear Section $_selectedSection Daily Stats',
-                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      const Text(
+                        '📊 Last Week Attendance Graph',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        _showDepartmentGraph
+                            ? 'Overall Department Trend'
+                            : 'Year $_selectedYear Section $_selectedSection Daily Stats',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF64748B),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const Text(
+                        'Tap a day to view absent students',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Color(0xFF6366F1),
+                        ),
                       ),
                     ],
                   ),
                 ),
                 TextButton(
-                  onPressed: () => setState(() => _showDepartmentGraph = !_showDepartmentGraph),
+                  onPressed: () => setState(() {
+                    _showDepartmentGraph = !_showDepartmentGraph;
+                    _selectedDepartmentGraphDate = null;
+                    _selectedSectionGraphDate = null;
+                  }),
                   child: Text(
                     _showDepartmentGraph ? 'Show Section' : 'Show Dept',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF6366F1)),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF6366F1),
+                    ),
                   ),
                 ),
               ],
@@ -1836,19 +3067,28 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                           onTap: () {
                             setState(() {
                               _selectedYear = y;
-                              if (y == 4 && (_selectedSection == 'C' || _selectedSection == 'D')) {
+                              if (y == 4 &&
+                                  (_selectedSection == 'C' ||
+                                      _selectedSection == 'D')) {
                                 _selectedSection = 'A';
                               }
                             });
                           },
                           borderRadius: BorderRadius.circular(16),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
-                              color: isSel ? const Color(0xFF6366F1) : const Color(0xFFF1F5F9),
+                              color: isSel
+                                  ? const Color(0xFF6366F1)
+                                  : const Color(0xFFF1F5F9),
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: isSel ? const Color(0xFF6366F1) : const Color(0xFFE2E8F0),
+                                color: isSel
+                                    ? const Color(0xFF6366F1)
+                                    : const Color(0xFFE2E8F0),
                               ),
                             ),
                             child: Text(
@@ -1856,7 +3096,9 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
-                                color: isSel ? Colors.white : const Color(0xFF475569),
+                                color: isSel
+                                    ? Colors.white
+                                    : const Color(0xFF475569),
                               ),
                             ),
                           ),
@@ -1878,12 +3120,19 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                           onTap: () => setState(() => _selectedSection = sec),
                           borderRadius: BorderRadius.circular(16),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
-                              color: isSel ? const Color(0xFF0284C7) : const Color(0xFFF1F5F9),
+                              color: isSel
+                                  ? const Color(0xFF0284C7)
+                                  : const Color(0xFFF1F5F9),
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: isSel ? const Color(0xFF0284C7) : const Color(0xFFE2E8F0),
+                                color: isSel
+                                    ? const Color(0xFF0284C7)
+                                    : const Color(0xFFE2E8F0),
                               ),
                             ),
                             child: Text(
@@ -1891,7 +3140,9 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
-                                color: isSel ? Colors.white : const Color(0xFF475569),
+                                color: isSel
+                                    ? Colors.white
+                                    : const Color(0xFF475569),
                               ),
                             ),
                           ),
@@ -1903,10 +3154,18 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               ),
             ],
             const SizedBox(height: 16),
-            if (!_showDepartmentGraph && _selectedYear == 1 && MockDataService.getStudentsBySection(1, _selectedSection).isEmpty)
+            if (!_showDepartmentGraph &&
+                _selectedYear == 1 &&
+                MockDataService.getStudentsBySection(
+                  1,
+                  _selectedSection,
+                ).isEmpty)
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 24,
+                  horizontal: 16,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF8FAFC),
                   borderRadius: BorderRadius.circular(12),
@@ -1914,11 +3173,19 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                 ),
                 child: Column(
                   children: const [
-                    Icon(Icons.school_outlined, size: 32, color: Color(0xFF94A3B8)),
+                    Icon(
+                      Icons.school_outlined,
+                      size: 32,
+                      color: Color(0xFF94A3B8),
+                    ),
                     SizedBox(height: 8),
                     Text(
                       'Year 1 (2026 Batch) Enrollment in Progress',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF334155)),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: Color(0xFF334155),
+                      ),
                     ),
                     SizedBox(height: 4),
                     Text(
@@ -1930,138 +3197,216 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                 ),
               )
             else
-            // Visual Bar Chart
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: weeklyData.map((item) {
-                final isHoliday = item['isHoliday'] == true;
-                final holidayReason = item['holidayReason'] as String?;
-                final pct = item['percentage'] as double;
-                final height = isHoliday ? 70.0 : (pct - 70) * 4.5; // Scale height
-                final clampedHeight = height.clamp(24.0, 120.0);
-                final label = item['label'] as String;
-                final dayName = item['dayName'] ?? label.split(' ')[0];
+              // Visual Bar Chart
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: weeklyData.map((item) {
+                  final isHoliday = item['isHoliday'] == true;
+                  final holidayReason = item['holidayReason'] as String?;
+                  final pct = item['percentage'] as double;
+                  final height = isHoliday
+                      ? 70.0
+                      : (pct - 70) * 4.5; // Scale height
+                  final clampedHeight = height.clamp(24.0, 120.0);
+                  final label = item['label'] as String;
+                  final dayName = item['dayName'] ?? label.split(' ')[0];
+                  final date = item['date'] as DateTime;
+                  final isSelectedDepartmentDay =
+                      _showDepartmentGraph &&
+                      _selectedDepartmentGraphDate != null &&
+                      _selectedDepartmentGraphDate!.year == date.year &&
+                      _selectedDepartmentGraphDate!.month == date.month &&
+                      _selectedDepartmentGraphDate!.day == date.day;
+                  final isSelectedSectionDay =
+                      !_showDepartmentGraph &&
+                      _selectedSectionGraphDate != null &&
+                      _selectedSectionGraphDate!.year == date.year &&
+                      _selectedSectionGraphDate!.month == date.month &&
+                      _selectedSectionGraphDate!.day == date.day;
+                  final isSelectedDay =
+                      isSelectedDepartmentDay || isSelectedSectionDay;
 
-                return Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                      if (isHoliday) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            backgroundColor: const Color(0xFFD97706),
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            content: Row(
-                              children: [
-                                const Icon(Icons.celebration_rounded, color: Colors.white, size: 20),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    '🏛️ College Declared Leave: ${holidayReason ?? "Institutional Holiday"}',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  return Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        if (isHoliday) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              backgroundColor: const Color(0xFFD97706),
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              content: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.celebration_rounded,
+                                    color: Colors.white,
+                                    size: 20,
                                   ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      '🏛️ College Declared Leave: ${holidayReason ?? "Institutional Holiday"}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              duration: const Duration(seconds: 3),
+                            ),
+                          );
+                        } else if (_showDepartmentGraph) {
+                          _showDepartmentAbsences(date);
+                        } else {
+                          _showSectionAbsences(date);
+                        }
+                      },
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isHoliday)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFEF3C7),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: const Color(0xFFFCD34D),
+                                ),
+                              ),
+                              child: const Text(
+                                'LEAVE',
+                                style: TextStyle(
+                                  fontSize: 8.5,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFFB45309),
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            )
+                          else
+                            Text(
+                              '${pct.toStringAsFixed(0)}%',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF475569),
+                              ),
+                            ),
+                          const SizedBox(height: 4),
+                          AnimatedContainer(
+                            key: ValueKey(
+                              'department_trend_${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}',
+                            ),
+                            duration: const Duration(milliseconds: 160),
+                            width: 32,
+                            height: clampedHeight,
+                            decoration: BoxDecoration(
+                              gradient: isHoliday
+                                  ? const LinearGradient(
+                                      colors: [
+                                        Color(0xFFF59E0B),
+                                        Color(0xFFFBBF24),
+                                        Color(0xFFFDE68A),
+                                      ],
+                                      begin: Alignment.bottomCenter,
+                                      end: Alignment.topCenter,
+                                    )
+                                  : LinearGradient(
+                                      colors: pct >= 95
+                                          ? [
+                                              const Color(0xFF10B981),
+                                              const Color(0xFF34D399),
+                                            ]
+                                          : pct >= 85
+                                          ? [
+                                              const Color(0xFF0284C7),
+                                              const Color(0xFF38BDF8),
+                                            ]
+                                          : [
+                                              const Color(0xFFF59E0B),
+                                              const Color(0xFFFBBF24),
+                                            ],
+                                      begin: Alignment.bottomCenter,
+                                      end: Alignment.topCenter,
+                                    ),
+                              borderRadius: BorderRadius.circular(8),
+                              border: isHoliday
+                                  ? Border.all(
+                                      color: const Color(0xFFD97706),
+                                      width: 1.5,
+                                    )
+                                  : isSelectedDay
+                                  ? Border.all(
+                                      color: const Color(0xFF0F172A),
+                                      width: 2,
+                                    )
+                                  : null,
+                              boxShadow: [
+                                BoxShadow(
+                                  color:
+                                      (isHoliday
+                                              ? const Color(0xFFF59E0B)
+                                              : (pct >= 95
+                                                    ? const Color(0xFF10B981)
+                                                    : const Color(0xFF0284C7)))
+                                          .withValues(alpha: 0.25),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 3),
                                 ),
                               ],
                             ),
-                            duration: const Duration(seconds: 3),
-                          ),
-                        );
-                      }
-                    },
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (isHoliday)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFEF3C7),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: const Color(0xFFFCD34D)),
-                            ),
-                            child: const Text(
-                              'LEAVE',
-                              style: TextStyle(
-                                fontSize: 8.5,
-                                fontWeight: FontWeight.w900,
-                                color: Color(0xFFB45309),
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          )
-                        else
-                          Text(
-                            '${pct.toStringAsFixed(0)}%',
-                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
-                          ),
-                        const SizedBox(height: 4),
-                        Container(
-                          width: 32,
-                          height: clampedHeight,
-                          decoration: BoxDecoration(
-                            gradient: isHoliday
-                                ? const LinearGradient(
-                                    colors: [Color(0xFFF59E0B), Color(0xFFFBBF24), Color(0xFFFDE68A)],
-                                    begin: Alignment.bottomCenter,
-                                    end: Alignment.topCenter,
+                            child: isHoliday
+                                ? const Center(
+                                    child: Icon(
+                                      Icons.celebration_rounded,
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
                                   )
-                                : LinearGradient(
-                                    colors: pct >= 95
-                                        ? [const Color(0xFF10B981), const Color(0xFF34D399)]
-                                        : pct >= 85
-                                            ? [const Color(0xFF0284C7), const Color(0xFF38BDF8)]
-                                            : [const Color(0xFFF59E0B), const Color(0xFFFBBF24)],
-                                    begin: Alignment.bottomCenter,
-                                    end: Alignment.topCenter,
-                                  ),
-                            borderRadius: BorderRadius.circular(8),
-                            border: isHoliday
-                                ? Border.all(color: const Color(0xFFD97706), width: 1.5)
                                 : null,
-                            boxShadow: [
-                              BoxShadow(
-                                color: (isHoliday ? const Color(0xFFF59E0B) : (pct >= 95 ? const Color(0xFF10B981) : const Color(0xFF0284C7)))
-                                    .withValues(alpha: 0.25),
-                                blurRadius: 6,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
                           ),
-                          child: isHoliday
-                              ? const Center(
-                                  child: Icon(
-                                    Icons.celebration_rounded,
-                                    color: Colors.white,
-                                    size: 16,
-                                  ),
-                                )
-                              : null,
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          dayName,
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: isHoliday ? const Color(0xFFB45309) : const Color(0xFF64748B),
-                            fontWeight: isHoliday ? FontWeight.w800 : FontWeight.w600,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if (isHoliday)
-                          const Text(
-                            'Holiday',
-                            style: TextStyle(fontSize: 8.5, color: Color(0xFFD97706), fontWeight: FontWeight.bold),
+                          const SizedBox(height: 6),
+                          Text(
+                            dayName,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: isHoliday
+                                  ? const Color(0xFFB45309)
+                                  : const Color(0xFF64748B),
+                              fontWeight: isHoliday
+                                  ? FontWeight.w800
+                                  : FontWeight.w600,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                      ],
+                          if (isHoliday)
+                            const Text(
+                              'Holiday',
+                              style: TextStyle(
+                                fontSize: 8.5,
+                                color: Color(0xFFD97706),
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
-                );
-              }).toList(),
-            ),
+                  );
+                }).toList(),
+              ),
             const SizedBox(height: 14),
             // Institutional Legend
             Container(
@@ -2079,16 +3424,27 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                 children: [
                   _buildGraphLegendItem(const Color(0xFF10B981), '≥95% High'),
                   _buildGraphLegendItem(const Color(0xFF0284C7), '85-94% Std'),
-                  _buildGraphLegendItem(const Color(0xFFF59E0B), '🏛️ College Leave'),
+                  _buildGraphLegendItem(
+                    const Color(0xFFF59E0B),
+                    '🏛️ College Leave',
+                  ),
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: const [
-                      Icon(Icons.block_rounded, size: 11, color: Color(0xFF94A3B8)),
+                      Icon(
+                        Icons.block_rounded,
+                        size: 11,
+                        color: Color(0xFF94A3B8),
+                      ),
                       SizedBox(width: 3),
                       Flexible(
                         child: Text(
                           'No Sunday',
-                          style: TextStyle(fontSize: 9.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w600,
+                          ),
                           overflow: TextOverflow.ellipsis,
                           maxLines: 1,
                         ),
@@ -2111,16 +3467,17 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
         Container(
           width: 8,
           height: 8,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 4),
         Flexible(
           child: Text(
             label,
-            style: const TextStyle(fontSize: 9.5, color: Color(0xFF475569), fontWeight: FontWeight.w600),
+            style: const TextStyle(
+              fontSize: 9.5,
+              color: Color(0xFF475569),
+              fontWeight: FontWeight.w600,
+            ),
             overflow: TextOverflow.ellipsis,
             maxLines: 1,
           ),
@@ -2130,7 +3487,10 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
   }
 
   Widget _buildMonthlyProgressionSection() {
-    final monthlyData = MockDataService.getMonthlyTrend(_selectedYear, _selectedSection);
+    final monthlyData = MockDataService.getMonthlyTrend(
+      _selectedYear,
+      _selectedSection,
+    );
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -2144,8 +3504,14 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('📅 2026 Academic Term Progression (Sep-Dec)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-            const Text('Month-by-month attendance target vs actuals', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+            const Text(
+              '📅 2026 Academic Term Progression (Sep-Dec)',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            const Text(
+              'Month-by-month attendance target vs actuals',
+              style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+            ),
             const SizedBox(height: 14),
             ...monthlyData.map((m) {
               final pct = m['percentage'] as double;
@@ -2162,8 +3528,22 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                         spacing: 8,
                         runSpacing: 2,
                         children: [
-                          Text(m['month'] as String, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-                          Text('${pct.toStringAsFixed(1)}% (${m["status"]})', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF047857))),
+                          Text(
+                            m['month'] as String,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                          Text(
+                            '${pct.toStringAsFixed(1)}% (${m["status"]})',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF047857),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -2174,7 +3554,9 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                         value: pct / 100,
                         minHeight: 6,
                         backgroundColor: const Color(0xFFF1F5F9),
-                        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF10B981)),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          Color(0xFF10B981),
+                        ),
                       ),
                     ),
                   ],
@@ -2188,10 +3570,17 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
   }
 
   Widget _buildAbsenteesAndODSection() {
-    final records = MockDataService.getAttendanceForDate(DateTime.now(), year: _selectedYear, section: _selectedSection);
+    final records = MockDataService.getAttendanceForDate(
+      DateTime.now(),
+      year: _selectedYear,
+      section: _selectedSection,
+    );
     final absentees = records.where((r) => r.isAbsent).toList();
     final odList = records.where((r) => r.isOnDuty).toList();
-    final students = MockDataService.getStudentsBySection(_selectedYear, _selectedSection);
+    final students = MockDataService.getStudentsBySection(
+      _selectedYear,
+      _selectedSection,
+    );
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -2208,11 +3597,30 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Today\'s Absentees & OD ($_selectedYear-$_selectedSection)', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                Text(
+                  'Today\'s Absentees & OD ($_selectedYear-$_selectedSection)',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(6)),
-                  child: Text('${absentees.length} Abs · ${odList.length} OD', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF2563EB))),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '${absentees.length} Abs · ${odList.length} OD',
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2563EB),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -2220,7 +3628,16 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
             if (absentees.isEmpty && odList.isEmpty)
               const Padding(
                 padding: EdgeInsets.all(12),
-                child: Center(child: Text('100% Attendance today for this section! 🎉', style: TextStyle(color: Color(0xFF047857), fontWeight: FontWeight.bold, fontSize: 12))),
+                child: Center(
+                  child: Text(
+                    '100% Attendance today for this section! 🎉',
+                    style: TextStyle(
+                      color: Color(0xFF047857),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
               )
             else ...[
               // On-Duty students
@@ -2232,35 +3649,66 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     break;
                   }
                 }
-                s ??= MockDataService.allStudents.cast<StudentModel?>().firstWhere(
-                  (st) => st?.id == r.studentId,
-                  orElse: () => StudentModel(
-                    id: r.studentId,
-                    rollNumber: '25243001',
-                    name: 'Student ${r.studentId}',
-                    department: 'AI&DS',
-                    year: _selectedYear,
-                    section: _selectedSection,
-                    batchYear: '${_selectedYear == 2 ? "2025" : _selectedYear == 3 ? "2024" : "2023"} BATCH',
-                    advisorId: 'adv_${_selectedYear}_$_selectedSection',
-                  ),
-                );
+                s ??= MockDataService.allStudents
+                    .cast<StudentModel?>()
+                    .firstWhere(
+                      (st) => st?.id == r.studentId,
+                      orElse: () => StudentModel(
+                        id: r.studentId,
+                        rollNumber: '25243001',
+                        name: 'Student ${r.studentId}',
+                        department: 'AI&DS',
+                        year: _selectedYear,
+                        section: _selectedSection,
+                        batchYear:
+                            '${_selectedYear == 2
+                                ? "2025"
+                                : _selectedYear == 3
+                                ? "2024"
+                                : "2023"} BATCH',
+                        advisorId: 'adv_${_selectedYear}_$_selectedSection',
+                      ),
+                    );
                 final student = s!;
                 return Container(
                   margin: const EdgeInsets.only(bottom: 6),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.badge_rounded, size: 14, color: Color(0xFF2563EB)),
+                          const Icon(
+                            Icons.badge_rounded,
+                            size: 14,
+                            color: Color(0xFF2563EB),
+                          ),
                           const SizedBox(width: 6),
-                          Text('${student.name} (${student.rollNumber})', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF1E40AF))),
+                          Text(
+                            '${student.name} (${student.rollNumber})',
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1E40AF),
+                            ),
+                          ),
                         ],
                       ),
-                      Text(r.onDutyReason ?? 'On-Duty OD', style: const TextStyle(fontSize: 10, color: Color(0xFF2563EB), fontWeight: FontWeight.w600)),
+                      Text(
+                        r.onDutyReason ?? 'On-Duty OD',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Color(0xFF2563EB),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ],
                   ),
                 );
@@ -2274,35 +3722,66 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     break;
                   }
                 }
-                s ??= MockDataService.allStudents.cast<StudentModel?>().firstWhere(
-                  (st) => st?.id == r.studentId,
-                  orElse: () => StudentModel(
-                    id: r.studentId,
-                    rollNumber: '25243001',
-                    name: 'Student ${r.studentId}',
-                    department: 'AI&DS',
-                    year: _selectedYear,
-                    section: _selectedSection,
-                    batchYear: '${_selectedYear == 2 ? "2025" : _selectedYear == 3 ? "2024" : "2023"} BATCH',
-                    advisorId: 'adv_${_selectedYear}_$_selectedSection',
-                  ),
-                );
+                s ??= MockDataService.allStudents
+                    .cast<StudentModel?>()
+                    .firstWhere(
+                      (st) => st?.id == r.studentId,
+                      orElse: () => StudentModel(
+                        id: r.studentId,
+                        rollNumber: '25243001',
+                        name: 'Student ${r.studentId}',
+                        department: 'AI&DS',
+                        year: _selectedYear,
+                        section: _selectedSection,
+                        batchYear:
+                            '${_selectedYear == 2
+                                ? "2025"
+                                : _selectedYear == 3
+                                ? "2024"
+                                : "2023"} BATCH',
+                        advisorId: 'adv_${_selectedYear}_$_selectedSection',
+                      ),
+                    );
                 final student = s!;
                 return Container(
                   margin: const EdgeInsets.only(bottom: 6),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.person_off_rounded, size: 14, color: Color(0xFFDC2626)),
+                          const Icon(
+                            Icons.person_off_rounded,
+                            size: 14,
+                            color: Color(0xFFDC2626),
+                          ),
                           const SizedBox(width: 6),
-                          Text('${student.name} (${student.rollNumber})', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF991B1B))),
+                          Text(
+                            '${student.name} (${student.rollNumber})',
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF991B1B),
+                            ),
+                          ),
                         ],
                       ),
-                      const Text('Absent (Uninformed)', style: TextStyle(fontSize: 10, color: Color(0xFFDC2626), fontWeight: FontWeight.w600)),
+                      const Text(
+                        'Absent (Uninformed)',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Color(0xFFDC2626),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ],
                   ),
                 );
@@ -2317,7 +3796,21 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
   Widget _buildDepartmentKPIs() {
     final leaves = MockDataService.leaveRequests;
     final totalSlips = leaves.length;
-    final approvedSlips = leaves.where((l) => l.letterStatus == LetterStatus.approved).length;
+
+    final selectedDate = _liveStatsDate;
+    final onDuty = MockDataService.getDepartmentOnDuty(selectedDate);
+    var present = 0;
+    for (var year = 2; year <= 4; year++) {
+      final sections = year == 4 ? ['A', 'B'] : ['A', 'B', 'C', 'D'];
+      for (final section in sections) {
+        present += MockDataService.getSectionPresent(year, section, selectedDate);
+      }
+    }
+    final countedPresent = present + onDuty;
+    final totalStudents = MockDataService.totalStrength;
+    final percentage = totalStudents == 0
+        ? 0.0
+        : (countedPresent / totalStudents) * 100;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -2328,10 +3821,11 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               Expanded(
                 child: _miniKPICard(
                   'Dept Attendance',
-                  '${MockDataService.attendancePercentage.toStringAsFixed(1)}%',
-                  '${MockDataService.presentToday}/${MockDataService.totalStrength} Present',
+                  '${percentage.toStringAsFixed(1)}%',
+                  '$countedPresent/$totalStudents Present • $onDuty OD',
                   Icons.pie_chart_outline_rounded,
                   const Color(0xFF6366F1),
+                  onTap: _showLiveStatsAttendanceActions,
                 ),
               ),
               const SizedBox(width: 12),
@@ -2353,9 +3847,10 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                 child: _miniKPICard(
                   'Awaiting HOD Sign',
                   '$_awaitingCount',
-                  'Digital Signature Queue',
+                  'Tap to review',
                   Icons.hourglass_bottom_rounded,
                   AppColors.pendingOrange,
+                  onTap: _openPendingSlipApprovals,
                 ),
               ),
               const SizedBox(width: 12),
@@ -2363,9 +3858,10 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                 child: _miniKPICard(
                   'Pink Slips / ODs',
                   '$totalSlips Total',
-                  '$approvedSlips Signed & Active',
+                  'Tap to review',
                   Icons.receipt_long_rounded,
                   const Color(0xFFEC4899),
+                  onTap: _openPendingSlipApprovals,
                 ),
               ),
             ],
@@ -2375,8 +3871,15 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
     );
   }
 
-  Widget _miniKPICard(String label, String value, String sub, IconData icon, Color color) {
-    return Container(
+  Widget _miniKPICard(
+    String label,
+    String value,
+    String sub,
+    IconData icon,
+    Color color,
+    {VoidCallback? onTap}
+  ) {
+    final content = Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -2392,7 +3895,11 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               Expanded(
                 child: Text(
                   label,
-                  style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: Color(0xFF64748B),
+                    fontWeight: FontWeight.w600,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -2404,7 +3911,11 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
           const SizedBox(height: 8),
           Text(
             value,
-            style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+            style: const TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF0F172A),
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -2417,6 +3928,12 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
           ),
         ],
       ),
+    );
+    if (onTap == null) return content;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: content,
     );
   }
 
@@ -2434,7 +3951,11 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   color: const Color(0xFFEC4899).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.receipt_long_rounded, color: Color(0xFFEC4899), size: 20),
+                child: const Icon(
+                  Icons.receipt_long_rounded,
+                  color: Color(0xFFEC4899),
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -2443,7 +3964,11 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   children: [
                     const Text(
                       'Pink Slip & Digital Approval Central',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF0F172A)),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: Color(0xFF0F172A),
+                      ),
                     ),
                     Text(
                       'Official Movement Passes, OD Endorsements & Digital Signatures',
@@ -2455,12 +3980,18 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: _awaitingCount > 0 ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+                  color: _awaitingCount > 0
+                      ? const Color(0xFFF59E0B)
+                      : const Color(0xFF10B981),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   '$_awaitingCount Awaiting',
-                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
@@ -2475,10 +4006,15 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     backgroundColor: const Color(0xFFEC4899),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   icon: const Icon(Icons.add_circle_outline_rounded, size: 16),
-                  label: const Text('Issue Pink Slip', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  label: const Text(
+                    'Issue Pink Slip',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -2489,10 +4025,15 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     foregroundColor: const Color(0xFF0F172A),
                     side: const BorderSide(color: Color(0xFFCBD5E1)),
                     padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   icon: const Icon(Icons.print_outlined, size: 16),
-                  label: const Text('Export Register', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  label: const Text(
+                    'Export Register',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
               if (_awaitingCount > 0) ...[
@@ -2501,23 +4042,35 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   onPressed: () {
                     setState(() {
                       for (final l in MockDataService.leaveRequests) {
-                        if (l.letterStatus == LetterStatus.forwarded || l.letterStatus == LetterStatus.submitted) {
-                          MockDataService.approveByHod(l.id, remarks: 'Bulk authorized by HOD ($_currentHodName)');
+                        if (l.letterStatus == LetterStatus.forwarded ||
+                            l.letterStatus == LetterStatus.submitted) {
+                          MockDataService.approveByHod(
+                            l.id,
+                            remarks:
+                                'Bulk authorized by HOD ($_currentHodName)',
+                          );
                         }
                       }
                     });
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('⚡ All pending Pink Slips & ODs signed and approved by HOD!'),
+                        content: Text(
+                          '⚡ All pending Pink Slips & ODs signed and approved by HOD!',
+                        ),
                         backgroundColor: Color(0xFF047857),
                       ),
                     );
                   },
-                  icon: const Icon(Icons.done_all_rounded, color: Color(0xFF059669)),
+                  icon: const Icon(
+                    Icons.done_all_rounded,
+                    color: Color(0xFF059669),
+                  ),
                   tooltip: 'Batch Sign All',
                   style: IconButton.styleFrom(
                     backgroundColor: const Color(0xFFD1FAE5),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                 ),
               ],
@@ -2533,25 +4086,38 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
 
     // Filter by Tab
     if (_pinkSlipFilter == 'Awaiting') {
-      leaves = leaves.where((l) => l.letterStatus == LetterStatus.forwarded || l.letterStatus == LetterStatus.submitted).toList();
+      leaves = leaves
+          .where(
+            (l) =>
+                l.letterStatus == LetterStatus.forwarded ||
+                l.letterStatus == LetterStatus.submitted,
+          )
+          .toList();
     } else if (_pinkSlipFilter == 'Approved') {
-      leaves = leaves.where((l) => l.letterStatus == LetterStatus.approved).toList();
+      leaves = leaves
+          .where((l) => l.letterStatus == LetterStatus.approved)
+          .toList();
     } else if (_pinkSlipFilter == 'OD') {
       leaves = leaves.where((l) => l.isOnDuty).toList();
     } else if (_pinkSlipFilter == 'Leaves') {
       leaves = leaves.where((l) => !l.isOnDuty).toList();
     } else if (_pinkSlipFilter == 'Rejected') {
-      leaves = leaves.where((l) => l.letterStatus == LetterStatus.rejected).toList();
+      leaves = leaves
+          .where((l) => l.letterStatus == LetterStatus.rejected)
+          .toList();
     }
 
     // Filter by Query
     if (_pinkSlipQuery.isNotEmpty) {
       final q = _pinkSlipQuery.toLowerCase();
-      leaves = leaves.where((l) =>
-        l.studentName.toLowerCase().contains(q) ||
-        l.studentRollNumber.contains(q) ||
-        l.reason.toLowerCase().contains(q)
-      ).toList();
+      leaves = leaves
+          .where(
+            (l) =>
+                l.studentName.toLowerCase().contains(q) ||
+                l.studentRollNumber.contains(q) ||
+                l.reason.toLowerCase().contains(q),
+          )
+          .toList();
     }
 
     return Padding(
@@ -2568,13 +4134,31 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                 const SizedBox(width: 8),
                 _buildFilterChip('Awaiting', _awaitingCount),
                 const SizedBox(width: 8),
-                _buildFilterChip('Approved', MockDataService.leaveRequests.where((l) => l.letterStatus == LetterStatus.approved).length),
+                _buildFilterChip(
+                  'Approved',
+                  MockDataService.leaveRequests
+                      .where((l) => l.letterStatus == LetterStatus.approved)
+                      .length,
+                ),
                 const SizedBox(width: 8),
-                _buildFilterChip('OD', MockDataService.leaveRequests.where((l) => l.isOnDuty).length),
+                _buildFilterChip(
+                  'OD',
+                  MockDataService.leaveRequests.where((l) => l.isOnDuty).length,
+                ),
                 const SizedBox(width: 8),
-                _buildFilterChip('Leaves', MockDataService.leaveRequests.where((l) => !l.isOnDuty).length),
+                _buildFilterChip(
+                  'Leaves',
+                  MockDataService.leaveRequests
+                      .where((l) => !l.isOnDuty)
+                      .length,
+                ),
                 const SizedBox(width: 8),
-                _buildFilterChip('Rejected', MockDataService.leaveRequests.where((l) => l.letterStatus == LetterStatus.rejected).length),
+                _buildFilterChip(
+                  'Rejected',
+                  MockDataService.leaveRequests
+                      .where((l) => l.letterStatus == LetterStatus.rejected)
+                      .length,
+                ),
               ],
             ),
           ),
@@ -2593,8 +4177,15 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               onChanged: (val) => setState(() => _pinkSlipQuery = val.trim()),
               decoration: InputDecoration(
                 hintText: 'Search student name, roll number, or reason...',
-                hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
-                prefixIcon: const Icon(Icons.search_rounded, size: 18, color: Color(0xFF94A3B8)),
+                hintStyle: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF94A3B8),
+                ),
+                prefixIcon: const Icon(
+                  Icons.search_rounded,
+                  size: 18,
+                  color: Color(0xFF94A3B8),
+                ),
                 suffixIcon: _pinkSlipQuery.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.clear, size: 16),
@@ -2622,13 +4213,20 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               child: Center(
                 child: Column(
                   children: [
-                    const Icon(Icons.filter_list_off_rounded, size: 36, color: Color(0xFF94A3B8)),
+                    const Icon(
+                      Icons.filter_list_off_rounded,
+                      size: 36,
+                      color: Color(0xFF94A3B8),
+                    ),
                     const SizedBox(height: 8),
                     Text(
                       _pinkSlipQuery.isNotEmpty
                           ? 'No pink slip records matching "$_pinkSlipQuery"'
                           : 'No pink slip records found in this category.',
-                      style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                      style: const TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),
@@ -2650,7 +4248,11 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFF0F172A) : Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isSelected ? const Color(0xFF0F172A) : const Color(0xFFCBD5E1)),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF0F172A)
+                : const Color(0xFFCBD5E1),
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -2686,7 +4288,9 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
   }
 
   Widget _buildPinkSlipCard(LeaveModel leave) {
-    final isPending = leave.letterStatus == LetterStatus.forwarded || leave.letterStatus == LetterStatus.submitted;
+    final isPending =
+        leave.letterStatus == LetterStatus.forwarded ||
+        leave.letterStatus == LetterStatus.submitted;
     final isApproved = leave.letterStatus == LetterStatus.approved;
     final isRejected = leave.letterStatus == LetterStatus.rejected;
     final isPresent = MockDataService.isStudentPresent(leave.studentRollNumber);
@@ -2697,7 +4301,9 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isPending ? const Color(0xFFFDE68A) : const Color(0xFFE2E8F0)),
+        border: Border.all(
+          color: isPending ? const Color(0xFFFDE68A) : const Color(0xFFE2E8F0),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.02),
@@ -2718,24 +4324,34 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: leave.isOnDuty ? const Color(0xFFEFF6FF) : const Color(0xFFFDF2F8),
+                  color: leave.isOnDuty
+                      ? const Color(0xFFEFF6FF)
+                      : const Color(0xFFFDF2F8),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      leave.isOnDuty ? Icons.card_membership_rounded : Icons.receipt_long_rounded,
+                      leave.isOnDuty
+                          ? Icons.card_membership_rounded
+                          : Icons.receipt_long_rounded,
                       size: 12,
-                      color: leave.isOnDuty ? const Color(0xFF2563EB) : const Color(0xFFDB2777),
+                      color: leave.isOnDuty
+                          ? const Color(0xFF2563EB)
+                          : const Color(0xFFDB2777),
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      leave.isOnDuty ? 'ON-DUTY OD PASS' : 'PINK SLIP / LEAVE PASS',
+                      leave.isOnDuty
+                          ? 'ON-DUTY OD PASS'
+                          : 'PINK SLIP / LEAVE PASS',
                       style: TextStyle(
                         fontSize: 9.5,
                         fontWeight: FontWeight.bold,
-                        color: leave.isOnDuty ? const Color(0xFF2563EB) : const Color(0xFFDB2777),
+                        color: leave.isOnDuty
+                            ? const Color(0xFF2563EB)
+                            : const Color(0xFFDB2777),
                       ),
                     ),
                   ],
@@ -2747,8 +4363,8 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   color: isApproved
                       ? const Color(0xFFD1FAE5)
                       : isRejected
-                          ? const Color(0xFFFEE2E2)
-                          : const Color(0xFFFEF3C7),
+                      ? const Color(0xFFFEE2E2)
+                      : const Color(0xFFFEF3C7),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -2759,14 +4375,18 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     color: isApproved
                         ? const Color(0xFF047857)
                         : isRejected
-                            ? const Color(0xFFDC2626)
-                            : const Color(0xFFD97706),
+                        ? const Color(0xFFDC2626)
+                        : const Color(0xFFD97706),
                   ),
                 ),
               ),
               Text(
                 '• ${leave.leaveDate.day.toString().padLeft(2, '0')}/${leave.leaveDate.month.toString().padLeft(2, '0')}/${leave.leaveDate.year}',
-                style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  color: Color(0xFF94A3B8),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
@@ -2780,7 +4400,11 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                 backgroundColor: const Color(0xFF6366F1).withValues(alpha: 0.1),
                 child: Text(
                   leave.studentName.isNotEmpty ? leave.studentName[0] : 'S',
-                  style: const TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold, fontSize: 13),
+                  style: const TextStyle(
+                    color: Color(0xFF6366F1),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
@@ -2790,11 +4414,18 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   children: [
                     Text(
                       leave.studentName,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: Color(0xFF0F172A),
+                      ),
                     ),
                     Text(
                       'Roll: ${leave.studentRollNumber} • Class: Year ${leave.year ?? 2}-${leave.section ?? "B"}',
-                      style: const TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                      style: const TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 11,
+                      ),
                     ),
                   ],
                 ),
@@ -2802,17 +4433,27 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: isPresent ? const Color(0xFFF0FDF4) : const Color(0xFFFEF2F2),
+                  color: isPresent
+                      ? const Color(0xFFF0FDF4)
+                      : const Color(0xFFFEF2F2),
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: isPresent ? const Color(0xFFBBF7D0) : const Color(0xFFFECACA)),
+                  border: Border.all(
+                    color: isPresent
+                        ? const Color(0xFFBBF7D0)
+                        : const Color(0xFFFECACA),
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      isPresent ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                      isPresent
+                          ? Icons.check_circle_rounded
+                          : Icons.cancel_rounded,
                       size: 11,
-                      color: isPresent ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                      color: isPresent
+                          ? const Color(0xFF16A34A)
+                          : const Color(0xFFDC2626),
                     ),
                     const SizedBox(width: 4),
                     Text(
@@ -2820,7 +4461,9 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: isPresent ? const Color(0xFF15803D) : const Color(0xFFB91C1C),
+                        color: isPresent
+                            ? const Color(0xFF15803D)
+                            : const Color(0xFFB91C1C),
                       ),
                     ),
                   ],
@@ -2844,15 +4487,30 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.info_outline_rounded, size: 13, color: Color(0xFF64748B)),
+                    const Icon(
+                      Icons.info_outline_rounded,
+                      size: 13,
+                      color: Color(0xFF64748B),
+                    ),
                     const SizedBox(width: 4),
-                    const Text('Reason / Movement Purpose:', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+                    const Text(
+                      'Reason / Movement Purpose:',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 2),
                 Text(
                   leave.reason,
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF1E293B)),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF1E293B),
+                  ),
                 ),
               ],
             ),
@@ -2870,12 +4528,19 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.verified_outlined, size: 14, color: Color(0xFF2563EB)),
+                  const Icon(
+                    Icons.verified_outlined,
+                    size: 14,
+                    color: Color(0xFF2563EB),
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       'Advisor Endorsement: ${leave.advisorRemarks}',
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF1E40AF)),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF1E40AF),
+                      ),
                     ),
                   ),
                 ],
@@ -2895,12 +4560,20 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.verified_user_rounded, size: 14, color: Color(0xFF16A34A)),
+                  const Icon(
+                    Icons.verified_user_rounded,
+                    size: 14,
+                    color: Color(0xFF16A34A),
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       'Digitally Signed by HOD: ${leave.hodRemarks ?? "Officially authorized and recorded in department register."}',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF15803D)),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF15803D),
+                      ),
                     ),
                   ),
                 ],
@@ -2920,12 +4593,20 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.picture_as_pdf_rounded, color: Colors.red, size: 20),
+                  const Icon(
+                    Icons.picture_as_pdf_rounded,
+                    color: Colors.red,
+                    size: 20,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       '${leave.attachmentFileName}',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A),
+                      ),
                     ),
                   ),
                   InkWell(
@@ -2934,14 +4615,28 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                         context: context,
                         builder: (ctx) => LetterAttachmentViewerDialog(
                           leave: leave,
-                          onApproveByHod: (remarks) => setState(() => MockDataService.approveByHod(leave.id, remarks: remarks)),
-                          onRejectByHod: (remarks) => setState(() => MockDataService.rejectByHod(leave.id, remarks: remarks)),
+                          onApproveByHod: (remarks) => setState(
+                            () => MockDataService.approveByHod(
+                              leave.id,
+                              remarks: remarks,
+                            ),
+                          ),
+                          onRejectByHod: (remarks) => setState(
+                            () => MockDataService.rejectByHod(
+                              leave.id,
+                              remarks: remarks,
+                            ),
+                          ),
                         ),
                       );
                     },
                     child: const Text(
                       'Inspect Proof',
-                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF6366F1)),
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF6366F1),
+                      ),
                     ),
                   ),
                 ],
@@ -2962,11 +4657,19 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF475569),
                   side: const BorderSide(color: Color(0xFFCBD5E1)),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
                 icon: const Icon(Icons.remove_red_eye_outlined, size: 14),
-                label: const Text('View Voucher', style: TextStyle(fontSize: 11)),
+                label: const Text(
+                  'View Voucher',
+                  style: TextStyle(fontSize: 11),
+                ),
               ),
               if (isPending)
                 Row(
@@ -2977,10 +4680,21 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.absentRed,
                         side: const BorderSide(color: Color(0xFFFCA5A5)),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
-                      child: const Text('✕ Reject', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                      child: const Text(
+                        '✕ Reject',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton(
@@ -2988,10 +4702,21 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF047857),
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 6,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
-                      child: const Text('✓ Sign & Approve', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                      child: const Text(
+                        '✓ Sign & Approve',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -3047,15 +4772,24 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEC4899).withValues(alpha: 0.1),
+                              color: const Color(0xFFEC4899)
+                                  .withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: const Icon(Icons.receipt_long_rounded, color: Color(0xFFEC4899), size: 20),
+                            child: const Icon(
+                              Icons.receipt_long_rounded,
+                              color: Color(0xFFEC4899),
+                              size: 20,
+                            ),
                           ),
                           const SizedBox(width: 10),
                           const Text(
                             'Issue Official Pink Slip / OD',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: Color(0xFF0F172A),
+                            ),
                           ),
                         ],
                       ),
@@ -3073,7 +4807,11 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     children: [
                       const Text(
                         'Select Student (All 622 Students)',
-                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF475569),
+                        ),
                       ),
                       if (selectedStudent != null)
                         TextButton.icon(
@@ -3089,8 +4827,19 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                               searchCtrl.clear();
                             });
                           },
-                          icon: const Icon(Icons.refresh_rounded, size: 14, color: Color(0xFFEF4444)),
-                          label: const Text('Change Student', style: TextStyle(fontSize: 11, color: Color(0xFFEF4444), fontWeight: FontWeight.bold)),
+                          icon: const Icon(
+                            Icons.refresh_rounded,
+                            size: 14,
+                            color: Color(0xFFEF4444),
+                          ),
+                          label: const Text(
+                            'Change Student',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFFEF4444),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                     ],
                   ),
@@ -3107,7 +4856,11 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.check_circle_rounded, color: Color(0xFF059669), size: 22),
+                          const Icon(
+                            Icons.check_circle_rounded,
+                            color: Color(0xFF059669),
+                            size: 22,
+                          ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Column(
@@ -3115,12 +4868,19 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                               children: [
                                 Text(
                                   '${selectedStudent!.name} (${selectedStudent!.rollNumber})',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF065F46)),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: Color(0xFF065F46),
+                                  ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   'Year ${selectedStudent!.year}-${selectedStudent!.section} • Reg: ${selectedStudent!.registerNumber} • ${selectedStudent!.batchYear}',
-                                  style: const TextStyle(fontSize: 11, color: Color(0xFF047857)),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF047857),
+                                  ),
                                 ),
                               ],
                             ),
@@ -3134,7 +4894,11 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                       controller: searchCtrl,
                       decoration: InputDecoration(
                         hintText: 'Search by Name, Roll No (e.g. 25243005), or Reg No...',
-                        prefixIcon: const Icon(Icons.search_rounded, size: 18, color: Color(0xFF64748B)),
+                        prefixIcon: const Icon(
+                          Icons.search_rounded,
+                          size: 18,
+                          color: Color(0xFF64748B),
+                        ),
                         suffixIcon: searchCtrl.text.isNotEmpty
                             ? IconButton(
                                 icon: const Icon(Icons.clear_rounded, size: 16),
@@ -3147,8 +4911,16 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                             : null,
                         filled: true,
                         fillColor: const Color(0xFFF8FAFC),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE2E8F0),
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                       ),
                       style: const TextStyle(fontSize: 12),
                       onChanged: (_) => setModalState(() {}),
@@ -3161,50 +4933,79 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                       child: Row(
                         children: [
                           ChoiceChip(
-                            label: const Text('All Years', style: TextStyle(fontSize: 10.5)),
-                            selected: filterYear == 0,
-                            onSelected: (_) => setModalState(() => filterYear = 0),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                          const SizedBox(width: 4),
-                          ChoiceChip(
-                            label: const Text('II Year', style: TextStyle(fontSize: 10.5)),
-                            selected: filterYear == 2,
-                            onSelected: (_) => setModalState(() => filterYear = 2),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                          const SizedBox(width: 4),
-                          ChoiceChip(
-                            label: const Text('III Year', style: TextStyle(fontSize: 10.5)),
-                            selected: filterYear == 3,
-                            onSelected: (_) => setModalState(() => filterYear = 3),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                          const SizedBox(width: 4),
-                          ChoiceChip(
-                            label: const Text('IV Year', style: TextStyle(fontSize: 10.5)),
-                            selected: filterYear == 4,
-                            onSelected: (_) => setModalState(() => filterYear = 4),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                          const SizedBox(width: 8),
-                          const Text('|', style: TextStyle(color: Color(0xFFCBD5E1))),
-                          const SizedBox(width: 8),
-                          ChoiceChip(
-                            label: const Text('All Sec', style: TextStyle(fontSize: 10.5)),
-                            selected: filterSection == 'ALL',
-                            onSelected: (_) => setModalState(() => filterSection = 'ALL'),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                          ...['A', 'B', 'C', 'D'].map((sec) => Padding(
-                            padding: const EdgeInsets.only(left: 4),
-                            child: ChoiceChip(
-                              label: Text('Sec $sec', style: const TextStyle(fontSize: 10.5)),
-                              selected: filterSection == sec,
-                              onSelected: (_) => setModalState(() => filterSection = sec),
-                              visualDensity: VisualDensity.compact,
+                            label: const Text(
+                              'All Years',
+                              style: TextStyle(fontSize: 10.5),
                             ),
-                          )),
+                            selected: filterYear == 0,
+                            onSelected: (_) =>
+                                setModalState(() => filterYear = 0),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          const SizedBox(width: 4),
+                          ChoiceChip(
+                            label: const Text(
+                              'II Year',
+                              style: TextStyle(fontSize: 10.5),
+                            ),
+                            selected: filterYear == 2,
+                            onSelected: (_) =>
+                                setModalState(() => filterYear = 2),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          const SizedBox(width: 4),
+                          ChoiceChip(
+                            label: const Text(
+                              'III Year',
+                              style: TextStyle(fontSize: 10.5),
+                            ),
+                            selected: filterYear == 3,
+                            onSelected: (_) =>
+                                setModalState(() => filterYear = 3),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          const SizedBox(width: 4),
+                          ChoiceChip(
+                            label: const Text(
+                              'IV Year',
+                              style: TextStyle(fontSize: 10.5),
+                            ),
+                            selected: filterYear == 4,
+                            onSelected: (_) =>
+                                setModalState(() => filterYear = 4),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            '|',
+                            style: TextStyle(color: Color(0xFFCBD5E1)),
+                          ),
+                          const SizedBox(width: 8),
+                          ChoiceChip(
+                            label: const Text(
+                              'All Sec',
+                              style: TextStyle(fontSize: 10.5),
+                            ),
+                            selected: filterSection == 'ALL',
+                            onSelected: (_) =>
+                                setModalState(() => filterSection = 'ALL'),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          ...['A', 'B', 'C', 'D'].map(
+                            (sec) => Padding(
+                              padding: const EdgeInsets.only(left: 4),
+                              child: ChoiceChip(
+                                label: Text(
+                                  'Sec $sec',
+                                  style: const TextStyle(fontSize: 10.5),
+                                ),
+                                selected: filterSection == sec,
+                                onSelected: (_) =>
+                                    setModalState(() => filterSection = sec),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -3215,12 +5016,18 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                       builder: (context) {
                         final query = searchCtrl.text.trim().toLowerCase();
                         final matches = MockDataService.allStudents.where((st) {
-                          if (filterYear != 0 && st.year != filterYear) return false;
-                          if (filterSection != 'ALL' && st.section != filterSection) return false;
+                          if (filterYear != 0 && st.year != filterYear)
+                            return false;
+                          if (filterSection != 'ALL' &&
+                              st.section != filterSection)
+                            return false;
                           if (query.isEmpty) return true;
                           return st.name.toLowerCase().contains(query) ||
                               st.rollNumber.toLowerCase().contains(query) ||
-                              (st.registerNumber?.toLowerCase().contains(query) ?? false);
+                              (st.registerNumber?.toLowerCase().contains(
+                                    query,
+                                  ) ??
+                                  false);
                         }).toList();
 
                         return Container(
@@ -3234,13 +5041,25 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                               ? const Center(
                                   child: Padding(
                                     padding: EdgeInsets.all(12),
-                                    child: Text('No students matching search criteria.', style: TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8))),
+                                    child: Text(
+                                      'No students matching search criteria.',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        color: Color(0xFF94A3B8),
+                                      ),
+                                    ),
                                   ),
                                 )
                               : ListView.separated(
                                   shrinkWrap: true,
-                                  itemCount: matches.length > 50 && query.isEmpty ? 50 : matches.length,
-                                  separatorBuilder: (_, _) => const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                                  itemCount:
+                                      matches.length > 50 && query.isEmpty
+                                      ? 50
+                                      : matches.length,
+                                  separatorBuilder: (_, _) => const Divider(
+                                    height: 1,
+                                    color: Color(0xFFE2E8F0),
+                                  ),
                                   itemBuilder: (context, index) {
                                     final st = matches[index];
                                     return ListTile(
@@ -3248,13 +5067,24 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                                       visualDensity: VisualDensity.compact,
                                       title: Text(
                                         '${st.name} (${st.rollNumber})',
-                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF0F172A),
+                                        ),
                                       ),
                                       subtitle: Text(
                                         'Year ${st.year}-${st.section} • Reg: ${st.registerNumber} • ${st.batchYear}',
-                                        style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+                                        style: const TextStyle(
+                                          fontSize: 10.5,
+                                          color: Color(0xFF64748B),
+                                        ),
                                       ),
-                                      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Color(0xFFEC4899)),
+                                      trailing: const Icon(
+                                        Icons.arrow_forward_ios_rounded,
+                                        size: 12,
+                                        color: Color(0xFFEC4899),
+                                      ),
                                       onTap: () {
                                         setModalState(() {
                                           selectedStudent = st;
@@ -3280,7 +5110,14 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Student Name', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                            const Text(
+                              'Student Name',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF475569),
+                              ),
+                            ),
                             const SizedBox(height: 4),
                             TextField(
                               controller: nameCtrl,
@@ -3288,8 +5125,16 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                                 hintText: 'Student Name',
                                 filled: true,
                                 fillColor: const Color(0xFFF8FAFC),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFFE2E8F0),
+                                  ),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
                               ),
                               style: const TextStyle(fontSize: 12),
                             ),
@@ -3301,7 +5146,14 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Roll Number', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                            const Text(
+                              'Roll Number',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF475569),
+                              ),
+                            ),
                             const SizedBox(height: 4),
                             TextField(
                               controller: rollCtrl,
@@ -3309,8 +5161,16 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                                 hintText: 'e.g. 25243005',
                                 filled: true,
                                 fillColor: const Color(0xFFF8FAFC),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFFE2E8F0),
+                                  ),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
                               ),
                               style: const TextStyle(fontSize: 12),
                             ),
@@ -3322,22 +5182,65 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   const SizedBox(height: 12),
 
                   // Pass Type
-                  const Text('Pass / Slip Category', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                  const Text(
+                    'Pass / Slip Category',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   DropdownButtonFormField<String>(
                     initialValue: passType,
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                     ),
                     items: const [
-                      DropdownMenuItem(value: 'Pink Slip / Exit Pass', child: Text('🎫 Pink Slip / Campus Exit Pass', style: TextStyle(fontSize: 12))),
-                      DropdownMenuItem(value: 'On-Duty (OD) Pass', child: Text('🏆 On-Duty (OD) Official Pass', style: TextStyle(fontSize: 12))),
-                      DropdownMenuItem(value: 'Late Entry Pass', child: Text('⏱️ Late Gate Entry Pass', style: TextStyle(fontSize: 12))),
-                      DropdownMenuItem(value: 'Medical Emergency Pass', child: Text('🏥 Medical / Health Center Pass', style: TextStyle(fontSize: 12))),
-                      DropdownMenuItem(value: 'Academic Leave Slip', child: Text('📝 Academic Approved Leave', style: TextStyle(fontSize: 12))),
+                      DropdownMenuItem(
+                        value: 'Pink Slip / Exit Pass',
+                        child: Text(
+                          '🎫 Pink Slip / Campus Exit Pass',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                      DropdownMenuItem(
+                        value: 'On-Duty (OD) Pass',
+                        child: Text(
+                          '🏆 On-Duty (OD) Official Pass',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                      DropdownMenuItem(
+                        value: 'Late Entry Pass',
+                        child: Text(
+                          '⏱️ Late Gate Entry Pass',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                      DropdownMenuItem(
+                        value: 'Medical Emergency Pass',
+                        child: Text(
+                          '🏥 Medical / Health Center Pass',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                      DropdownMenuItem(
+                        value: 'Academic Leave Slip',
+                        child: Text(
+                          '📝 Academic Approved Leave',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
                     ],
                     onChanged: (val) {
                       if (val != null) setModalState(() => passType = val);
@@ -3346,7 +5249,14 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   const SizedBox(height: 12),
 
                   // Reason
-                  const Text('Reason / Event Description', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                  const Text(
+                    'Reason / Event Description',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   TextField(
                     controller: reasonCtrl,
@@ -3355,7 +5265,10 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                       hintText: 'e.g. Hackathon participation, medical clinic visit, official lab contest...',
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
                       contentPadding: const EdgeInsets.all(10),
                     ),
                     style: const TextStyle(fontSize: 12),
@@ -3363,7 +5276,14 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   const SizedBox(height: 12),
 
                   // HOD Remarks
-                  const Text('HOD Authorization Remarks', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                  const Text(
+                    'HOD Authorization Remarks',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   TextField(
                     controller: remarksCtrl,
@@ -3371,8 +5291,14 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                       hintText: 'e.g. Officially sanctioned by HOD. Valid for entry/exit.',
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
                     ),
                     style: const TextStyle(fontSize: 12),
                   ),
@@ -3385,23 +5311,35 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                       onPressed: () {
                         final stName = nameCtrl.text.trim();
                         final stRoll = rollCtrl.text.trim();
-                        final reason = reasonCtrl.text.trim().isEmpty ? 'Official Department Clearance' : reasonCtrl.text.trim();
-                        final remarks = remarksCtrl.text.trim().isEmpty ? 'Authorized by HOD ($_currentHodName)' : remarksCtrl.text.trim();
+                        final reason = reasonCtrl.text.trim().isEmpty
+                            ? 'Official Department Clearance'
+                            : reasonCtrl.text.trim();
+                        final remarks = remarksCtrl.text.trim().isEmpty
+                            ? 'Authorized by HOD ($_currentHodName)'
+                            : remarksCtrl.text.trim();
 
                         if (stName.isEmpty || stRoll.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Please specify student name and roll number.')),
+                            const SnackBar(
+                              content: Text(
+                                'Please specify student name and roll number.',
+                              ),
+                            ),
                           );
                           return;
                         }
 
-                        final isOd = passType.contains('OD') || passType.contains('On-Duty');
+                        final isOd =
+                            passType.contains('OD') ||
+                            passType.contains('On-Duty');
                         final newLeave = LeaveModel(
                           id: 'slip_${DateTime.now().millisecondsSinceEpoch}',
                           studentId: selectedStudent?.id ?? 'stu_$stRoll',
                           studentName: stName,
                           studentRollNumber: stRoll,
-                          category: isOd ? LeaveCategory.onDuty : LeaveCategory.leave,
+                          category: isOd
+                              ? LeaveCategory.onDuty
+                              : LeaveCategory.leave,
                           leaveType: LeaveType.informed,
                           reason: '$passType: $reason',
                           leaveDate: DateTime.now(),
@@ -3415,13 +5353,18 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
 
                         setState(() {
                           MockDataService.submitLeaveRequest(newLeave);
-                          MockDataService.approveByHod(newLeave.id, remarks: remarks);
+                          MockDataService.approveByHod(
+                            newLeave.id,
+                            remarks: remarks,
+                          );
                         });
 
                         Navigator.pop(ctx);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('🎉 Pink Slip issued and digitally authorized for $stName!'),
+                            content: Text(
+                              '🎉 Pink Slip issued and digitally authorized for $stName!',
+                            ),
                             backgroundColor: const Color(0xFF047857),
                           ),
                         );
@@ -3430,10 +5373,18 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                         backgroundColor: const Color(0xFFEC4899),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                       icon: const Icon(Icons.verified_rounded, size: 18),
-                      label: const Text('Issue & Digitally Authorize', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      label: const Text(
+                        'Issue & Digitally Authorize',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -3468,12 +5419,21 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   children: const [
                     Text(
                       'VSB ENGINEERING COLLEGE',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        letterSpacing: 1,
+                      ),
                     ),
                     SizedBox(height: 2),
                     Text(
                       'DEPARTMENT OF ARTIFICIAL INTELLIGENCE & DATA SCIENCE',
-                      style: TextStyle(color: Colors.white70, fontSize: 9, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ),
@@ -3482,18 +5442,31 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
 
               // Title Ribbon
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
-                  color: leave.isOnDuty ? const Color(0xFFEFF6FF) : const Color(0xFFFDF2F8),
+                  color: leave.isOnDuty
+                      ? const Color(0xFFEFF6FF)
+                      : const Color(0xFFFDF2F8),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: leave.isOnDuty ? const Color(0xFFBFDBFE) : const Color(0xFFFBCFE8)),
+                  border: Border.all(
+                    color: leave.isOnDuty
+                        ? const Color(0xFFBFDBFE)
+                        : const Color(0xFFFBCFE8),
+                  ),
                 ),
                 child: Text(
-                  leave.isOnDuty ? 'OFFICIAL ON-DUTY (OD) PASS' : 'OFFICIAL PINK SLIP / MOVEMENT VOUCHER',
+                  leave.isOnDuty
+                      ? 'OFFICIAL ON-DUTY (OD) PASS'
+                      : 'OFFICIAL PINK SLIP / MOVEMENT VOUCHER',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
-                    color: leave.isOnDuty ? const Color(0xFF1D4ED8) : const Color(0xFFBE185D),
+                    color: leave.isOnDuty
+                        ? const Color(0xFF1D4ED8)
+                        : const Color(0xFFBE185D),
                   ),
                 ),
               ),
@@ -3515,14 +5488,23 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     const Divider(height: 12),
                     _voucherRow('Roll / Register No', leave.studentRollNumber),
                     const Divider(height: 12),
-                    _voucherRow('Class & Section', 'Year ${leave.year ?? 2} - Sec ${leave.section ?? "B"} (AI&DS)'),
+                    _voucherRow(
+                      'Class & Section',
+                      'Year ${leave.year ?? 2} - Sec ${leave.section ?? "B"} (AI&DS)',
+                    ),
                     const Divider(height: 12),
-                    _voucherRow('Date Valid', '${leave.leaveDate.day}/${leave.leaveDate.month}/${leave.leaveDate.year}'),
+                    _voucherRow(
+                      'Date Valid',
+                      '${leave.leaveDate.day}/${leave.leaveDate.month}/${leave.leaveDate.year}',
+                    ),
                     const Divider(height: 12),
                     _voucherRow('Reason / Activity', leave.reason),
                     if (leave.advisorRemarks != null) ...[
                       const Divider(height: 12),
-                      _voucherRow('Advisor Sign', 'Verified (${leave.advisorRemarks})'),
+                      _voucherRow(
+                        'Advisor Sign',
+                        'Verified (${leave.advisorRemarks})',
+                      ),
                     ],
                     const Divider(height: 12),
                     _voucherRow(
@@ -3543,18 +5525,44 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      border: Border.all(color: const Color(0xFF0F172A), width: 1.5),
+                      border: Border.all(
+                        color: const Color(0xFF0F172A),
+                        width: 1.5,
+                      ),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: const Icon(Icons.qr_code_2_rounded, size: 36, color: Color(0xFF0F172A)),
+                    child: const Icon(
+                      Icons.qr_code_2_rounded,
+                      size: 36,
+                      color: Color(0xFF0F172A),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('SECURE QR VALIDATION', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
-                      Text('Dept Authenticated Code: VSB-${leave.studentRollNumber}', style: const TextStyle(fontSize: 9, color: Color(0xFF64748B))),
-                      const Text('Status: Official Gate / OD Clearance', style: TextStyle(fontSize: 9, color: Color(0xFF059669), fontWeight: FontWeight.bold)),
+                      const Text(
+                        'SECURE QR VALIDATION',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10,
+                        ),
+                      ),
+                      Text(
+                        'Dept Authenticated Code: VSB-${leave.studentRollNumber}',
+                        style: const TextStyle(
+                          fontSize: 9,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      const Text(
+                        'Status: Official Gate / OD Clearance',
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: Color(0xFF059669),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -3576,7 +5584,9 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                         Navigator.pop(ctx);
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('🖨️ Pink Slip sent to Department Network Printer!'),
+                            content: Text(
+                              '🖨️ Pink Slip sent to Department Network Printer!',
+                            ),
                             backgroundColor: Color(0xFF0284C7),
                           ),
                         );
@@ -3586,7 +5596,13 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                         foregroundColor: Colors.white,
                       ),
                       icon: const Icon(Icons.print_rounded, size: 16),
-                      label: const Text('Print Voucher', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      label: const Text(
+                        'Print Voucher',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -3604,12 +5620,23 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
       children: [
         SizedBox(
           width: 110,
-          child: Text(key, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+          child: Text(
+            key,
+            style: const TextStyle(
+              fontSize: 11,
+              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ),
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF0F172A),
+            ),
           ),
         ),
       ],
@@ -3634,11 +5661,19 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                 children: [
                   Row(
                     children: const [
-                      Icon(Icons.menu_book_rounded, color: Color(0xFF0284C7), size: 22),
+                      Icon(
+                        Icons.menu_book_rounded,
+                        color: Color(0xFF0284C7),
+                        size: 22,
+                      ),
                       SizedBox(width: 8),
                       Text(
                         'Pink Slip Register',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Color(0xFF0F172A),
+                        ),
                       ),
                     ],
                   ),
@@ -3666,23 +5701,50 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                         children: [
                           CircleAvatar(
                             radius: 14,
-                            backgroundColor: l.isOnDuty ? const Color(0xFFEFF6FF) : const Color(0xFFFDF2F8),
-                            child: Text('${i + 1}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                            backgroundColor: l.isOnDuty
+                                ? const Color(0xFFEFF6FF)
+                                : const Color(0xFFFDF2F8),
+                            child: Text(
+                              '${i + 1}',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('${l.studentName} (${l.studentRollNumber})', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                Text('Yr ${l.year}-${l.section} • ${l.reason}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B))),
+                                Text(
+                                  '${l.studentName} (${l.studentRollNumber})',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  'Yr ${l.year}-${l.section} • ${l.reason}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 10.5,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
-                              color: l.letterStatus == LetterStatus.approved ? const Color(0xFFD1FAE5) : const Color(0xFFFEF3C7),
+                              color: l.letterStatus == LetterStatus.approved
+                                  ? const Color(0xFFD1FAE5)
+                                  : const Color(0xFFFEF3C7),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -3690,7 +5752,9 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                               style: TextStyle(
                                 fontSize: 9.5,
                                 fontWeight: FontWeight.bold,
-                                color: l.letterStatus == LetterStatus.approved ? const Color(0xFF047857) : const Color(0xFFD97706),
+                                color: l.letterStatus == LetterStatus.approved
+                                    ? const Color(0xFF047857)
+                                    : const Color(0xFFD97706),
                               ),
                             ),
                           ),
@@ -3709,13 +5773,19 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                       onPressed: () async {
                         Navigator.pop(ctx);
                         try {
-                          final file = await MockDataService.exportStudentCsvToFile();
-                          final csvContent = MockDataService.generateCompleteStudentCsv();
-                          await Clipboard.setData(ClipboardData(text: csvContent));
+                          final file =
+                              await MockDataService.exportStudentCsvToFile();
+                          final csvContent =
+                              MockDataService.generateCompleteStudentCsv();
+                          await Clipboard.setData(
+                            ClipboardData(text: csvContent),
+                          );
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('📊 Complete CSV Exported (${MockDataService.allStudents.length} Students)! Copied to clipboard & saved to ${file.path}'),
+                                content: Text(
+                                  '📊 Complete CSV Exported (${MockDataService.allStudents.length} Students)! Copied to clipboard & saved to ${file.path}',
+                                ),
                                 backgroundColor: const Color(0xFF059669),
                               ),
                             );
@@ -3723,13 +5793,19 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                         } catch (_) {
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('📊 Exported register as CSV!'), backgroundColor: Color(0xFF059669)),
+                              const SnackBar(
+                                content: Text('📊 Exported register as CSV!'),
+                                backgroundColor: Color(0xFF059669),
+                              ),
                             );
                           }
                         }
                       },
                       icon: const Icon(Icons.table_chart_outlined, size: 16),
-                      label: const Text('Export CSV', style: TextStyle(fontSize: 12)),
+                      label: const Text(
+                        'Export CSV',
+                        style: TextStyle(fontSize: 12),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -3738,12 +5814,26 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                       onPressed: () {
                         Navigator.pop(ctx);
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('📄 Pink Slip Register exported as official signed PDF!'), backgroundColor: Color(0xFF0F172A)),
+                          const SnackBar(
+                            content: Text(
+                              '📄 Pink Slip Register exported as official signed PDF!',
+                            ),
+                            backgroundColor: Color(0xFF0F172A),
+                          ),
                         );
                       },
-                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F172A), foregroundColor: Colors.white),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0F172A),
+                        foregroundColor: Colors.white,
+                      ),
                       icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
-                      label: const Text('Export PDF', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      label: const Text(
+                        'Export PDF',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -3756,17 +5846,25 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
   }
 
   void _showApproveWithRemarksDialog(LeaveModel leave) {
-    final remarksCtrl = TextEditingController(text: 'Officially approved by HOD ($_currentHodName)');
+    final remarksCtrl = TextEditingController(
+      text: 'Officially approved by HOD ($_currentHodName)',
+    );
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Digital Signature & Endorsement', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Digital Signature & Endorsement',
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Approving movement / OD for ${leave.studentName} (${leave.studentRollNumber}).', style: const TextStyle(fontSize: 12, color: Color(0xFF475569))),
+            Text(
+              'Approving movement / OD for ${leave.studentName} (${leave.studentRollNumber}).',
+              style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+            ),
             const SizedBox(height: 10),
             TextField(
               controller: remarksCtrl,
@@ -3779,21 +5877,32 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () {
               setState(() {
-                MockDataService.approveByHod(leave.id, remarks: remarksCtrl.text.trim());
+                MockDataService.approveByHod(
+                  leave.id,
+                  remarks: remarksCtrl.text.trim(),
+                );
               });
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('✓ Digitally signed and approved for ${leave.studentName}!'),
+                  content: Text(
+                    '✓ Digitally signed and approved for ${leave.studentName}!',
+                  ),
                   backgroundColor: const Color(0xFF047857),
                 ),
               );
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF047857), foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF047857),
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Sign & Approve'),
           ),
         ],
@@ -3807,12 +5916,22 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Return / Reject Slip', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFFDC2626))),
+        title: const Text(
+          'Return / Reject Slip',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFFDC2626),
+          ),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Rejecting request for ${leave.studentName} (${leave.studentRollNumber}).', style: const TextStyle(fontSize: 12, color: Color(0xFF475569))),
+            Text(
+              'Rejecting request for ${leave.studentName} (${leave.studentRollNumber}).',
+              style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+            ),
             const SizedBox(height: 10),
             TextField(
               controller: remarksCtrl,
@@ -3826,22 +5945,32 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () {
-              final remarks = remarksCtrl.text.trim().isEmpty ? 'Rejected by HOD' : remarksCtrl.text.trim();
+              final remarks = remarksCtrl.text.trim().isEmpty
+                  ? 'Rejected by HOD'
+                  : remarksCtrl.text.trim();
               setState(() {
                 MockDataService.rejectByHod(leave.id, remarks: remarks);
               });
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Request returned/rejected for ${leave.studentName}.'),
+                  content: Text(
+                    'Request returned/rejected for ${leave.studentName}.',
+                  ),
                   backgroundColor: const Color(0xFFDC2626),
                 ),
               );
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626), foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Confirm Rejection'),
           ),
         ],
@@ -3881,7 +6010,11 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     color: const Color(0xFF6366F1).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.school_rounded, color: Color(0xFF6366F1), size: 20),
+                  child: const Icon(
+                    Icons.school_rounded,
+                    color: Color(0xFF6366F1),
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -3890,7 +6023,11 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     children: [
                       const Text(
                         'Academic Year Progression & Promotion Queue',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: Color(0xFF0F172A),
+                        ),
                       ),
                       Text(
                         '1 Sem = ~3 Months • 2 Sems/Year • 7-10 Day Grace Window Approval',
@@ -3900,14 +6037,21 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF6366F1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     '${pendingPromotions.length} Batches',
-                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
@@ -3923,19 +6067,28 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.check_circle_outline_rounded, color: Color(0xFF10B981), size: 20),
+                    Icon(
+                      Icons.check_circle_outline_rounded,
+                      color: Color(0xFF10B981),
+                      size: 20,
+                    ),
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'All section batches are actively promoted and synced.',
-                        style: TextStyle(fontSize: 12, color: Color(0xFF475569)),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF475569),
+                        ),
                       ),
                     ),
                   ],
                 ),
               )
             else
-              ...pendingPromotions.map((prom) => _buildPromotionRequestItem(prom)),
+              ...pendingPromotions.map(
+                (prom) => _buildPromotionRequestItem(prom),
+              ),
           ],
         ),
       ),
@@ -3944,7 +6097,9 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
 
   Widget _buildPromotionRequestItem(PromotionRequest prom) {
     final isGrad = prom.isGraduation;
-    final isPending = prom.status == PromotionApprovalStatus.forwardedToHod || prom.status == PromotionApprovalStatus.pendingAdvisorReview;
+    final isPending =
+        prom.status == PromotionApprovalStatus.forwardedToHod ||
+        prom.status == PromotionApprovalStatus.pendingAdvisorReview;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -3962,19 +6117,29 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: isGrad ? const Color(0xFFDC2626) : const Color(0xFF0284C7),
+                  color: isGrad
+                      ? const Color(0xFFDC2626)
+                      : const Color(0xFF0284C7),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   isGrad ? '🎓 FINAL YEAR GRADUATION' : 'BATCH PROMOTION',
-                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   prom.promotionTitle,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Color(0xFF0F172A),
+                  ),
                 ),
               ),
             ],
@@ -3982,7 +6147,11 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
           const SizedBox(height: 8),
           Text(
             'Semester Completed: Sem ${prom.semesterCompleted} (End of Academic Year)',
-            style: const TextStyle(fontSize: 11.5, color: Color(0xFF334155), fontWeight: FontWeight.w500),
+            style: const TextStyle(
+              fontSize: 11.5,
+              color: Color(0xFF334155),
+              fontWeight: FontWeight.w500,
+            ),
           ),
           Text(
             'Evaluation Window: ${prom.graceTransitionDays}-day grace period elapsed • Total: ${prom.totalStudents} Students',
@@ -3999,12 +6168,19 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.verified_outlined, size: 14, color: Color(0xFF2563EB)),
+                  const Icon(
+                    Icons.verified_outlined,
+                    size: 14,
+                    color: Color(0xFF2563EB),
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       'Advisor (${prom.advisorName}): ${prom.advisorRemarks ?? "Recommended for promotion."}',
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF1E40AF)),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF1E40AF),
+                      ),
                     ),
                   ),
                 ],
@@ -4022,12 +6198,20 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.inventory_2_outlined, size: 14, color: Color(0xFFDC2626)),
+                  Icon(
+                    Icons.inventory_2_outlined,
+                    size: 14,
+                    color: Color(0xFFDC2626),
+                  ),
                   SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       '2-Year Alumni Retention Rule: Retain active records until June 2028, then auto-purge.',
-                      style: TextStyle(fontSize: 11, color: Color(0xFF991B1B), fontWeight: FontWeight.w500),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF991B1B),
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ],
@@ -4043,11 +6227,17 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                 promotion: prom,
                 onHodApprove: (r) {
                   setState(() {
-                    MockDataService.hodApprovePromotion(prom.id, hodName: _currentHodName, remarks: r);
+                    MockDataService.hodApprovePromotion(
+                      prom.id,
+                      hodName: _currentHodName,
+                      remarks: r,
+                    );
                   });
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('🎉 Approved! Batch successfully promoted to ${prom.toYearRoman}.'),
+                      content: Text(
+                        '🎉 Approved! Batch successfully promoted to ${prom.toYearRoman}.',
+                      ),
                       backgroundColor: const Color(0xFF059669),
                     ),
                   );
@@ -4057,7 +6247,10 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     MockDataService.hodRejectPromotion(prom.id, remarks: r);
                   });
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Promotion request returned for review.'), backgroundColor: Colors.orange),
+                    const SnackBar(
+                      content: Text('Promotion request returned for review.'),
+                      backgroundColor: Colors.orange,
+                    ),
                   );
                 },
               ),
@@ -4065,10 +6258,15 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                 foregroundColor: const Color(0xFF0284C7),
                 side: const BorderSide(color: Color(0xFFBAE6FD)),
                 padding: const EdgeInsets.symmetric(vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
               icon: const Icon(Icons.folder_open_rounded, size: 16),
-              label: const Text('Inspect Batch Dossier & Credit Proofs', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              label: const Text(
+                'Inspect Batch Dossier & Credit Proofs',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
             ),
           ),
           const SizedBox(height: 8),
@@ -4079,18 +6277,31 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   child: OutlinedButton(
                     onPressed: () {
                       setState(() {
-                        MockDataService.hodRejectPromotion(prom.id, remarks: 'Returned to Advisor for re-evaluation.');
+                        MockDataService.hodRejectPromotion(
+                          prom.id,
+                          remarks: 'Returned to Advisor for re-evaluation.',
+                        );
                       });
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Promotion request returned for review.'), backgroundColor: Colors.orange),
+                        const SnackBar(
+                          content: Text(
+                            'Promotion request returned for review.',
+                          ),
+                          backgroundColor: Colors.orange,
+                        ),
                       );
                     },
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFFDC2626),
                       side: const BorderSide(color: Color(0xFFFCA5A5)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
-                    child: const Text('Return / Hold', style: TextStyle(fontSize: 12)),
+                    child: const Text(
+                      'Return / Hold',
+                      style: TextStyle(fontSize: 12),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -4106,7 +6317,9 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                       });
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('🎉 Approved! Batch successfully promoted to ${prom.toYearRoman}.'),
+                          content: Text(
+                            '🎉 Approved! Batch successfully promoted to ${prom.toYearRoman}.',
+                          ),
                           backgroundColor: const Color(0xFF059669),
                         ),
                       );
@@ -4114,12 +6327,20 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF047857),
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
-                    icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
+                    icon: const Icon(
+                      Icons.check_circle_outline_rounded,
+                      size: 16,
+                    ),
                     label: Text(
                       isGrad ? 'Confirm Graduation' : 'Approve & Promote',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
@@ -4134,7 +6355,11 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               ),
               child: Text(
                 '✓ Status: ${prom.statusBadgeLabel}',
-                style: const TextStyle(color: Color(0xFF065F46), fontSize: 11.5, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  color: Color(0xFF065F46),
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
         ],
@@ -4176,7 +6401,11 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     color: const Color(0xFF0F172A).withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.auto_delete_outlined, color: Color(0xFF0F172A), size: 20),
+                  child: const Icon(
+                    Icons.auto_delete_outlined,
+                    color: Color(0xFF0F172A),
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -4185,7 +6414,11 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     children: [
                       const Text(
                         'Alumni Data Retention & Auto-Purge Manager',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: Color(0xFF0F172A),
+                        ),
                       ),
                       Text(
                         'Mandatory 2-Year Statutory Archival • Automatic Database Purging',
@@ -4212,13 +6445,29 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Under 2-Yr Retention', style: TextStyle(color: Color(0xFF166534), fontSize: 11)),
+                        const Text(
+                          'Under 2-Yr Retention',
+                          style: TextStyle(
+                            color: Color(0xFF166534),
+                            fontSize: 11,
+                          ),
+                        ),
                         const SizedBox(height: 4),
                         Text(
                           '${activeRetention.length} Graduates',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF14532D)),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: Color(0xFF14532D),
+                          ),
                         ),
-                        const Text('Active compliance vault', style: TextStyle(color: Color(0xFF15803D), fontSize: 10)),
+                        const Text(
+                          'Active compliance vault',
+                          style: TextStyle(
+                            color: Color(0xFF15803D),
+                            fontSize: 10,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -4235,13 +6484,29 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Auto-Purged (> 2 Yrs)', style: TextStyle(color: Color(0xFF991B1B), fontSize: 11)),
+                        const Text(
+                          'Auto-Purged (> 2 Yrs)',
+                          style: TextStyle(
+                            color: Color(0xFF991B1B),
+                            fontSize: 11,
+                          ),
+                        ),
                         const SizedBox(height: 4),
                         Text(
                           '${purgedRecords.length} Records',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF7F1D1D)),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: Color(0xFF7F1D1D),
+                          ),
                         ),
-                        const Text('Pruned from database', style: TextStyle(color: Color(0xFFB91C1C), fontSize: 10)),
+                        const Text(
+                          'Pruned from database',
+                          style: TextStyle(
+                            color: Color(0xFFB91C1C),
+                            fontSize: 10,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -4259,25 +6524,41 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () {
-                      final count = MockDataService.triggerAlumniRetentionPurgeCheck();
+                      final count =
+                          MockDataService.triggerAlumniRetentionPurgeCheck();
                       setState(() {});
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text(count > 0
-                              ? '🧹 Auto-Purge Completed: $count expired record(s) safely pruned from active database.'
-                              : '✅ Retention Check OK: All active alumni records are within the 2-year retention window.'),
-                          backgroundColor: count > 0 ? const Color(0xFFDC2626) : const Color(0xFF0284C7),
+                          content: Text(
+                            count > 0
+                                ? '🧹 Auto-Purge Completed: $count expired record(s) safely pruned from active database.'
+                                : '✅ Retention Check OK: All active alumni records are within the 2-year retention window.',
+                          ),
+                          backgroundColor: count > 0
+                              ? const Color(0xFFDC2626)
+                              : const Color(0xFF0284C7),
                         ),
                       );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF0F172A),
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 10),
                     ),
-                    icon: const Icon(Icons.cleaning_services_outlined, size: 16),
-                    label: const Text('Run 2-Year Retention Auto-Purge Check', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    icon: const Icon(
+                      Icons.cleaning_services_outlined,
+                      size: 16,
+                    ),
+                    label: const Text(
+                      'Run 2-Year Retention Auto-Purge Check',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -4300,8 +6581,12 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
       child: Row(
         children: [
           Icon(
-            rec.isPurged ? Icons.delete_sweep_outlined : Icons.inventory_2_outlined,
-            color: rec.isPurged ? const Color(0xFF94A3B8) : const Color(0xFF059669),
+            rec.isPurged
+                ? Icons.delete_sweep_outlined
+                : Icons.inventory_2_outlined,
+            color: rec.isPurged
+                ? const Color(0xFF94A3B8)
+                : const Color(0xFF059669),
             size: 20,
           ),
           const SizedBox(width: 10),
@@ -4314,8 +6599,12 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 12,
-                    decoration: rec.isPurged ? TextDecoration.lineThrough : null,
-                    color: rec.isPurged ? const Color(0xFF64748B) : const Color(0xFF0F172A),
+                    decoration: rec.isPurged
+                        ? TextDecoration.lineThrough
+                        : null,
+                    color: rec.isPurged
+                        ? const Color(0xFF64748B)
+                        : const Color(0xFF0F172A),
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -4324,7 +6613,9 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   style: TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w600,
-                    color: rec.isPurged ? const Color(0xFFEF4444) : const Color(0xFF0284C7),
+                    color: rec.isPurged
+                        ? const Color(0xFFEF4444)
+                        : const Color(0xFF0284C7),
                   ),
                 ),
               ],

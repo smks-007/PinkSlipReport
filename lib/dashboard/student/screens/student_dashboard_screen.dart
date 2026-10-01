@@ -1,1046 +1,216 @@
 import 'package:flutter/material.dart';
+
 import '../../../core/constants/app_colors.dart';
-import '../../../core/models/leave_model.dart';
-import '../../../core/models/student_model.dart';
+import '../../../core/models/student_dashboard_data.dart';
 import '../../../core/models/user_model.dart';
 import '../../../core/services/auth_service.dart';
-import '../../../core/services/mock_data_service.dart';
 import '../../../core/services/supabase_service.dart';
-import '../../shared/widgets/letter_attachment_viewer_dialog.dart';
-import '../../../core/services/pdf_document_service.dart';
 
+/// Read-only personal portal, including for class representatives.
 class StudentDashboardScreen extends StatefulWidget {
-  const StudentDashboardScreen({super.key});
+  const StudentDashboardScreen({super.key, this.loadDashboard});
+
+  final Future<StudentDashboardData> Function()? loadDashboard;
 
   @override
   State<StudentDashboardScreen> createState() => _StudentDashboardScreenState();
 }
 
-class _StudentDashboardScreenState extends State<StudentDashboardScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  final TextEditingController _rosterSearchCtrl = TextEditingController();
-  String _rosterQuery = '';
-  String _rosterFilter = 'All'; // All, Present, Absent
-  String _leavesFilter = 'All'; // All, Leave, On-Duty
+class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
+  final _auth = AuthService();
+  Future<StudentDashboardData>? _summary;
+  String? _loadedAuthId;
 
-  UserModel get _currentUser =>
-      AuthService().currentUser ??
-      (AuthService.classRepresentatives.isNotEmpty
-          ? AuthService.classRepresentatives.first
-          : const UserModel(
-              id: 'cr-default',
-              name: 'Student Representative',
-              email: 'student@vsb.ac.in',
-              role: UserRole.student,
-              department: 'Artificial Intelligence and Data Science',
-              year: 2,
-              section: 'A',
-            ));
-
-  int get _sectionYear => _currentUser.year ?? 2;
-  String get _sectionLetter =>
-      _currentUser.section ??
-      (MockDataService.getAvailableSections(_sectionYear).isNotEmpty
-          ? MockDataService.getAvailableSections(_sectionYear).first
-          : 'A');
-
-  List<StudentModel> get _classStudents {
-    final list = MockDataService.getStudentsBySection(_sectionYear, _sectionLetter);
-    return list.where((s) {
-      final matchesQuery = _rosterQuery.isEmpty ||
-          s.name.toLowerCase().contains(_rosterQuery.toLowerCase()) ||
-          s.rollNumber.contains(_rosterQuery);
-      if (!matchesQuery) return false;
-      if (_rosterFilter == 'Present') return s.isPresentToday;
-      if (_rosterFilter == 'Absent') return !s.isPresentToday;
-      return true;
-    }).toList();
-  }
-
-  List<LeaveModel> get _sectionLeaves {
-    final list = MockDataService.leaveRequests
-        .where((l) => l.year == _sectionYear && l.section == _sectionLetter)
-        .toList();
-    if (_leavesFilter == 'Leave') return list.where((l) => !l.isOnDuty).toList();
-    if (_leavesFilter == 'On-Duty') return list.where((l) => l.isOnDuty).toList();
-    return list;
-  }
+  String? get _studentAuthId =>
+      _auth.isLoggedIn &&
+          !_auth.isRecoverySession &&
+          _auth.currentUser?.role == UserRole.student
+      ? _auth.currentUser!.id
+      : null;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _auth.addListener(_authChanged);
+    _reload();
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
-    _rosterSearchCtrl.dispose();
+    _auth.removeListener(_authChanged);
     super.dispose();
   }
 
-  void _openSubmitLeaveDialog([StudentModel? preselectedStudent]) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => _SubmitLeaveModal(
-        year: _sectionYear,
-        section: _sectionLetter,
-        batchYear: _currentUser.batchYear ?? '2025 BATCH',
-        students: MockDataService.getStudentsBySection(_sectionYear, _sectionLetter),
-        initialStudent: preselectedStudent,
-        onSubmit: (newLeave) {
-          setState(() {
-            MockDataService.submitLeaveRequest(newLeave);
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Leave/OD submitted for ${newLeave.studentName}!'),
-              backgroundColor: const Color(0xFF059669),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-          );
-        },
-      ),
-    );
+  void _authChanged() {
+    if (_studentAuthId != _loadedAuthId) {
+      setState(_reload);
+    }
+  }
+
+  void _reload() {
+    _loadedAuthId = _studentAuthId;
+    _summary = _loadedAuthId == null ? null : _load(_loadedAuthId!);
+  }
+
+  Future<StudentDashboardData> _load(String authId) async {
+    final data =
+        await (widget.loadDashboard ??
+            SupabaseService().fetchMyStudentDashboard)();
+    if (data.authId != authId || _studentAuthId != authId) {
+      throw StateError('Student session changed.');
+    }
+    return data;
+  }
+
+  Future<void> _signOut() async {
+    await _auth.logout();
+    if (!mounted) return;
+    Navigator.pushNamedAndRemoveUntil(context, '/sign-in', (_) => false);
   }
 
   @override
   Widget build(BuildContext context) {
-    final allStudents = MockDataService.getStudentsBySection(_sectionYear, _sectionLetter);
-    final sectionLeaves = _sectionLeaves;
-    final totalCount = allStudents.length;
-    final presentCount = allStudents.where((s) => s.isPresentToday).length;
-    final absentCount = totalCount - presentCount;
-
     return Scaffold(
       backgroundColor: AppColors.pageBackground,
-      // NOTE: Chatbot Jarvis FAB is strictly disabled & hidden for student & CR accounts
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildAppBar(),
-            _buildRepresentativeBanner(totalCount, presentCount, absentCount),
-            Container(
-              color: Colors.white,
-              child: TabBar(
-                controller: _tabController,
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
-                indicatorColor: AppColors.primaryPurple,
-                indicatorWeight: 3,
-                labelColor: AppColors.primaryPurple,
-                unselectedLabelColor: const Color(0xFF64748B),
-                labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
-                tabs: [
-                  Tab(
-                    icon: const Icon(Icons.people_alt_outlined, size: 19),
-                    text: 'Class Roster ($totalCount)',
-                  ),
-                  Tab(
-                    icon: const Icon(Icons.attach_file_rounded, size: 19),
-                    text: 'Leaves & OD (${sectionLeaves.length})',
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildRosterTab(totalCount, presentCount, absentCount),
-                  _buildLettersTab(sectionLeaves),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'student_submit_leave_fab',
-        backgroundColor: AppColors.primaryPurple,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.note_add_rounded),
-        label: const Text('Submit Leave / OD', style: TextStyle(fontWeight: FontWeight.bold)),
-        onPressed: () => _openSubmitLeaveDialog(),
-      ),
-    );
-  }
-
-  Widget _buildAppBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      color: Colors.white,
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-              ),
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: const Icon(Icons.school_rounded, color: Colors.white, size: 22),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'V.S.B. ENGINEERING COLLEGE',
-                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, letterSpacing: 0.5),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  'AI & DS • Class Representative Portal',
-                  style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600, fontWeight: FontWeight.w600),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        title: const Text('My Dashboard'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh',
+            onPressed: _studentAuthId == null ? null : () => setState(_reload),
+            icon: const Icon(Icons.refresh),
           ),
           IconButton(
-            icon: const Icon(Icons.logout_rounded, color: Color(0xFF64748B)),
             tooltip: 'Sign Out',
-            onPressed: () async {
-              final confirmed = await showDialog<bool>(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('Sign Out'),
-                  content: const Text('Are you sure you want to sign out?'),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                    TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sign Out', style: TextStyle(color: Color(0xFFEF4444)))),
-                  ],
-                ),
-              );
-              if (confirmed == true && mounted) {
-                await AuthService().logout();
-                if (!mounted) return;
-                Navigator.pushReplacementNamed(context, '/sign-in');
-              }
-            },
+            onPressed: _signOut,
+            icon: const Icon(Icons.logout_rounded),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildRepresentativeBanner(int total, int present, int absent) {
-    final pct = total > 0 ? ((present / total) * 100).toStringAsFixed(1) : '0';
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF2D2A55), Color(0xFF1B1938)],
-        ),
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF2D2A55).withValues(alpha: 0.3),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 26,
-                backgroundColor: const Color(0xFF67E8F9).withValues(alpha: 0.2),
-                child: Text(
-                  (_currentUser.gender == 'Girl' || _currentUser.gender == 'Female') ? '♀' : '♂',
-                  style: const TextStyle(fontSize: 24, color: Color(0xFF67E8F9), fontWeight: FontWeight.bold),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Wrap(
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 8,
-                      runSpacing: 4,
-                      children: [
-                        Text(
-                          _currentUser.name,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16.5,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF67E8F9).withValues(alpha: 0.18),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFF67E8F9), width: 0.8),
-                          ),
-                          child: Text(
-                            '${_currentUser.gender ?? "Student"} CR',
-                            style: const TextStyle(
-                              color: Color(0xFF67E8F9),
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Roll No: ${_currentUser.rollNumber ?? ""} • ${_currentUser.classSection ?? ""} (${_currentUser.batchYear ?? "2025 BATCH"})',
-                      style: const TextStyle(color: Color(0xFFA5B4FC), fontSize: 11),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Row(
-              children: [
-                Expanded(child: _statItem('Class Strength', '$total', Colors.white)),
-                Container(height: 26, width: 1, color: Colors.white24),
-                Expanded(child: _statItem('Present Today', '$present ($pct%)', const Color(0xFF34D399))),
-                Container(height: 26, width: 1, color: Colors.white24),
-                Expanded(child: _statItem('Absentees', '$absent', const Color(0xFFF87171))),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _statItem(String label, String val, Color color) {
-    return Column(
-      children: [
-        Text(val, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color), overflow: TextOverflow.ellipsis, maxLines: 1),
-        const SizedBox(height: 2),
-        Text(label, style: const TextStyle(fontSize: 10, color: Color(0xFFCBD5E1)), overflow: TextOverflow.ellipsis, maxLines: 1),
-      ],
-    );
-  }
-
-  Widget _buildRosterTab(int total, int present, int absent) {
-    final list = _classStudents;
-
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-          child: TextField(
-            controller: _rosterSearchCtrl,
-            decoration: InputDecoration(
-              hintText: 'Search student by name or roll number...',
-              hintStyle: const TextStyle(fontSize: 12.5, color: Colors.grey),
-              prefixIcon: const Icon(Icons.search, size: 20, color: Color(0xFF64748B)),
-              contentPadding: const EdgeInsets.symmetric(vertical: 10),
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-              ),
-            ),
-            onChanged: (val) => setState(() => _rosterQuery = val),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _filterChip('All ($total)', 'All'),
-                const SizedBox(width: 8),
-                _filterChip('Present ($present)', 'Present', activeColor: const Color(0xFF059669)),
-                const SizedBox(width: 8),
-                _filterChip('Absent ($absent)', 'Absent', activeColor: const Color(0xFFDC2626)),
-              ],
-            ),
-          ),
-        ),
-        Expanded(
-          child: list.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.search_off_rounded, size: 48, color: Colors.grey.shade400),
-                      const SizedBox(height: 8),
-                      const Text('No students match your filter', style: TextStyle(color: Colors.grey, fontSize: 13)),
-                    ],
-                  ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: list.length,
-                  itemBuilder: (ctx, i) {
-                    final s = list[i];
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFFF1F5F9)),
-                      ),
-                      child: Row(
+      body: _studentAuthId == null
+          ? const Center(
+              child: Text('Please sign in with your student account.'),
+            )
+          : FutureBuilder<StudentDashboardData>(
+              future: _summary,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError || !snapshot.hasData) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: AppColors.purpleSurface,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Center(
-                              child: Text(
-                                '${i + 1}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: AppColors.primaryPurple,
-                                ),
-                              ),
-                            ),
+                          const Text(
+                            'Your details could not be loaded. Try again or contact your class advisor.',
+                            textAlign: TextAlign.center,
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  s.name,
-                                  style: const TextStyle(
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF0F172A),
-                                  ),
-                                ),
-                                Text(
-                                  'E. Code: ${s.rollNumber} • ${s.gender}',
-                                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (!s.isPresentToday)
-                            IconButton(
-                              icon: const Icon(Icons.note_add_outlined, color: AppColors.primaryPurple, size: 20),
-                              tooltip: 'Submit Leave for ',
-                              onPressed: () => _openSubmitLeaveDialog(s),
-                            ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: s.isPresentToday
-                                  ? const Color(0xFFECFDF5)
-                                  : const Color(0xFFFEF2F2),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              s.isPresentToday ? 'Present' : 'Absent',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: s.isPresentToday
-                                    ? const Color(0xFF059669)
-                                    : const Color(0xFFDC2626),
-                              ),
-                            ),
+                          const SizedBox(height: 16),
+                          FilledButton(
+                            onPressed: () => setState(_reload),
+                            child: const Text('Retry'),
                           ),
                         ],
                       ),
-                    );
-                  },
-                ),
-        ),
-      ],
-    );
-  }
-
-  Widget _filterChip(String label, String value, {Color? activeColor}) {
-    final isSelected = _rosterFilter == value;
-    final color = activeColor ?? AppColors.primaryPurple;
-
-    return ChoiceChip(
-      label: Text(label),
-      selected: isSelected,
-      onSelected: (selected) {
-        if (selected) setState(() => _rosterFilter = value);
-      },
-      selectedColor: color.withValues(alpha: 0.15),
-      labelStyle: TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.bold,
-        color: isSelected ? color : const Color(0xFF64748B),
-      ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-    );
-  }
-
-  Widget _buildLettersTab(List<LeaveModel> leaves) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _categoryFilterChip('All Requests', 'All'),
-                const SizedBox(width: 8),
-                _categoryFilterChip('Standard Leaves', 'Leave'),
-                const SizedBox(width: 8),
-                _categoryFilterChip('On-Duty (OD)', 'On-Duty'),
-              ],
-            ),
-          ),
-        ),
-        Expanded(
-          child: leaves.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.description_outlined, size: 56, color: Colors.grey.shade400),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'No Leave or On-Duty letters found',
-                        style: TextStyle(fontSize: 14, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Tap "Submit Leave / OD" below to submit with file attachment.',
-                        style: TextStyle(fontSize: 11.5, color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                )
-              : ListView.builder(
+                    ),
+                  );
+                }
+                final data = snapshot.requireData;
+                return SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: leaves.length,
-                  itemBuilder: (ctx, i) {
-                    final l = leaves[i];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      elevation: 0,
-                      color: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        side: const BorderSide(color: Color(0xFFE2E8F0)),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Wrap(
-                              alignment: WrapAlignment.spaceBetween,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              spacing: 8,
-                              runSpacing: 4,
-                              children: [
-                                Wrap(
-                                  crossAxisAlignment: WrapCrossAlignment.center,
-                                  spacing: 8,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: l.isOnDuty ? const Color(0xFFEFF6FF) : const Color(0xFFFDF2F8),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        l.categoryDisplay.toUpperCase(),
-                                        style: TextStyle(
-                                          fontSize: 10.5,
-                                          fontWeight: FontWeight.bold,
-                                          color: l.isOnDuty ? const Color(0xFF2563EB) : const Color(0xFFDB2777),
-                                        ),
-                                      ),
-                                    ),
-                                    _buildStatusChip(l.letterStatus),
-                                  ],
-                                ),
-                                Text(
-                                  '${l.leaveDate.day}/${l.leaveDate.month}/${l.leaveDate.year}',
-                                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              l.studentName,
-                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                            ),
-                            Text(
-                              'Roll No: ${l.studentRollNumber}',
-                              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              l.reason,
-                              style: const TextStyle(fontSize: 12.5, color: Color(0xFF334155)),
-                            ),
-                            const SizedBox(height: 12),
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF8FAFC),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: const Color(0xFFE2E8F0)),
-                              ),
-                              child: Row(
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 620),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _attendanceCard(data.attendancePercentage),
+                          const SizedBox(height: 16),
+                          Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Icon(Icons.picture_as_pdf_rounded, size: 20, color: Colors.red),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      l.attachmentFileName ?? 'Official_letter.pdf',
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: Color(0xFF0F172A),
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
+                                  Text(
+                                    'My details',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleLarge,
                                   ),
-                                  InkWell(
-                                    onTap: () {
-                                      showDialog(
-                                        context: context,
-                                        builder: (dialogCtx) => LetterAttachmentViewerDialog(leave: l),
-                                      );
-                                    },
-                                    child: const Text(
-                                      'View Letter',
-                                      style: TextStyle(
-                                        fontSize: 11.5,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppColors.primaryPurple,
-                                      ),
-                                    ),
+                                  const SizedBox(height: 16),
+                                  _detail('Name', data.name),
+                                  _detail('Email', data.email),
+                                  _detail('Roll number', data.rollNumber),
+                                  _detail(
+                                    'Register number',
+                                    data.registerNumber,
                                   ),
+                                  _detail('Class / section', data.section),
+                                  _detail('Department', data.department),
                                 ],
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-        ),
-      ],
-    );
-  }
-
-  Widget _categoryFilterChip(String label, String value) {
-    final isSelected = _leavesFilter == value;
-
-    return ChoiceChip(
-      label: Text(label),
-      selected: isSelected,
-      onSelected: (selected) {
-        if (selected) setState(() => _leavesFilter = value);
-      },
-      selectedColor: AppColors.primaryPurple.withValues(alpha: 0.15),
-      labelStyle: TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.bold,
-        color: isSelected ? AppColors.primaryPurple : const Color(0xFF64748B),
-      ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-    );
-  }
-
-  Widget _buildStatusChip(LetterStatus status) {
-    Color bg;
-    Color fg;
-    String txt;
-
-    switch (status) {
-      case LetterStatus.notSubmitted:
-        bg = const Color(0xFFF1F5F9);
-        fg = const Color(0xFF64748B);
-        txt = 'Not Submitted';
-        break;
-      case LetterStatus.submitted:
-        bg = const Color(0xFFFEF3C7);
-        fg = const Color(0xFFD97706);
-        txt = 'Pending Advisor';
-        break;
-      case LetterStatus.forwarded:
-        bg = const Color(0xFFEDE9FE);
-        fg = AppColors.primaryPurple;
-        txt = 'Forwarded to HOD';
-        break;
-      case LetterStatus.approved:
-        bg = const Color(0xFFD1FAE5);
-        fg = const Color(0xFF059669);
-        txt = 'Approved by HOD';
-        break;
-      case LetterStatus.rejected:
-        bg = const Color(0xFFFEE2E2);
-        fg = const Color(0xFFDC2626);
-        txt = 'Rejected';
-        break;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
-      child: Text(txt, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: fg)),
-    );
-  }
-}
-
-class _SubmitLeaveModal extends StatefulWidget {
-  final int year;
-  final String section;
-  final String batchYear;
-  final List<StudentModel> students;
-  final StudentModel? initialStudent;
-  final ValueChanged<LeaveModel> onSubmit;
-
-  const _SubmitLeaveModal({
-    required this.year,
-    required this.section,
-    required this.batchYear,
-    required this.students,
-    this.initialStudent,
-    required this.onSubmit,
-  });
-
-  @override
-  State<_SubmitLeaveModal> createState() => _SubmitLeaveModalState();
-}
-
-class _SubmitLeaveModalState extends State<_SubmitLeaveModal> {
-  final _formKey = GlobalKey<FormState>();
-  late StudentModel _selectedStudent;
-  LeaveCategory _category = LeaveCategory.leave;
-  final LeaveType _type = LeaveType.informed;
-  final _reasonCtrl = TextEditingController();
-
-  String _attachedFileName = 'medical_or_od_proof.pdf';
-  String _attachedFileType = 'Official Document Proof';
-  String _attachedFileSize = '1.4 MB';
-  bool _hasFileAttached = true;
-  bool _isSubmitting = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedStudent = widget.initialStudent ?? widget.students.first;
-  }
-
-  @override
-  void dispose() {
-    _reasonCtrl.dispose();
-    super.dispose();
-  }
-
-  void _attachDocument() {
-    setState(() {
-      if (_category == LeaveCategory.onDuty) {
-        _attachedFileName = 'od_invitation_proof_${_selectedStudent.rollNumber}.pdf';
-        _attachedFileType = 'Official OD Endorsement Letter';
-        _attachedFileSize = '2.2 MB';
-      } else {
-        _attachedFileName = 'medical_certificate_${_selectedStudent.rollNumber}.pdf';
-        _attachedFileType = 'Doctor Signed Medical Proof';
-        _attachedFileSize = '1.6 MB';
-      }
-      _hasFileAttached = true;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('📎 File attached: $_attachedFileName'),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isSubmitting = true);
-
-    String? finalAttachmentUrl;
-    if (_hasFileAttached) {
-      try {
-        final docContent = '''%PDF-1.4
-% ══════════════════════════════════════════════════════════
-% V.S.B. ENGINEERING COLLEGE — DEPARTMENT OF AI & DS
-% STUDENT LEAVE / ON-DUTY OFFICIAL REQUEST ATTACHMENT
-% ══════════════════════════════════════════════════════════
-% Student Name  : ${_selectedStudent.name}
-% Roll Number   : ${_selectedStudent.rollNumber}
-% Year & Section: Year ${widget.year}, Section ${widget.section}
-% Batch Year    : ${widget.batchYear}
-% Request Type  : ${_category == LeaveCategory.onDuty ? "ON-DUTY (OD)" : "STANDARD LEAVE"}
-% Reason        : ${_reasonCtrl.text.trim()}
-% Generated At  : ${DateTime.now().toIso8601String()}
-%%EOF''';
-        final fileBytes = PdfDocumentService.createTextPdf(docContent);
-        final uploadedUrl = await SupabaseService().uploadLeaveDocument(
-          fileBytes,
-          _attachedFileName,
-          folder: 'leave_documents',
-        );
-        if (uploadedUrl != null && uploadedUrl.isNotEmpty) {
-          finalAttachmentUrl = uploadedUrl;
-        }
-      } catch (e) {
-        debugPrint('⚠️ Storage upload notice: $e');
-      }
-    }
-
-    final newLeave = LeaveModel(
-      id: 'leave-${DateTime.now().millisecondsSinceEpoch}',
-      studentId: _selectedStudent.id,
-      studentName: _selectedStudent.name,
-      studentRollNumber: _selectedStudent.rollNumber,
-      category: _category,
-      section: widget.section,
-      year: widget.year,
-      batchYear: widget.batchYear,
-      leaveDate: DateTime.now(),
-      leaveType: _type,
-      reason: _reasonCtrl.text.trim(),
-      letterSubmitted: true,
-      letterStatus: LetterStatus.submitted,
-      attachmentFileName: finalAttachmentUrl ?? (_hasFileAttached ? _attachedFileName : null),
-      attachmentFileType: _hasFileAttached ? _attachedFileType : null,
-      attachmentFileSize: _hasFileAttached ? _attachedFileSize : null,
-      dateSubmittedToAdvisor: DateTime.now(),
-      advisorRemarks: 'Submitted via Class Representative portal with attached file.',
-      dueDays: 0,
-      totalLeavesTaken: 1,
-    );
-
-    if (mounted) {
-      setState(() => _isSubmitting = false);
-      widget.onSubmit(newLeave);
-      Navigator.pop(context);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-        left: 20,
-        right: 20,
-        top: 20,
-      ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Submit Leave / On-Duty Request',
-                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-              const Divider(),
-              const SizedBox(height: 10),
-              const Text('Request Category',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 12,
-                runSpacing: 8,
-                children: [
-                  ChoiceChip(
-                    label: const Text('Standard Leave'),
-                    selected: _category == LeaveCategory.leave,
-                    selectedColor: AppColors.primaryPurple.withValues(alpha: 0.15),
-                    labelStyle: TextStyle(
-                      color: _category == LeaveCategory.leave ? AppColors.primaryPurple : Colors.black87,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    onSelected: (val) {
-                      if (val) setState(() => _category = LeaveCategory.leave);
-                    },
-                  ),
-                  ChoiceChip(
-                    label: const Text('On-Duty (OD)'),
-                    selected: _category == LeaveCategory.onDuty,
-                    selectedColor: Colors.blue.shade100,
-                    labelStyle: TextStyle(
-                      color: _category == LeaveCategory.onDuty ? Colors.blue.shade800 : Colors.black87,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    onSelected: (val) {
-                      if (val) setState(() => _category = LeaveCategory.onDuty);
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              const Text('Select Student from Class',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey)),
-              const SizedBox(height: 6),
-              DropdownButtonFormField<StudentModel>(
-                initialValue: _selectedStudent,
-                isExpanded: true,
-                decoration: InputDecoration(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                items: widget.students.map((s) {
-                  return DropdownMenuItem(
-                    value: s,
-                    child: Text('${s.name} (${s.rollNumber})',
-                        style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis),
-                  );
-                }).toList(),
-                onChanged: (val) {
-                  if (val != null) setState(() => _selectedStudent = val);
-                },
-              ),
-              const SizedBox(height: 16),
-              const Text('Reason / Purpose of Absence or OD',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey)),
-              const SizedBox(height: 6),
-              TextFormField(
-                controller: _reasonCtrl,
-                maxLines: 2,
-                validator: (val) =>
-                    val == null || val.trim().isEmpty ? 'Please enter the specific reason' : null,
-                decoration: InputDecoration(
-                  hintText: _category == LeaveCategory.onDuty
-                      ? 'e.g. Paper presentation at symposium / Anna University sports zonal'
-                      : 'e.g. Viral fever / family emergency',
-                  hintStyle: const TextStyle(fontSize: 12, color: Colors.grey),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text('Official File Attachment (Proof Document)',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey)),
-              const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFCBD5E1)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.picture_as_pdf_rounded, color: Colors.red, size: 28),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(_attachedFileName,
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                          Text('$_attachedFileType • $_attachedFileSize',
-                              style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                          ),
                         ],
                       ),
                     ),
-                    OutlinedButton.icon(
-                      onPressed: _isSubmitting ? null : _attachDocument,
-                      icon: const Icon(Icons.upload_file, size: 14),
-                      label: const Text('Change File'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        textStyle: const TextStyle(fontSize: 11),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _isSubmitting ? null : _submit,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryPurple,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 48),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-                child: _isSubmitting
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Text('Submit for Advisor & HOD Review',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              ),
-            ],
-          ),
-        ),
-      ),
+                  ),
+                );
+              },
+            ),
     );
   }
+
+  Widget _attendanceCard(double? percentage) => Card(
+    color: AppColors.primaryPurple,
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          const Icon(Icons.pie_chart_outline, color: Colors.white, size: 32),
+          const SizedBox(height: 12),
+          const Text(
+            'My attendance',
+            style: TextStyle(color: Colors.white, fontSize: 18),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            percentage == null
+                ? 'Not available'
+                : '${percentage.toStringAsFixed(1)}%',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            percentage == null
+                ? 'No attendance has been recorded yet.'
+                : 'Based on recorded attendance through today.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white70),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  Widget _detail(String label, String value) => Padding(
+    padding: const EdgeInsets.only(bottom: 14),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: Theme.of(context).textTheme.labelLarge),
+        const SizedBox(height: 4),
+        Text(value, style: Theme.of(context).textTheme.bodyLarge),
+      ],
+    ),
+  );
 }

@@ -11,9 +11,11 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(csrf -> csrf.ignoringRequestMatchers("/api/v1/health"))
+                // This service exposes stateless mobile/API endpoints, not browser forms.
+                .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/health").permitAll()
+                        .requestMatchers("/api/documents/**").permitAll()
                         .anyRequest().authenticated());
         return http.build();
     }

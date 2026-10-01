@@ -18,6 +18,7 @@ migrate_working_dir/
 *.ipr
 *.iws
 .idea/
+.kotlin/
 
 # The .vscode folder contains launch configuration and tasks you configure in
 # VS Code which you may wish to be included in version control, so this line
@@ -54,6 +55,9 @@ app.*.map.json
 !config/*.env.example
 *.pdf
 *Credentials*
+**/service-account*.json
+**/*google*credentials*.json
+**/*client_secret*.json
 *.xlsx
 *.xls
 *.csv
@@ -63,5 +67,6 @@ app.*.map.json
 *dashboard_screen.png
 node_modules/
 dist/
+.m2/
 
 supabase-backup.sql
