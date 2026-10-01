@@ -656,7 +656,7 @@ void main() {
   );
 
   testWidgets(
-    'Student Dashboard renders cleanly with Submit Leave FAB and NO AI-Agent or Chatbot',
+    'Student Dashboard has no class roster, submissions, or AI tools',
     (WidgetTester tester) async {
       // Log in as student
       AuthService().loginDirectly(AuthService.classRepresentatives[2]);
@@ -667,8 +667,10 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify student actions
-      expect(find.text('Submit Leave / OD'), findsOneWidget);
-      expect(find.text('Class Roster (63)'), findsOneWidget);
+      expect(find.text('My Dashboard'), findsOneWidget);
+      expect(find.text('Submit Leave / OD'), findsNothing);
+      expect(find.textContaining('Class Roster'), findsNothing);
+      expect(find.byType(FloatingActionButton), findsNothing);
 
       // Verify AI-Agent and Chatbot are completely absent from student dashboard
       expect(find.text('⚡ Launch AI-Agent Co-Pilot'), findsNothing);

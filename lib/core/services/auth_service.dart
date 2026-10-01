@@ -1,4 +1,9 @@
 import 'package:flutter/foundation.dart';
+
+import 'dart:async';
+
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../models/user_model.dart';
 import 'supabase_service.dart';
 import 'mock_data_service.dart';
@@ -19,6 +24,9 @@ class AuthService extends ChangeNotifier {
   /// Session timeout duration (15 minutes of inactivity)
   static const Duration sessionTimeout = Duration(minutes: 15);
   DateTime? _lastActivity;
+  StreamSubscription<AuthState>? _authSubscription;
+  bool _authInitialized = false;
+  bool _isRecoverySession = false;
 
   UserModel? get currentUser => _currentUser;
   bool get isLoggedIn => _currentUser != null && !isSessionExpired;
@@ -41,6 +49,52 @@ class AuthService extends ChangeNotifier {
 
   /// Real cryptographic JWT Bearer Token from active Supabase session
   String? get jwtToken => SupabaseService().currentJwtToken;
+  bool get isRecoverySession => _isRecoverySession;
+
+  /// Restore the persisted Supabase session and clear local state when the
+  /// remote session signs out or expires.
+  Future<void> initializeAuth() async {
+    if (_authInitialized) return;
+    _authInitialized = true;
+    final supabase = SupabaseService();
+    if (!supabase.isInitialized) return;
+    _authSubscription = supabase.client!.auth.onAuthStateChange.listen((state) {
+      if (state.event == AuthChangeEvent.passwordRecovery) {
+        _isRecoverySession = true;
+        notifyListeners();
+      } else if (state.event == AuthChangeEvent.signedOut) {
+        _isRecoverySession = false;
+        _clearLocalSession();
+      }
+    });
+    try {
+      final restored = await supabase.currentUserModel();
+      if (restored != null) {
+        _currentUser = restored;
+        _lastActivity = DateTime.now();
+        notifyListeners();
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('Session restore warning: $e');
+    }
+  }
+
+  void _clearLocalSession() {
+    _currentUser = null;
+    _lastActivity = null;
+    notifyListeners();
+  }
+
+  void completeRecoverySession() {
+    _isRecoverySession = false;
+    _clearLocalSession();
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
+  }
 
   int get remainingLockoutSeconds {
     if (_lockoutUntil == null) return 0;
@@ -217,133 +271,293 @@ class AuthService extends ChangeNotifier {
   static const List<UserModel> classRepresentatives = [
     // II AIDS A (2025 BATCH)
     UserModel(
-      id: 'cr-2a-boy', name: 'ADITHYAN S', rollNumber: '25243002',
-      email: 'cr.boy.2a@vsb.ac.in', role: UserRole.student,
-      isClassRepresentative: true, gender: 'Boy', department: 'AI&DS',
-      classSection: 'II AI&DS - Section A', batchYear: '2025 BATCH', year: 2, section: 'A',
+      id: 'cr-2a-boy',
+      name: 'ADITHYAN S',
+      rollNumber: '25243002',
+      email: 'cr.boy.2a@vsb.ac.in',
+      role: UserRole.student,
+      isClassRepresentative: true,
+      gender: 'Boy',
+      department: 'AI&DS',
+      classSection: 'II AI&DS - Section A',
+      batchYear: '2025 BATCH',
+      year: 2,
+      section: 'A',
     ),
     UserModel(
-      id: 'cr-2a-girl', name: 'ABINAYA G', rollNumber: '25243001',
-      email: 'cr.girl.2a@vsb.ac.in', role: UserRole.student,
-      isClassRepresentative: true, gender: 'Girl', department: 'AI&DS',
-      classSection: 'II AI&DS - Section A', batchYear: '2025 BATCH', year: 2, section: 'A',
+      id: 'cr-2a-girl',
+      name: 'ABINAYA G',
+      rollNumber: '25243001',
+      email: 'cr.girl.2a@vsb.ac.in',
+      role: UserRole.student,
+      isClassRepresentative: true,
+      gender: 'Girl',
+      department: 'AI&DS',
+      classSection: 'II AI&DS - Section A',
+      batchYear: '2025 BATCH',
+      year: 2,
+      section: 'A',
     ),
     // II AIDS B (2025 BATCH)
     UserModel(
-      id: 'cr-2b-boy', name: 'LITHESH HARI R', rollNumber: '25243100',
-      email: 'cr.boy.2b@vsb.ac.in', role: UserRole.student,
-      isClassRepresentative: true, gender: 'Boy', department: 'AI&DS',
-      classSection: 'II AI&DS - Section B', batchYear: '2025 BATCH', year: 2, section: 'B',
+      id: 'cr-2b-boy',
+      name: 'LITHESH HARI R',
+      rollNumber: '25243100',
+      email: 'cr.boy.2b@vsb.ac.in',
+      role: UserRole.student,
+      isClassRepresentative: true,
+      gender: 'Boy',
+      department: 'AI&DS',
+      classSection: 'II AI&DS - Section B',
+      batchYear: '2025 BATCH',
+      year: 2,
+      section: 'B',
     ),
     UserModel(
-      id: 'cr-2b-girl', name: 'JANANI Y', rollNumber: '25243068',
-      email: 'cr.girl.2b@vsb.ac.in', role: UserRole.student,
-      isClassRepresentative: true, gender: 'Girl', department: 'AI&DS',
-      classSection: 'II AI&DS - Section B', batchYear: '2025 BATCH', year: 2, section: 'B',
+      id: 'cr-2b-girl',
+      name: 'JANANI Y',
+      rollNumber: '25243068',
+      email: 'cr.girl.2b@vsb.ac.in',
+      role: UserRole.student,
+      isClassRepresentative: true,
+      gender: 'Girl',
+      department: 'AI&DS',
+      classSection: 'II AI&DS - Section B',
+      batchYear: '2025 BATCH',
+      year: 2,
+      section: 'B',
     ),
     // II AIDS C (2025 BATCH)
     UserModel(
-      id: 'cr-2c-boy', name: 'MUHIL RAJA A', rollNumber: '25243129',
-      email: 'cr.boy.2c@vsb.ac.in', role: UserRole.student,
-      isClassRepresentative: true, gender: 'Boy', department: 'AI&DS',
-      classSection: 'II AI&DS - Section C', batchYear: '2025 BATCH', year: 2, section: 'C',
+      id: 'cr-2c-boy',
+      name: 'MUHIL RAJA A',
+      rollNumber: '25243129',
+      email: 'cr.boy.2c@vsb.ac.in',
+      role: UserRole.student,
+      isClassRepresentative: true,
+      gender: 'Boy',
+      department: 'AI&DS',
+      classSection: 'II AI&DS - Section C',
+      batchYear: '2025 BATCH',
+      year: 2,
+      section: 'C',
     ),
     UserModel(
-      id: 'cr-2c-girl', name: 'NANDHINI R', rollNumber: '25243134',
-      email: 'cr.girl.2c@vsb.ac.in', role: UserRole.student,
-      isClassRepresentative: true, gender: 'Girl', department: 'AI&DS',
-      classSection: 'II AI&DS - Section C', batchYear: '2025 BATCH', year: 2, section: 'C',
+      id: 'cr-2c-girl',
+      name: 'NANDHINI R',
+      rollNumber: '25243134',
+      email: 'cr.girl.2c@vsb.ac.in',
+      role: UserRole.student,
+      isClassRepresentative: true,
+      gender: 'Girl',
+      department: 'AI&DS',
+      classSection: 'II AI&DS - Section C',
+      batchYear: '2025 BATCH',
+      year: 2,
+      section: 'C',
     ),
     // II AIDS D (2025 BATCH)
     UserModel(
-      id: 'cr-2d-boy', name: 'SAIPRASATH S', rollNumber: '25243190',
-      email: 'cr.boy.2d@vsb.ac.in', role: UserRole.student,
-      isClassRepresentative: true, gender: 'Boy', department: 'AI&DS',
-      classSection: 'II AI&DS - Section D', batchYear: '2025 BATCH', year: 2, section: 'D',
+      id: 'cr-2d-boy',
+      name: 'SAIPRASATH S',
+      rollNumber: '25243190',
+      email: 'cr.boy.2d@vsb.ac.in',
+      role: UserRole.student,
+      isClassRepresentative: true,
+      gender: 'Boy',
+      department: 'AI&DS',
+      classSection: 'II AI&DS - Section D',
+      batchYear: '2025 BATCH',
+      year: 2,
+      section: 'D',
     ),
     UserModel(
-      id: 'cr-2d-girl', name: 'SAHANA S', rollNumber: '25243189',
-      email: 'cr.girl.2d@vsb.ac.in', role: UserRole.student,
-      isClassRepresentative: true, gender: 'Girl', department: 'AI&DS',
-      classSection: 'II AI&DS - Section D', batchYear: '2025 BATCH', year: 2, section: 'D',
+      id: 'cr-2d-girl',
+      name: 'SAHANA S',
+      rollNumber: '25243189',
+      email: 'cr.girl.2d@vsb.ac.in',
+      role: UserRole.student,
+      isClassRepresentative: true,
+      gender: 'Girl',
+      department: 'AI&DS',
+      classSection: 'II AI&DS - Section D',
+      batchYear: '2025 BATCH',
+      year: 2,
+      section: 'D',
     ),
     // III AIDS A (2024 BATCH)
     UserModel(
-      id: 'cr-3a-boy', name: 'AKASH I', rollNumber: '24243007',
-      email: 'cr.boy.3a@vsb.ac.in', role: UserRole.student,
-      isClassRepresentative: true, gender: 'Boy', department: 'AI&DS',
-      classSection: 'III AI&DS - Section A', batchYear: '2024 BATCH', year: 3, section: 'A',
+      id: 'cr-3a-boy',
+      name: 'AKASH I',
+      rollNumber: '24243007',
+      email: 'cr.boy.3a@vsb.ac.in',
+      role: UserRole.student,
+      isClassRepresentative: true,
+      gender: 'Boy',
+      department: 'AI&DS',
+      classSection: 'III AI&DS - Section A',
+      batchYear: '2024 BATCH',
+      year: 3,
+      section: 'A',
     ),
     UserModel(
-      id: 'cr-3a-girl', name: 'ABINAYA K', rollNumber: '24243001',
-      email: 'cr.girl.3a@vsb.ac.in', role: UserRole.student,
-      isClassRepresentative: true, gender: 'Girl', department: 'AI&DS',
-      classSection: 'III AI&DS - Section A', batchYear: '2024 BATCH', year: 3, section: 'A',
+      id: 'cr-3a-girl',
+      name: 'ABINAYA K',
+      rollNumber: '24243001',
+      email: 'cr.girl.3a@vsb.ac.in',
+      role: UserRole.student,
+      isClassRepresentative: true,
+      gender: 'Girl',
+      department: 'AI&DS',
+      classSection: 'III AI&DS - Section A',
+      batchYear: '2024 BATCH',
+      year: 3,
+      section: 'A',
     ),
     // III AIDS B (2024 BATCH)
     UserModel(
-      id: 'cr-3b-boy', name: 'KABEESH L', rollNumber: '24243064',
-      email: 'cr.boy.3b@vsb.ac.in', role: UserRole.student,
-      isClassRepresentative: true, gender: 'Boy', department: 'AI&DS',
-      classSection: 'III AI&DS - Section B', batchYear: '2024 BATCH', year: 3, section: 'B',
+      id: 'cr-3b-boy',
+      name: 'KABEESH L',
+      rollNumber: '24243064',
+      email: 'cr.boy.3b@vsb.ac.in',
+      role: UserRole.student,
+      isClassRepresentative: true,
+      gender: 'Boy',
+      department: 'AI&DS',
+      classSection: 'III AI&DS - Section B',
+      batchYear: '2024 BATCH',
+      year: 3,
+      section: 'B',
     ),
     UserModel(
-      id: 'cr-3b-girl', name: 'JENITTA BLESSY S', rollNumber: '24243062',
-      email: 'cr.girl.3b@vsb.ac.in', role: UserRole.student,
-      isClassRepresentative: true, gender: 'Girl', department: 'AI&DS',
-      classSection: 'III AI&DS - Section B', batchYear: '2024 BATCH', year: 3, section: 'B',
+      id: 'cr-3b-girl',
+      name: 'JENITTA BLESSY S',
+      rollNumber: '24243062',
+      email: 'cr.girl.3b@vsb.ac.in',
+      role: UserRole.student,
+      isClassRepresentative: true,
+      gender: 'Girl',
+      department: 'AI&DS',
+      classSection: 'III AI&DS - Section B',
+      batchYear: '2024 BATCH',
+      year: 3,
+      section: 'B',
     ),
     // III AIDS C (2024 BATCH)
     UserModel(
-      id: 'cr-3c-boy', name: 'NIJAY S S', rollNumber: '24243131',
-      email: 'cr.boy.3c@vsb.ac.in', role: UserRole.student,
-      isClassRepresentative: true, gender: 'Boy', department: 'AI&DS',
-      classSection: 'III AI&DS - Section C', batchYear: '2024 BATCH', year: 3, section: 'C',
+      id: 'cr-3c-boy',
+      name: 'NIJAY S S',
+      rollNumber: '24243131',
+      email: 'cr.boy.3c@vsb.ac.in',
+      role: UserRole.student,
+      isClassRepresentative: true,
+      gender: 'Boy',
+      department: 'AI&DS',
+      classSection: 'III AI&DS - Section C',
+      batchYear: '2024 BATCH',
+      year: 3,
+      section: 'C',
     ),
     UserModel(
-      id: 'cr-3c-girl', name: 'NARTHINI N', rollNumber: '24243124',
-      email: 'cr.girl.3c@vsb.ac.in', role: UserRole.student,
-      isClassRepresentative: true, gender: 'Girl', department: 'AI&DS',
-      classSection: 'III AI&DS - Section C', batchYear: '2024 BATCH', year: 3, section: 'C',
+      id: 'cr-3c-girl',
+      name: 'NARTHINI N',
+      rollNumber: '24243124',
+      email: 'cr.girl.3c@vsb.ac.in',
+      role: UserRole.student,
+      isClassRepresentative: true,
+      gender: 'Girl',
+      department: 'AI&DS',
+      classSection: 'III AI&DS - Section C',
+      batchYear: '2024 BATCH',
+      year: 3,
+      section: 'C',
     ),
     // III AIDS D (2024 BATCH)
     UserModel(
-      id: 'cr-3d-boy', name: 'SARAN KUMAR A', rollNumber: '24243190',
-      email: 'cr.boy.3d@vsb.ac.in', role: UserRole.student,
-      isClassRepresentative: true, gender: 'Boy', department: 'AI&DS',
-      classSection: 'III AI&DS - Section D', batchYear: '2024 BATCH', year: 3, section: 'D',
+      id: 'cr-3d-boy',
+      name: 'SARAN KUMAR A',
+      rollNumber: '24243190',
+      email: 'cr.boy.3d@vsb.ac.in',
+      role: UserRole.student,
+      isClassRepresentative: true,
+      gender: 'Boy',
+      department: 'AI&DS',
+      classSection: 'III AI&DS - Section D',
+      batchYear: '2024 BATCH',
+      year: 3,
+      section: 'D',
     ),
     UserModel(
-      id: 'cr-3d-girl', name: 'SANDHIYA G', rollNumber: '24243181',
-      email: 'cr.girl.3d@vsb.ac.in', role: UserRole.student,
-      isClassRepresentative: true, gender: 'Girl', department: 'AI&DS',
-      classSection: 'III AI&DS - Section D', batchYear: '2024 BATCH', year: 3, section: 'D',
+      id: 'cr-3d-girl',
+      name: 'SANDHIYA G',
+      rollNumber: '24243181',
+      email: 'cr.girl.3d@vsb.ac.in',
+      role: UserRole.student,
+      isClassRepresentative: true,
+      gender: 'Girl',
+      department: 'AI&DS',
+      classSection: 'III AI&DS - Section D',
+      batchYear: '2024 BATCH',
+      year: 3,
+      section: 'D',
     ),
     // IV AIDS A (2023 BATCH)
     UserModel(
-      id: 'cr-4a-boy', name: 'K.AJAY ABINESH', rollNumber: '23243003',
-      email: 'cr.boy.4a@vsb.ac.in', role: UserRole.student,
-      isClassRepresentative: true, gender: 'Boy', department: 'AI&DS',
-      classSection: 'IV AI&DS - Section A', batchYear: '2023 BATCH', year: 4, section: 'A',
+      id: 'cr-4a-boy',
+      name: 'K.AJAY ABINESH',
+      rollNumber: '23243003',
+      email: 'cr.boy.4a@vsb.ac.in',
+      role: UserRole.student,
+      isClassRepresentative: true,
+      gender: 'Boy',
+      department: 'AI&DS',
+      classSection: 'IV AI&DS - Section A',
+      batchYear: '2023 BATCH',
+      year: 4,
+      section: 'A',
     ),
     UserModel(
-      id: 'cr-4a-girl', name: 'S.AARTHI', rollNumber: '23243001',
-      email: 'cr.girl.4a@vsb.ac.in', role: UserRole.student,
-      isClassRepresentative: true, gender: 'Girl', department: 'AI&DS',
-      classSection: 'IV AI&DS - Section A', batchYear: '2023 BATCH', year: 4, section: 'A',
+      id: 'cr-4a-girl',
+      name: 'S.AARTHI',
+      rollNumber: '23243001',
+      email: 'cr.girl.4a@vsb.ac.in',
+      role: UserRole.student,
+      isClassRepresentative: true,
+      gender: 'Girl',
+      department: 'AI&DS',
+      classSection: 'IV AI&DS - Section A',
+      batchYear: '2023 BATCH',
+      year: 4,
+      section: 'A',
     ),
     // IV AIDS B (2023 BATCH)
     UserModel(
-      id: 'cr-4b-boy', name: 'P. MUKESH', rollNumber: '23243063',
-      email: 'cr.boy.4b@vsb.ac.in', role: UserRole.student,
-      isClassRepresentative: true, gender: 'Boy', department: 'AI&DS',
-      classSection: 'IV AI&DS - Section B', batchYear: '2023 BATCH', year: 4, section: 'B',
+      id: 'cr-4b-boy',
+      name: 'P. MUKESH',
+      rollNumber: '23243063',
+      email: 'cr.boy.4b@vsb.ac.in',
+      role: UserRole.student,
+      isClassRepresentative: true,
+      gender: 'Boy',
+      department: 'AI&DS',
+      classSection: 'IV AI&DS - Section B',
+      batchYear: '2023 BATCH',
+      year: 4,
+      section: 'B',
     ),
     UserModel(
-      id: 'cr-4b-girl', name: 'S. HARINI', rollNumber: '23243034',
-      email: 'cr.girl.4b@vsb.ac.in', role: UserRole.student,
-      isClassRepresentative: true, gender: 'Girl', department: 'AI&DS',
-      classSection: 'IV AI&DS - Section B', batchYear: '2023 BATCH', year: 4, section: 'B',
+      id: 'cr-4b-girl',
+      name: 'S. HARINI',
+      rollNumber: '23243034',
+      email: 'cr.girl.4b@vsb.ac.in',
+      role: UserRole.student,
+      isClassRepresentative: true,
+      gender: 'Girl',
+      department: 'AI&DS',
+      classSection: 'IV AI&DS - Section B',
+      batchYear: '2023 BATCH',
+      year: 4,
+      section: 'B',
     ),
   ];
 
@@ -385,8 +599,13 @@ class AuthService extends ChangeNotifier {
                     enriched.section != null &&
                     a.year == enriched.year &&
                     a.section == enriched.section),
-            orElse: () =>
-                const UserModel(id: '', name: '', email: '', role: UserRole.advisor, department: 'AI&DS'),
+            orElse: () => const UserModel(
+              id: '',
+              name: '',
+              email: '',
+              role: UserRole.advisor,
+              department: 'AI&DS',
+            ),
           );
           if (matchedAdv.id.isNotEmpty) {
             enriched = enriched.copyWith(
@@ -394,7 +613,8 @@ class AuthService extends ChangeNotifier {
               section: enriched.section ?? matchedAdv.section,
               classSection: enriched.classSection ?? matchedAdv.classSection,
               batchYear: enriched.batchYear ?? matchedAdv.batchYear,
-              customUsername: enriched.customUsername ?? matchedAdv.customUsername,
+              customUsername:
+                  enriched.customUsername ?? matchedAdv.customUsername,
             );
           }
         }
@@ -403,10 +623,12 @@ class AuthService extends ChangeNotifier {
         _lockoutUntil = null;
         _lastActivity = DateTime.now();
 
-        // Trigger real-time sync with Supabase Cloud using authenticated JWT
+        // Students load only their personal summary from the student dashboard.
         try {
-          await syncFacultyFromDB();
-          await MockDataService.syncFromSupabase();
+          if (enriched.role != UserRole.student) {
+            await syncFacultyFromDB();
+            await MockDataService.syncFromSupabase();
+          }
         } catch (e) {
           if (kDebugMode) {
             debugPrint('Post-login sync warning: $e');
@@ -422,6 +644,7 @@ class AuthService extends ChangeNotifier {
       }
     } catch (e) {
       _handleFailedAttempt();
+      if (e is AuthException) return e.message;
       final msg = e.toString();
       if (msg.contains('Invalid login credentials')) {
         return 'Invalid email or password. Please try again.';
@@ -468,7 +691,9 @@ class AuthService extends ChangeNotifier {
         final dbFullName = dbProfile['full_name'] as String?;
         final dbDept = dbProfile['department'] as String?;
 
-        if (dbFullName != null && dbFullName.trim().isNotEmpty && dbFullName.trim() != _currentUser!.name) {
+        if (dbFullName != null &&
+            dbFullName.trim().isNotEmpty &&
+            dbFullName.trim() != _currentUser!.name) {
           _currentUser = _currentUser!.copyWith(
             name: dbFullName.trim(),
             department: dbDept ?? _currentUser!.department,
@@ -493,14 +718,23 @@ class AuthService extends ChangeNotifier {
       if (facultyData.isNotEmpty) {
         final List<UserModel> loadedAdvisors = [];
         for (final row in facultyData) {
-          final Map<String, dynamic>? userMap = row['users'] is Map<String, dynamic>
+          final Map<String, dynamic>? userMap =
+              row['users'] is Map<String, dynamic>
               ? row['users'] as Map<String, dynamic>
               : null;
-          final String name = (userMap?['full_name'] ?? row['full_name'] ?? row['name'] ?? '').toString();
-          final String email = (userMap?['email'] ?? row['email'] ?? '').toString();
-          final String sectionId = (row['assigned_section'] ?? row['section_id'] ?? '').toString();
-          final String dept = (userMap?['department'] ?? row['department'] ?? 'AI&DS').toString();
-          final String staffId = (row['staff_id'] ?? userMap?['user_id'] ?? row['user_id'] ?? '').toString();
+          final String name =
+              (userMap?['full_name'] ?? row['full_name'] ?? row['name'] ?? '')
+                  .toString();
+          final String email = (userMap?['email'] ?? row['email'] ?? '')
+              .toString();
+          final String sectionId =
+              (row['assigned_section'] ?? row['section_id'] ?? '').toString();
+          final String dept =
+              (userMap?['department'] ?? row['department'] ?? 'AI&DS')
+                  .toString();
+          final String staffId =
+              (row['staff_id'] ?? userMap?['user_id'] ?? row['user_id'] ?? '')
+                  .toString();
 
           if (name.isNotEmpty) {
             int parsedYear = 2;
@@ -511,23 +745,31 @@ class AuthService extends ChangeNotifier {
               parsedSection = sectionId.substring(1).toUpperCase();
             }
 
-            loadedAdvisors.add(UserModel(
-              id: staffId.isNotEmpty ? 'adv-$staffId' : 'adv-$sectionId',
-              name: name,
-              email: email,
-              customUsername: email.isNotEmpty ? email.split('@').first : 'advisor.$sectionId',
-              role: UserRole.advisor,
-              department: dept,
-              classSection: sectionId.isNotEmpty ? '$sectionId AI&DS' : 'Class Advisor',
-              year: parsedYear,
-              section: parsedSection,
-            ));
+            loadedAdvisors.add(
+              UserModel(
+                id: staffId.isNotEmpty ? 'adv-$staffId' : 'adv-$sectionId',
+                name: name,
+                email: email,
+                customUsername: email.isNotEmpty
+                    ? email.split('@').first
+                    : 'advisor.$sectionId',
+                role: UserRole.advisor,
+                department: dept,
+                classSection: sectionId.isNotEmpty
+                    ? '$sectionId AI&DS'
+                    : 'Class Advisor',
+                year: parsedYear,
+                section: parsedSection,
+              ),
+            );
           }
         }
         if (loadedAdvisors.isNotEmpty) {
           _dynamicAdvisors = loadedAdvisors;
           if (kDebugMode) {
-            debugPrint('Synced ${_dynamicAdvisors.length} advisors dynamically from database');
+            debugPrint(
+              'Synced ${_dynamicAdvisors.length} advisors dynamically from database',
+            );
           }
           notifyListeners();
         }
@@ -545,9 +787,7 @@ class AuthService extends ChangeNotifier {
   /// Sign out and clear all session state
   Future<void> logout() async {
     await SupabaseService().signOut();
-    _currentUser = null;
-    _lastActivity = null;
-    notifyListeners();
+    _clearLocalSession();
   }
 
   /// Route path based on user role.

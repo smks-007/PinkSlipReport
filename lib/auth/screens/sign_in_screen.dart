@@ -362,6 +362,11 @@ class _SignInScreenState extends State<SignInScreen>
 
                     const SizedBox(height: 14),
 
+                    TextButton(
+                      onPressed: () => Navigator.pushNamed(context, '/sign-up'),
+                      child: const Text('Create a student account'),
+                    ),
+
                     // Login Button (Sky Blue Gradient)
                     Container(
                       width: double.infinity,

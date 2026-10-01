@@ -1,5 +1,8 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../core/services/supabase_service.dart';
 import '../theme/auth_theme.dart';
 import '../widgets/auth_card.dart';
 import '../widgets/auth_illustration.dart';
@@ -9,7 +12,14 @@ import '../widgets/auth_primary_button.dart';
 
 /// Sign-Up screen — recreates the center card from the reference image.
 class SignUpScreen extends StatefulWidget {
-  const SignUpScreen({super.key});
+  const SignUpScreen({super.key, this.register});
+
+  final Future<bool> Function({
+    required String fullName,
+    required String email,
+    required String password,
+  })?
+  register;
 
   @override
   State<SignUpScreen> createState() => _SignUpScreenState();
@@ -31,20 +41,45 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 
   Future<void> _handleSignUp() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_isLoading || !_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
-    // Simulate a network call
-    await Future.delayed(const Duration(seconds: 2));
-
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-
-    // TODO: Replace with actual sign-up logic
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Account created successfully!')),
-    );
+    try {
+      final needsConfirmation =
+          await (widget.register ?? SupabaseService().registerStudent)(
+            fullName: _nameCtrl.text,
+            email: _emailCtrl.text,
+            password: _passwordCtrl.text,
+          );
+      if (!mounted) return;
+      _passwordCtrl.clear();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            needsConfirmation
+                ? 'Check your email for confirmation instructions, then sign in. If you already have an account, sign in or reset your password.'
+                : 'Registration complete. Sign in to continue.',
+          ),
+        ),
+      );
+      Navigator.pushReplacementNamed(context, '/sign-in');
+    } on AuthException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.message)));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not register. Please check your connection and try again.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -80,8 +115,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       hintText: 'Full name',
                       prefixIcon: Icons.person_outline_rounded,
                       controller: _nameCtrl,
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Please enter your name' : null,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Please enter your name'
+                          : null,
                     ),
                     const SizedBox(height: AuthTheme.fieldSpacing),
 
@@ -92,8 +128,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       keyboardType: TextInputType.emailAddress,
                       controller: _emailCtrl,
                       validator: (v) {
-                        if (v == null || v.trim().isEmpty) return 'Please enter your email';
-                        if (!v.contains('@')) return 'Enter a valid email address';
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Please enter your email';
+                        }
+                        if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+                            .hasMatch(v.trim())) {
+                          return 'Enter a valid email address';
+                        }
                         return null;
                       },
                     ),
@@ -106,8 +147,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       isPassword: true,
                       controller: _passwordCtrl,
                       textInputAction: TextInputAction.done,
-                      validator: (v) =>
-                          (v == null || v.length < 8) ? 'Password must be at least 8 characters' : null,
+                      validator: (v) => (v == null || v.length < 8)
+                          ? 'Password must be at least 8 characters'
+                          : null,
                     ),
                     const SizedBox(height: 16),
 

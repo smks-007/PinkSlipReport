@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../constants/supabase_config.dart';
 import '../models/user_model.dart';
 import '../models/leave_model.dart';
+import '../models/student_dashboard_data.dart';
+import '../models/department_absence.dart';
 
 /// Central Supabase Integration Service for PinkSlipReport
 /// Handles Supabase Client initialization, JWT Auth, and PostgreSQL Database Sync.
@@ -25,6 +27,145 @@ class SupabaseService {
 
   /// Real signed JWT Bearer token issued by Supabase
   String? get currentJwtToken => currentSession?.accessToken;
+
+  /// No student ID is accepted: the database resolves the caller via auth.uid().
+  Future<StudentDashboardData> fetchMyStudentDashboard() async {
+    final supabase = client;
+    final authId = supabase?.auth.currentUser?.id;
+    if (supabase == null || authId == null) {
+      throw const AuthException('Please sign in to view your details.');
+    }
+    final rows = await supabase.rpc('get_my_student_dashboard');
+    if (rows is! List || rows.length != 1) {
+      throw StateError('An active linked student profile is required.');
+    }
+    final summary = StudentDashboardData.fromJson(
+      Map<String, dynamic>.from(rows.single as Map),
+    );
+    if (summary.authId != authId || supabase.auth.currentUser?.id != authId) {
+      throw const AuthException('Your session changed. Please sign in again.');
+    }
+    return summary;
+  }
+
+  /// HOD-only, department-wide absences for one calendar date.
+  /// The database verifies the caller and never accepts a department or student ID.
+  Future<DepartmentAbsenceReport> fetchDepartmentAbsences(DateTime date) async {
+    final supabase = client;
+    if (supabase == null || supabase.auth.currentUser == null) {
+      throw const AuthException('Please sign in to view department absences.');
+    }
+    final normalizedDate = DateTime(date.year, date.month, date.day);
+    final rows = await supabase.rpc(
+      'get_department_absences',
+      params: {
+        'p_attendance_date':
+            '${normalizedDate.year.toString().padLeft(4, '0')}-${normalizedDate.month.toString().padLeft(2, '0')}-${normalizedDate.day.toString().padLeft(2, '0')}',
+      },
+    );
+    if (rows is! Map) {
+      throw const FormatException('Invalid department absence response.');
+    }
+    return DepartmentAbsenceReport.fromJson(Map<String, dynamic>.from(rows));
+  }
+
+  /// HOD-only absences for a selected academic section and attendance day.
+  Future<DepartmentAbsenceReport> fetchSectionAbsences(
+    DateTime date,
+    String sectionId,
+  ) async {
+    final supabase = client;
+    if (supabase == null || supabase.auth.currentUser == null) {
+      throw const AuthException('Please sign in to view section absences.');
+    }
+    final normalizedDate = DateTime(date.year, date.month, date.day);
+    final rows = await supabase.rpc(
+      'get_section_absences',
+      params: {
+        'p_attendance_date':
+            '${normalizedDate.year.toString().padLeft(4, '0')}-${normalizedDate.month.toString().padLeft(2, '0')}-${normalizedDate.day.toString().padLeft(2, '0')}',
+        'p_section_id': sectionId,
+      },
+    );
+    if (rows is! Map) {
+      throw const FormatException('Invalid section absence response.');
+    }
+    return DepartmentAbsenceReport.fromJson(Map<String, dynamic>.from(rows));
+  }
+
+  /// HOD-only list of today's absentees or On Duty students.
+  Future<DepartmentAbsenceReport> fetchTodayDepartmentAttendance(
+    String status,
+  ) async {
+    final supabase = client;
+    if (supabase == null || supabase.auth.currentUser == null) {
+      throw const AuthException('Please sign in to view today\'s attendance.');
+    }
+    final rows = await supabase.rpc(
+      'get_today_department_attendance',
+      params: {'p_status': status},
+    );
+    if (rows is! Map) {
+      throw const FormatException('Invalid today attendance response.');
+    }
+    return DepartmentAbsenceReport.fromJson(Map<String, dynamic>.from(rows));
+  }
+
+  /// HOD-only leave or On Duty list for a selected attendance date.
+  Future<DepartmentAbsenceReport> fetchDepartmentAttendanceStatus(
+    DateTime date,
+    String status,
+  ) async {
+    final supabase = client;
+    if (supabase == null || supabase.auth.currentUser == null) {
+      throw const AuthException('Please sign in to view attendance details.');
+    }
+    final normalizedDate = DateTime(date.year, date.month, date.day);
+    final rows = await supabase.rpc(
+      'get_department_attendance_status',
+      params: {
+        'p_attendance_date':
+            '${normalizedDate.year.toString().padLeft(4, '0')}-${normalizedDate.month.toString().padLeft(2, '0')}-${normalizedDate.day.toString().padLeft(2, '0')}',
+        'p_status': status,
+      },
+    );
+    if (rows is! Map) {
+      throw const FormatException('Invalid attendance status response.');
+    }
+    return DepartmentAbsenceReport.fromJson(Map<String, dynamic>.from(rows));
+  }
+
+  /// Rebuild the application profile from the persisted Supabase session.
+  /// The role always comes from public.users, never from editable metadata.
+  Future<UserModel?> currentUserModel() async {
+    final user = client?.auth.currentUser;
+    if (user == null) return null;
+    final email = user.email ?? '';
+    final profile = await fetchUserProfile(email, authId: user.id);
+    await _requireAuthorizedProfile(profile);
+    final rawRole = profile?['role']?.toString().toUpperCase();
+    final role = switch (rawRole) {
+      'HOD' => UserRole.hod,
+      'ADVISOR' => UserRole.advisor,
+      _ => UserRole.student,
+    };
+    final metadata = user.userMetadata ?? {};
+    return UserModel(
+      id: user.id,
+      name:
+          (profile?['full_name'] ??
+                  metadata['full_name'] ??
+                  email.split('@').first)
+              .toString(),
+      email: email,
+      role: role,
+      department: (profile?['department'] ?? metadata['department'] ?? 'AI&DS')
+          .toString(),
+      classSection: metadata['class_section']?.toString(),
+      batchYear: metadata['batch_year']?.toString(),
+      rollNumber: metadata['roll_number']?.toString(),
+    );
+  }
 
   /// Initialize Supabase Flutter SDK
   Future<void> initialize() async {
@@ -59,6 +200,32 @@ class SupabaseService {
   }
 
   /// Resolve any identifier (roll number, username, or email) to official email
+  /// Register without granting application roles from client metadata.
+  /// Returns whether email confirmation is required before signing in.
+  Future<bool> registerStudent({
+    required String fullName,
+    required String email,
+    required String password,
+  }) async {
+    final authClient = client;
+    if (authClient == null) {
+      throw const AuthException(
+        'Authentication is not configured. Please contact support.',
+      );
+    }
+    final response = await authClient.auth.signUp(
+      email: email.trim().toLowerCase(),
+      password: password,
+      data: {'full_name': fullName.trim()},
+    );
+    final needsConfirmation = response.session == null;
+    // Registration returns to sign-in, where the database profile is loaded.
+    if (response.session != null) {
+      await authClient.auth.signOut();
+    }
+    return needsConfirmation;
+  }
+
   String resolveEmail(String input) {
     final clean = input.trim().toLowerCase();
 
@@ -148,7 +315,9 @@ class SupabaseService {
     Map<String, dynamic>? dbProfile;
     try {
       dbProfile = await fetchUserProfile(user.email ?? email, authId: user.id);
+      await _requireAuthorizedProfile(dbProfile);
     } catch (e) {
+      if (e is AuthException) rethrow;
       if (kDebugMode) {
         debugPrint('⚠️ Warning fetching dbProfile during sign in: $e');
       }
@@ -237,6 +406,35 @@ class SupabaseService {
     );
   }
 
+  /// Fail closed when Auth has no active application profile or when a
+  /// student has not been linked to the official roster.
+  Future<void> _requireAuthorizedProfile(Map<String, dynamic>? profile) async {
+    if (profile == null || profile['is_active'] == false) {
+      throw const AuthException(
+        'Your account is not active in PinkSlipReport. Contact the department administrator.',
+      );
+    }
+
+    final role = profile['role']?.toString().toUpperCase();
+    if (role != 'STUDENT') return;
+    final userId = profile['user_id'];
+    if (userId == null) {
+      throw const AuthException(
+        'Your student profile is not linked to the official roster.',
+      );
+    }
+    final student = await client!
+        .from('students')
+        .select('student_id, roll_number, register_number, section_id')
+        .eq('student_id', userId)
+        .maybeSingle();
+    if (student == null) {
+      throw const AuthException(
+        'Your student profile is not linked to the official roster.',
+      );
+    }
+  }
+
   /// Fetch user profile directly from Supabase public.users table
   Future<Map<String, dynamic>?> fetchUserProfile(
     String email, {
@@ -314,6 +512,17 @@ class SupabaseService {
       throw Exception('Supabase is not initialized.');
     }
     await client!.auth.resetPasswordForEmail(email);
+  }
+
+  /// Set a new password after Supabase has established a recovery session.
+  Future<void> updatePassword(String password) async {
+    if (!_isInitialized || client == null) {
+      throw const AuthException('Supabase is not initialized.');
+    }
+    if (client!.auth.currentSession == null) {
+      throw const AuthException('This recovery link is no longer valid.');
+    }
+    await client!.auth.updateUser(UserAttributes(password: password));
   }
 
   /// Sign Out of Supabase
@@ -556,7 +765,9 @@ class SupabaseService {
         rollNumber: rollNumber,
       );
       if (realStudentId == null) {
-        throw StateError('The selected student could not be resolved in Supabase.');
+        throw StateError(
+          'The selected student could not be resolved in Supabase.',
+        );
       }
 
       // Map application status to PostgreSQL slip_status enum
@@ -794,7 +1005,9 @@ class SupabaseService {
         rollNumber: rollNumber,
       );
       if (realStudentId == null) {
-        throw StateError('The selected student could not be resolved in Supabase.');
+        throw StateError(
+          'The selected student could not be resolved in Supabase.',
+        );
       }
       final dateStr =
           '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
@@ -811,15 +1024,18 @@ class SupabaseService {
 
       // Submit both records in one database transaction. This prevents a
       // leave slip from surviving when attendance synchronization fails.
-      await client!.rpc('submit_pink_slip_and_mark_attendance', params: {
-        'p_student_id': realStudentId,
-        'p_reason': reason,
-        'p_date': dateStr,
-        'p_is_on_duty': isOnDuty,
-        'p_letter_url': letterUrl,
-        'p_status': dbStatus,
-        'p_advisor_remarks': advisorRemarks,
-      });
+      await client!.rpc(
+        'submit_pink_slip_and_mark_attendance',
+        params: {
+          'p_student_id': realStudentId,
+          'p_reason': reason,
+          'p_date': dateStr,
+          'p_is_on_duty': isOnDuty,
+          'p_letter_url': letterUrl,
+          'p_status': dbStatus,
+          'p_advisor_remarks': advisorRemarks,
+        },
+      );
 
       if (kDebugMode) {
         debugPrint(
@@ -903,20 +1119,29 @@ class SupabaseService {
   }) async {
     if (!_isInitialized || client == null) return null;
     try {
-      final res = await client!.from('promotions').insert({
-        'from_year': fromYear,
-        'to_year': toYear,
-        'section': section,
-        'batch_year': batchYear,
-        'semester_completed': semesterCompleted,
-        'semester_end_date': semesterEndDate.toIso8601String().split('T').first,
-        'eligible_promotion_date':
-            eligiblePromotionDate.toIso8601String().split('T').first,
-        'total_students': totalStudents,
-        'status': 'PENDING_ADVISOR',
-        'advisor_name': advisorName,
-        'advisor_remarks': advisorRemarks,
-      }).select().single();
+      final res = await client!
+          .from('promotions')
+          .insert({
+            'from_year': fromYear,
+            'to_year': toYear,
+            'section': section,
+            'batch_year': batchYear,
+            'semester_completed': semesterCompleted,
+            'semester_end_date': semesterEndDate
+                .toIso8601String()
+                .split('T')
+                .first,
+            'eligible_promotion_date': eligiblePromotionDate
+                .toIso8601String()
+                .split('T')
+                .first,
+            'total_students': totalStudents,
+            'status': 'PENDING_ADVISOR',
+            'advisor_name': advisorName,
+            'advisor_remarks': advisorRemarks,
+          })
+          .select()
+          .single();
       return res;
     } catch (e) {
       if (kDebugMode) {
@@ -1046,10 +1271,9 @@ class SupabaseService {
   ) async {
     if (!_isInitialized || client == null || events.isEmpty) return false;
     try {
-      await client!.from('academic_calendar').upsert(
-        events,
-        onConflict: 'event_date',
-      );
+      await client!
+          .from('academic_calendar')
+          .upsert(events, onConflict: 'event_date');
       return true;
     } catch (e) {
       if (kDebugMode) {
@@ -1175,7 +1399,9 @@ class SupabaseService {
     try {
       final staffList = await client!
           .from('staff_advisors')
-          .select('*, users!staff_id(user_id, full_name, email, role, department)');
+          .select(
+            '*, users!staff_id(user_id, full_name, email, role, department)',
+          );
       if (staffList.isNotEmpty) {
         return List<Map<String, dynamic>>.from(staffList);
       }

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'auth/screens/sign_in_screen.dart';
+import 'auth/screens/sign_up_screen.dart';
 import 'auth/screens/forgot_password_screen.dart';
+import 'auth/screens/update_password_screen.dart';
 import 'dashboard/advisor/screens/advisor_dashboard_screen.dart';
 import 'dashboard/advisor/screens/attendance_screen.dart';
 import 'dashboard/advisor/screens/leave_management_screen.dart';
@@ -15,6 +17,7 @@ import 'core/models/user_model.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SupabaseService().initialize();
+  await AuthService().initializeAuth();
   runApp(const SmartProApp());
 }
 
@@ -38,7 +41,9 @@ class SmartProApp extends StatelessWidget {
         ),
         scaffoldBackgroundColor: const Color(0xFFF8FAFC),
       ),
-      initialRoute: '/sign-in',
+      initialRoute: AuthService().isRecoverySession
+          ? '/update-password'
+          : '/sign-in',
       onGenerateRoute: _generateRoute,
     );
   }
@@ -50,6 +55,11 @@ class SmartProApp extends StatelessWidget {
 
     // Public routes (no auth required)
     switch (settings.name) {
+      case '/sign-up':
+        return MaterialPageRoute(
+          builder: (_) => const SignUpScreen(),
+          settings: settings,
+        );
       case '/sign-in':
         return MaterialPageRoute(
           builder: (_) => const SignInScreen(),
@@ -58,6 +68,11 @@ class SmartProApp extends StatelessWidget {
       case '/forgot-password':
         return MaterialPageRoute(
           builder: (_) => const ForgotPasswordScreen(),
+          settings: settings,
+        );
+      case '/update-password':
+        return MaterialPageRoute(
+          builder: (_) => const UpdatePasswordScreen(),
           settings: settings,
         );
     }
