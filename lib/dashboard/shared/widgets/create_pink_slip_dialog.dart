@@ -4,9 +4,7 @@ import '../../../core/models/leave_model.dart';
 import '../../../core/models/student_model.dart';
 import '../../../core/models/user_model.dart';
 import '../../../core/services/auth_service.dart';
-import '../../../core/services/pdf_document_service.dart';
 import '../../../core/services/mock_data_service.dart';
-import '../../../core/services/supabase_service.dart';
 import '../../../core/utils/responsive_utils.dart';
 
 /// Interactive dialog for the concerned Class Advisor to create/issue an official Pink Slip,
@@ -40,11 +38,8 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
 
   final _reasonCtrl = TextEditingController();
   final _advisorRemarksCtrl = TextEditingController();
+  final _studentSearchCtrl = TextEditingController();
 
-  String _attachedFileName = 'advisor_signed_clearance.pdf';
-  String _attachedFileType = 'Official Pink Slip Endorsement';
-  String _attachedFileSize = '1.1 MB';
-  bool _hasAttachment = true;
   bool _isSubmitting = false;
 
   @override
@@ -98,14 +93,10 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
       if (_reasonCtrl.text.isEmpty || _reasonCtrl.text == 'Medical / Sick Leave' || _reasonCtrl.text == 'Personal Reason') {
         _reasonCtrl.text = 'On-Duty: Academic Symposium / Project Duty';
       }
-      _attachedFileName = 'od_clearance_${_selectedStudent?.rollNumber ?? "doc"}.pdf';
-      _attachedFileType = 'On-Duty Clearance Letter';
     } else {
       if (_reasonCtrl.text.isEmpty || _reasonCtrl.text.startsWith('On-Duty')) {
         _reasonCtrl.text = 'Medical / Sick Leave';
       }
-      _attachedFileName = 'pink_slip_absent_${_selectedStudent?.rollNumber ?? "doc"}.pdf';
-      _attachedFileType = 'Advisor Issued Pink Slip';
     }
 
     _advisorRemarksCtrl.text =
@@ -116,7 +107,26 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
   void dispose() {
     _reasonCtrl.dispose();
     _advisorRemarksCtrl.dispose();
+    _studentSearchCtrl.dispose();
     super.dispose();
+  }
+
+  List<StudentModel> get _filteredClassStudents {
+    final query = _studentSearchCtrl.text.trim().toLowerCase();
+    final students = query.isEmpty
+        ? List<StudentModel>.from(_classStudents)
+        : _classStudents.where((student) {
+            return student.name.toLowerCase().contains(query) ||
+                student.rollNumber.toLowerCase().contains(query) ||
+                (student.registerNumber?.toLowerCase().contains(query) ?? false);
+          }).toList();
+
+    // Keep the currently selected student in the menu until the advisor chooses
+    // another student; DropdownButton requires its selected value to be present.
+    if (_selectedStudent != null && !students.any((s) => s.id == _selectedStudent!.id)) {
+      students.insert(0, _selectedStudent!);
+    }
+    return students;
   }
 
   void _selectDate() async {
@@ -131,25 +141,6 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
     }
   }
 
-  void _attachDocument() {
-    setState(() {
-      _attachedFileName = _markPresent
-          ? 'od_proof_signed_${_selectedStudent?.rollNumber ?? "file"}.pdf'
-          : 'doctor_signed_certificate_${_selectedStudent?.rollNumber ?? "file"}.pdf';
-      _attachedFileType = _markPresent ? 'Faculty Approved OD Proof' : 'Doctor Medical Certificate';
-      _attachedFileSize = '1.8 MB';
-      _hasAttachment = true;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('📎 Document attached: $_attachedFileName'),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate() || _selectedStudent == null) return;
 
@@ -160,40 +151,6 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
     final advisorId = user?.id ?? 'adv-001';
     final int year = user?.year ?? _selectedStudent!.year;
     final String section = user?.section ?? _selectedStudent!.section;
-
-    String? finalAttachmentUrl;
-    if (_hasAttachment) {
-      try {
-        final docContent = '''%PDF-1.4
-% ══════════════════════════════════════════════════════════
-% V.S.B. ENGINEERING COLLEGE — DEPARTMENT OF AI & DS
-% OFFICIAL CLASS ADVISOR PINK SLIP & ATTENDANCE ENDORSEMENT
-% ══════════════════════════════════════════════════════════
-% Student Name  : ${_selectedStudent!.name}
-% Roll Number   : ${_selectedStudent!.rollNumber}
-% Year & Section: Year $year, Section $section
-% Date of Slip  : ${_selectedDate.toIso8601String().split('T').first}
-% Category      : ${_category == LeaveCategory.onDuty ? "ON-DUTY (OD)" : "LEAVE"}
-% Type          : ${_leaveType == LeaveType.informed ? "INFORMED" : "UNINFORMED"}
-% Marked Status : ${_markPresent ? "PRESENT" : "ABSENT"}
-% Reason        : ${_reasonCtrl.text.trim()}
-% Remarks       : ${_advisorRemarksCtrl.text.trim()}
-% Issued By     : $advisorName ($advisorId)
-% Generated At  : ${DateTime.now().toIso8601String()}
-%%EOF''';
-        final fileBytes = PdfDocumentService.createTextPdf(docContent);
-        final uploadedUrl = await SupabaseService().uploadLeaveDocument(
-          fileBytes,
-          _attachedFileName,
-          folder: 'pink_slips',
-        );
-        if (uploadedUrl != null && uploadedUrl.isNotEmpty) {
-          finalAttachmentUrl = uploadedUrl;
-        }
-      } catch (e) {
-        debugPrint('⚠️ Storage upload notice: $e');
-      }
-    }
 
     late final LeaveModel newSlip;
     try {
@@ -207,9 +164,6 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
         advisorName: advisorName,
         advisorId: advisorId,
         advisorRemarks: _advisorRemarksCtrl.text.trim(),
-        attachmentFileName: finalAttachmentUrl ?? (_hasAttachment ? _attachedFileName : null),
-        attachmentFileType: _hasAttachment ? _attachedFileType : null,
-        attachmentFileSize: _hasAttachment ? _attachedFileSize : null,
         year: year,
         section: section,
       );
@@ -243,13 +197,13 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Pink Slip issued for ${_selectedStudent!.name}! Marked ${_markPresent ? "PRESENT" : "ABSENT"}.',
+                  'Pink Slip submitted for ${_selectedStudent!.name} and sent to HOD for approval.',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
             ],
           ),
-          backgroundColor: _markPresent ? const Color(0xFF047857) : AppColors.absentRed,
+          backgroundColor: const Color(0xFF7C3AED),
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 3),
         ),
@@ -522,6 +476,33 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
                         style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
                       ),
                       const SizedBox(height: 6),
+                      TextField(
+                        controller: _studentSearchCtrl,
+                        onChanged: (_) => setState(() {}),
+                        textInputAction: TextInputAction.search,
+                        decoration: InputDecoration(
+                          hintText: 'Search name, roll number, or register number',
+                          hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                          prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppColors.primaryPurple),
+                          suffixIcon: _studentSearchCtrl.text.isEmpty
+                              ? null
+                              : IconButton(
+                                  tooltip: 'Clear search',
+                                  icon: const Icon(Icons.close_rounded, size: 18),
+                                  onPressed: () {
+                                    _studentSearchCtrl.clear();
+                                    setState(() {});
+                                  },
+                                ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                       DropdownButtonFormField<StudentModel>(
                         initialValue: _selectedStudent,
                         isExpanded: true,
@@ -534,7 +515,7 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
                             borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
                           ),
                         ),
-                        items: _classStudents.map((s) {
+                        items: _filteredClassStudents.map((s) {
                           return DropdownMenuItem(
                             value: s,
                             child: Row(
@@ -772,117 +753,6 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
                       ),
                       const SizedBox(height: 14),
 
-                      // Document Proof / Attachment
-                      const Text(
-                        'Official Document Proof (Pink Slip Record)',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
-                      ),
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
-                        ),
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            final isNarrow = constraints.maxWidth < 320;
-                            if (isNarrow) {
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(8),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFFEE2E2),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFDC2626), size: 20),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              _attachedFileName,
-                                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            Text(
-                                              '$_attachedFileType • $_attachedFileSize',
-                                              style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Align(
-                                    alignment: Alignment.centerRight,
-                                    child: OutlinedButton.icon(
-                                      onPressed: _isSubmitting ? null : _attachDocument,
-                                      icon: const Icon(Icons.upload_file, size: 14),
-                                      label: const Text('Change File'),
-                                      style: OutlinedButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                        textStyle: const TextStyle(fontSize: 11),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              );
-                            }
-                            return Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFFEE2E2),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFDC2626), size: 22),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        _attachedFileName,
-                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      Text(
-                                        '$_attachedFileType • $_attachedFileSize',
-                                        style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                OutlinedButton.icon(
-                                  onPressed: _isSubmitting ? null : _attachDocument,
-                                  icon: const Icon(Icons.upload_file, size: 14),
-                                  label: const Text('Change File'),
-                                  style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    textStyle: const TextStyle(fontSize: 11),
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                      ),
                     ],
                   ),
                 ),
@@ -911,10 +781,8 @@ class _CreatePinkSlipDialogState extends State<CreatePinkSlipDialog> {
                       ),
                 label: Text(
                   _isSubmitting
-                      ? 'Issuing & Uploading to Cloud...'
-                      : (_markPresent
-                          ? 'Issue Pink Slip & Mark as PRESENT'
-                          : 'Issue Pink Slip & Mark as ABSENT'),
+                      ? 'Submitting Pink Slip...'
+                      : 'Submit Pink Slip for HOD Approval',
                   style: TextStyle(
                     fontSize: context.responsiveFontSize(compact: 12, normal: 13.5),
                     fontWeight: FontWeight.bold,

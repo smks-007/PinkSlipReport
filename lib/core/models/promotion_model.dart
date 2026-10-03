@@ -68,7 +68,7 @@ class PromotionRequest {
       case 2: return 'II Year';
       case 3: return 'III Year';
       case 4: return 'IV Year (Final Year)';
-      default: return 'Year ';
+      default: return 'Year $fromYear';
     }
   }
 
@@ -78,11 +78,12 @@ class PromotionRequest {
       case 3: return 'III Year';
       case 4: return 'IV Year';
       case 5: return 'Graduated / Alumni Archive';
-      default: return 'Year ';
+      default: return 'Year $toYear';
     }
   }
 
-  String get promotionTitle => ' ➔  (Sec  - )';
+  String get promotionTitle =>
+      '$fromYearRoman → $toYearRoman (Section $section · $batchYear)';
 
   String get statusBadgeLabel {
     switch (status) {
@@ -91,7 +92,9 @@ class PromotionRequest {
       case PromotionApprovalStatus.forwardedToHod:
         return 'Awaiting HOD Approval';
       case PromotionApprovalStatus.approvedByHod:
-        return isGraduation ? 'Graduation & Archive Confirmed' : 'Promoted to ';
+        return isGraduation
+            ? 'Graduation & Archive Confirmed'
+            : 'Promoted to $toYearRoman';
       case PromotionApprovalStatus.rejected:
         return 'Promotion On Hold / Rejected';
     }

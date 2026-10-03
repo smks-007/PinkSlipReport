@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS sections (
     section_id VARCHAR(15) PRIMARY KEY,
     year INT NOT NULL CHECK (year BETWEEN 1 AND 4),
     section_name CHAR(1) NOT NULL CHECK (section_name IN ('A', 'B', 'C', 'D')),
+    cohort_year INT NOT NULL CHECK (cohort_year BETWEEN 2000 AND 2100),
     department VARCHAR(60) DEFAULT 'Artificial Intelligence and Data Science',
     total_strength INT DEFAULT 0,
     academic_year VARCHAR(20) DEFAULT '2026-2027',
@@ -117,9 +118,9 @@ CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_logs(actor_id, performed_at 
 CREATE INDEX IF NOT EXISTS idx_students_section ON students(section_id);
 
 -- Seed Sections
-INSERT INTO sections (section_id, year, section_name, total_strength) VALUES
-('I-AIDS-A', 1, 'A', 60), ('I-AIDS-B', 1, 'B', 59), ('I-AIDS-C', 1, 'C', 60), ('I-AIDS-D', 1, 'D', 59),
-('II-AIDS-A', 2, 'A', 62), ('II-AIDS-B', 2, 'B', 63), ('II-AIDS-C', 2, 'C', 61), ('II-AIDS-D', 2, 'D', 61),
-('III-AIDS-A', 3, 'A', 60), ('III-AIDS-B', 3, 'B', 58), ('III-AIDS-C', 3, 'C', 59), ('III-AIDS-D', 3, 'D', 58),
-('IV-AIDS-A', 4, 'A', 56), ('IV-AIDS-B', 4, 'B', 56)
+INSERT INTO sections (section_id, year, section_name, cohort_year, total_strength) VALUES
+('26-AIDS-A', 1, 'A', 2026, 60), ('26-AIDS-B', 1, 'B', 2026, 59), ('26-AIDS-C', 1, 'C', 2026, 60), ('26-AIDS-D', 1, 'D', 2026, 59),
+('25-AIDS-A', 2, 'A', 2025, 62), ('25-AIDS-B', 2, 'B', 2025, 63), ('25-AIDS-C', 2, 'C', 2025, 61), ('25-AIDS-D', 2, 'D', 2025, 61),
+('24-AIDS-A', 3, 'A', 2024, 60), ('24-AIDS-B', 3, 'B', 2024, 58), ('24-AIDS-C', 3, 'C', 2024, 59), ('24-AIDS-D', 3, 'D', 2024, 58),
+('23-AIDS-A', 4, 'A', 2023, 56), ('23-AIDS-B', 4, 'B', 2023, 56)
 ON CONFLICT (section_id) DO NOTHING;

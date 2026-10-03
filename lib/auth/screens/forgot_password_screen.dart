@@ -14,19 +14,12 @@ class ForgotPasswordScreen extends StatefulWidget {
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailCtrl = TextEditingController();
-  int _selectedRoleTab = 0; // 0 = HOD, 1 = Class Advisor
   bool _isLoading = false;
 
   @override
   void dispose() {
     _emailCtrl.dispose();
     super.dispose();
-  }
-
-  void _onRoleTabChanged(int index) {
-    setState(() {
-      _selectedRoleTab = index;
-    });
   }
 
   Future<void> _handleResetRequest() async {
@@ -238,7 +231,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                 const SizedBox(width: 8),
                                 const Flexible(
                                   child: Text(
-                                    'PinkSlipReport',
+                                    'Leave Desk',
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.bold,
@@ -317,13 +310,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Role Selector Tabs
-                    _buildRoleTabs(),
-
-                    const SizedBox(height: 20),
-
                     const Text(
-                      'Institutional Email / Faculty ID',
+                      'Email',
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 13,
@@ -337,7 +325,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       controller: _emailCtrl,
                       keyboardType: TextInputType.emailAddress,
                       decoration: InputDecoration(
-                        hintText: 'Enter your registered college email',
+                        hintText: 'e.g., hod.manivannan, advisor.anandha...',
                         prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFF0284C7)),
                         filled: true,
                         fillColor: Colors.white,
@@ -355,8 +343,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         ),
                       ),
                       validator: (v) {
-                        if (v == null || v.trim().isEmpty) return 'Please enter your registered college email';
-                        if (!v.contains('@')) return 'Please enter a valid email address';
+                        if (v == null || v.trim().isEmpty) return 'Please enter your email';
+                        if (!v.trim().contains('@')) return 'Please enter a valid email address';
                         return null;
                       },
                     ),
@@ -526,82 +514,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
                     const SizedBox(height: 16),
                   ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRoleTabs() {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE2E8F0),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: GestureDetector(
-              onTap: () => _onRoleTabChanged(0),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: _selectedRoleTab == 0 ? Colors.white : Colors.transparent,
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: _selectedRoleTab == 0
-                      ? [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.06),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Center(
-                  child: Text(
-                    '🏛️ HOD Portal',
-                    style: TextStyle(
-                      fontWeight: _selectedRoleTab == 0 ? FontWeight.w800 : FontWeight.w600,
-                      color: _selectedRoleTab == 0 ? const Color(0xFF0284C7) : const Color(0xFF64748B),
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Expanded(
-            child: GestureDetector(
-              onTap: () => _onRoleTabChanged(1),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: _selectedRoleTab == 1 ? Colors.white : Colors.transparent,
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: _selectedRoleTab == 1
-                      ? [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.06),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Center(
-                  child: Text(
-                    '👨‍🏫 Class Advisor',
-                    style: TextStyle(
-                      fontWeight: _selectedRoleTab == 1 ? FontWeight.w800 : FontWeight.w600,
-                      color: _selectedRoleTab == 1 ? const Color(0xFF0284C7) : const Color(0xFF64748B),
-                      fontSize: 13,
-                    ),
-                  ),
                 ),
               ),
             ),

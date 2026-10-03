@@ -144,7 +144,7 @@ class _SecurityVerificationScreenState extends State<SecurityVerificationScreen>
                                 const SizedBox(width: 8),
                                 const Flexible(
                                   child: Text(
-                                    'PinkSlipReport',
+                                    'Leave Desk',
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.bold,

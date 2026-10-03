@@ -14,9 +14,8 @@ import '../../../core/services/data_service.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../../core/widgets/smart_pro_logo.dart';
 import '../../shared/widgets/letter_attachment_viewer_dialog.dart';
-import '../../shared/widgets/storage_management_dialog.dart';
-import '../../shared/widgets/promotion_dossier_viewer_dialog.dart';
 import '../../shared/widgets/attendance_report_viewer_dialog.dart';
+import 'semester_total_report_screen.dart';
 import '../../../core/utils/responsive_utils.dart';
 
 class HodDashboardScreen extends StatefulWidget {
@@ -248,16 +247,25 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
   bool _showDepartmentGraph = false;
   DateTime? _selectedDepartmentGraphDate;
   DateTime? _selectedSectionGraphDate;
+  DateTime _sectionAttendanceDate = DateTime.now();
   DateTime _liveStatsDate = DateTime.now();
+  String _academicTermName = 'Academic Term Sep-Dec 2026';
+  DateTime _academicTermStart = DateTime(2026, 9, 1);
+  DateTime _academicTermEnd = DateTime(2026, 12, 31);
+  bool _isLoadingAcademicTerm = true;
+  int _termProgressionYear = 1;
   String _pinkSlipFilter =
       'All'; // All, Awaiting, Approved, OD, Leave, Rejected
   final TextEditingController _pinkSlipSearchCtrl = TextEditingController();
   String _pinkSlipQuery = '';
+  int? _approvalYearFilter;
+  String? _approvalSectionFilter;
 
   @override
   void initState() {
     super.initState();
     _selectedYear = 2;
+    _loadAcademicTermSettings(_termProgressionYear);
     // Both HODs have full access across all years and sections
     AuthService().addListener(_onAuthChanged);
     // Refresh user profile dynamically from public.users table on load
@@ -321,6 +329,137 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
     );
   }
 
+  Future<void> _loadAcademicTermSettings(int studyYear) async {
+    setState(() => _isLoadingAcademicTerm = true);
+    final settings = await SupabaseService().fetchAcademicTermSettings(studyYear);
+    if (!mounted) return;
+    final start = DateTime.tryParse(settings?['start_date']?.toString() ?? '');
+    final end = DateTime.tryParse(settings?['end_date']?.toString() ?? '');
+    setState(() {
+      if (start != null) _academicTermStart = start;
+      if (end != null) _academicTermEnd = end;
+      final name = settings?['term_name']?.toString().trim();
+      if (name != null && name.isNotEmpty) _academicTermName = name;
+      _isLoadingAcademicTerm = false;
+    });
+  }
+
+  Future<void> _showAcademicTermEditor() async {
+    final nameController = TextEditingController(text: _academicTermName);
+    DateTime start = _academicTermStart;
+    DateTime end = _academicTermEnd;
+    bool saving = false;
+    int monthCount() => (end.year - start.year) * 12 + end.month - start.month + 1;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Configure academic term'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Term name'),
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Start month'),
+                  subtitle: Text(_monthLabel(start)),
+                  trailing: const Icon(Icons.calendar_month_rounded),
+                  onTap: () async {
+                    final selected = await showDatePicker(
+                      context: dialogContext,
+                      initialDate: start,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2035),
+                      helpText: 'Choose term start month',
+                    );
+                    if (selected != null) {
+                      setDialogState(() => start = DateTime(selected.year, selected.month, 1));
+                    }
+                  },
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(top: 4),
+                  child: Text(
+                    'A semester must contain between 3 and 6 months.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  ),
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('End month'),
+                  subtitle: Text(_monthLabel(end)),
+                  trailing: const Icon(Icons.calendar_month_rounded),
+                  onTap: () async {
+                    final selected = await showDatePicker(
+                      context: dialogContext,
+                      initialDate: end,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2035),
+                      helpText: 'Choose term end month',
+                    );
+                    if (selected != null) {
+                      setDialogState(() => end = DateTime(selected.year, selected.month + 1, 0));
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: saving ? null : () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: saving
+                  ? null
+                  : () async {
+                      if (nameController.text.trim().isEmpty ||
+                          end.isBefore(start) ||
+                          monthCount() < 3 ||
+                          monthCount() > 6) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Choose a semester range of 3 to 6 months.'),
+                          ),
+                        );
+                        return;
+                      }
+                      setDialogState(() => saving = true);
+                      final saved = await SupabaseService().saveAcademicTermSettings(
+                        studyYear: _termProgressionYear,
+                        termName: nameController.text.trim(),
+                        startDate: start,
+                        endDate: end,
+                      );
+                      if (!mounted) return;
+                      if (saved) {
+                        setState(() {
+                          _academicTermName = nameController.text.trim();
+                          _academicTermStart = start;
+                          _academicTermEnd = end;
+                        });
+                        Navigator.pop(dialogContext);
+                      } else {
+                        setDialogState(() => saving = false);
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not save the academic term.')));
+                      }
+                    },
+              child: Text(saving ? 'Saving...' : 'Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+    nameController.dispose();
+  }
+
+  String _monthLabel(DateTime date) =>
+      '${const ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][date.month - 1]} ${date.year}';
+
   String get _selectedSectionId {
     const yearLabels = ['I', 'II', 'III', 'IV'];
     return '${yearLabels[_selectedYear - 1]}-AIDS-${_selectedSection.toUpperCase()}';
@@ -380,6 +519,19 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
     );
     if (selected != null) {
       setState(() => _liveStatsDate = selected);
+    }
+  }
+
+  Future<void> _pickSectionAttendanceDate() async {
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: _sectionAttendanceDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      helpText: 'Select section attendance date',
+    );
+    if (selected != null) {
+      setState(() => _sectionAttendanceDate = selected);
     }
   }
 
@@ -467,18 +619,27 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
     final present = MockDataService.getSectionPresent(
       _selectedYear,
       _selectedSection,
+      _sectionAttendanceDate,
     );
     final absent = MockDataService.getSectionAbsent(
       _selectedYear,
       _selectedSection,
+      _sectionAttendanceDate,
     );
     final od = MockDataService.getSectionOnDuty(
       _selectedYear,
       _selectedSection,
+      _sectionAttendanceDate,
     );
     final pct = MockDataService.getSectionAttendancePercentage(
       _selectedYear,
       _selectedSection,
+      _sectionAttendanceDate,
+    );
+    final attendanceMarked = MockDataService.isSectionAttendanceMarked(
+      _selectedYear,
+      _selectedSection,
+      _sectionAttendanceDate,
     );
 
     String advisor = 'Department Advisor';
@@ -495,6 +656,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
       'absent': absent,
       'od': od,
       'pct': double.parse(pct.toStringAsFixed(1)),
+      'attendanceMarked': attendanceMarked,
       'advisor': advisor,
     };
   }
@@ -512,9 +674,13 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
             final pendingPromotions =
                 MockDataService.getPendingPromotionsForHod();
 
-            return SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: Column(
+            return RefreshIndicator(
+              onRefresh: MockDataService.syncFromSupabase,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
+                ),
+                child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildAppBar(),
@@ -556,6 +722,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
 
                   const SizedBox(height: 100),
                 ],
+                ),
               ),
             );
           },
@@ -579,20 +746,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               TextSpan(
                 children: [
                   TextSpan(
-                    text: 'SMART',
-                    style: TextStyle(
-                      color: const Color(0xFF0F172A),
-                      fontSize: context.responsiveFontSize(
-                        compact: 15,
-                        normal: 17,
-                      ),
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  const TextSpan(text: ' '),
-                  TextSpan(
-                    text: 'PRO',
+                    text: 'Leave Desk',
                     style: TextStyle(
                       color: const Color(0xFF6366F1),
                       fontSize: context.responsiveFontSize(
@@ -600,7 +754,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                         normal: 17,
                       ),
                       fontWeight: FontWeight.w900,
-                      letterSpacing: 1.2,
+                      letterSpacing: 0.6,
                     ),
                   ),
                 ],
@@ -613,14 +767,15 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             padding: const EdgeInsets.all(6),
             icon: const Icon(
-              Icons.dns_rounded,
+              Icons.picture_as_pdf_rounded,
               size: 20,
-              color: Color(0xFF0284C7),
+              color: Color(0xFF7C3AED),
             ),
-            tooltip: 'Storage & System Health',
-            onPressed: () => showDialog(
-              context: context,
-              builder: (ctx) => const StorageManagementDialog(),
+            tooltip: 'Semester Total Report',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const SemesterTotalReportScreen(),
+              ),
             ),
           ),
           IconButton(
@@ -1254,28 +1409,12 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
             ],
           ),
           const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _quickActionButton(
-                  icon: Icons.receipt_long_rounded,
-                  title: 'Issue Pink Slip',
-                  subtitle: 'Movement / OD pass',
-                  color: const Color(0xFFEC4899),
-                  onTap: _showIssuePinkSlipModal,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _quickActionButton(
-                  icon: Icons.campaign_rounded,
-                  title: 'Broadcast Notice',
-                  subtitle: 'Advisors & CRs',
-                  color: const Color(0xFF6366F1),
-                  onTap: _showBroadcastNoticeModal,
-                ),
-              ),
-            ],
+          _quickActionButton(
+            icon: Icons.campaign_rounded,
+            title: 'Broadcast Notice',
+            subtitle: 'Advisors & CRs',
+            color: const Color(0xFF6366F1),
+            onTap: _showBroadcastNoticeModal,
           ),
         ],
       ),
@@ -1359,6 +1498,18 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
         const SizedBox(height: 8),
         _buildSectionSelector(),
         const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: OutlinedButton.icon(
+              onPressed: _pickSectionAttendanceDate,
+              icon: const Icon(Icons.calendar_month_rounded, size: 16),
+              label: Text(_formatDate(_sectionAttendanceDate)),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
         _buildActiveSectionCard(stats),
         const SizedBox(height: 18),
         _buildAbsenteesAndODSection(),
@@ -1372,8 +1523,91 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
       children: [
         _buildApprovalHeader(),
         const SizedBox(height: 12),
+        _buildApprovalYearAndSectionFilter(),
+        const SizedBox(height: 12),
         _buildApprovalQueue(),
       ],
+    );
+  }
+
+  String _approvalBatchLabel(int year) {
+    final students = MockDataService.getStudentsBySection(year, 'A');
+    if (students.isNotEmpty && students.first.batchYear.trim().isNotEmpty) {
+      return students.first.batchYear;
+    }
+    return 'Batch not set';
+  }
+
+  Widget _buildApprovalYearAndSectionFilter() {
+    final sections = _approvalYearFilter == 4
+        ? const ['A', 'B']
+        : const ['A', 'B', 'C', 'D'];
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [1, 2, 3, 4].map((year) {
+                final selected = _approvalYearFilter == year;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    label: Text('$year${year == 1 ? 'st' : year == 2 ? 'nd' : year == 3 ? 'rd' : 'th'} Year (${_approvalBatchLabel(year)})'),
+                    selected: selected,
+                    onSelected: (_) {
+                      setState(() {
+                        _approvalYearFilter = selected ? null : year;
+                        _approvalSectionFilter = null;
+                      });
+                    },
+                    selectedColor: const Color(0xFF6366F1),
+                    labelStyle: TextStyle(
+                      color: selected ? Colors.white : const Color(0xFF475569),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    side: BorderSide(
+                      color: selected ? const Color(0xFF6366F1) : const Color(0xFFCBD5E1),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: sections.map((section) {
+              final selected = _approvalSectionFilter == section;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: Text(section),
+                  selected: selected,
+                  onSelected: _approvalYearFilter == null
+                      ? null
+                      : (_) => setState(() {
+                            _approvalSectionFilter = selected ? null : section;
+                          }),
+                  selectedColor: const Color(0xFF6366F1),
+                  labelStyle: TextStyle(
+                    color: selected ? Colors.white : const Color(0xFF475569),
+                    fontWeight: FontWeight.bold,
+                  ),
+                  side: BorderSide(
+                    color: selected ? const Color(0xFF6366F1) : const Color(0xFFCBD5E1),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1388,7 +1622,9 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
     );
   }
 
-  void _showBroadcastNoticeModal() {
+  Future<void> _showBroadcastNoticeModal() async {
+    await MockDataService.syncFromSupabase();
+    if (!mounted) return;
     int modalTab = 0; // 0: Compose, 1: Broadcast Logs
     String selectedTemplate = 'Attendance Defaulters';
     final titleCtrl = TextEditingController(
@@ -1397,8 +1633,37 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
     final msgCtrl = TextEditingController(
       text: 'All Section Advisors and Class Representatives are requested to verify today\'s attendance muster rolls and submit defaulter lists to the HOD office by 4:00 PM.',
     );
-    String audience = 'All 10 Sections (622 Students)';
+    String audience = 'DEPARTMENT';
     String priority = 'High Priority';
+    int sectionAudienceYear = 2;
+    String sectionAudienceLetter = 'A';
+
+    ({String type, int? year, String? section}) audienceConfig(String value) {
+      switch (value) {
+        case 'ADVISORS':
+          return (type: 'ADVISORS', year: null, section: null);
+        case 'YEAR_2':
+          return (type: 'YEAR', year: 2, section: null);
+        case 'YEAR_3':
+          return (type: 'YEAR', year: 3, section: null);
+        case 'YEAR_4':
+          return (type: 'YEAR', year: 4, section: null);
+        case 'SECTION':
+          return (type: 'SECTION', year: sectionAudienceYear, section: sectionAudienceLetter);
+        default:
+          return (type: 'DEPARTMENT', year: null, section: null);
+      }
+    }
+
+    String audienceActionLabel(String value) {
+      switch (value) {
+        case 'ADVISORS': return 'Send to All Advisors';
+        case 'YEAR_2': return 'Send to Year 2';
+        case 'YEAR_3': return 'Send to Year 3';
+        case 'YEAR_4': return 'Send to Year 4';
+        default: return 'Send to Department';
+      }
+    }
 
     showModalBottomSheet(
       context: context,
@@ -1603,50 +1868,78 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                       ),
                       items: const [
                         DropdownMenuItem(
-                          value: 'All 10 Sections (622 Students)',
+                          value: 'DEPARTMENT',
                           child: Text(
-                            '📢 All 10 Sections (622 Students)',
+                            '📢 Entire Department',
                             style: TextStyle(fontSize: 12),
                           ),
                         ),
                         DropdownMenuItem(
-                          value: 'All Section Advisors (10 Faculty)',
+                          value: 'ADVISORS',
                           child: Text(
-                            '👨‍🏫 All Section Advisors (10 Faculty)',
+                            '👨‍🏫 All Section Advisors',
                             style: TextStyle(fontSize: 12),
                           ),
                         ),
                         DropdownMenuItem(
-                          value: 'Class Representatives (CRs)',
+                          value: 'YEAR_2',
                           child: Text(
-                            '⭐ Class Representatives (CRs)',
+                            '📘 Year 2',
                             style: TextStyle(fontSize: 12),
                           ),
                         ),
                         DropdownMenuItem(
-                          value: 'II Year Only (2025 Batch)',
+                          value: 'YEAR_3',
                           child: Text(
-                            '📘 II Year Only (Sec A, B, C, D)',
+                            '📗 Year 3',
                             style: TextStyle(fontSize: 12),
                           ),
                         ),
                         DropdownMenuItem(
-                          value: 'III Year Only (2024 Batch)',
+                          value: 'YEAR_4',
                           child: Text(
-                            '📗 III Year Only (Sec A, B, C, D)',
+                            '📙 Year 4',
                             style: TextStyle(fontSize: 12),
                           ),
                         ),
                         DropdownMenuItem(
-                          value: 'IV Year Only (2023 Batch)',
-                          child: Text(
-                            '📙 IV Year Only (Sec A, B)',
-                            style: TextStyle(fontSize: 12),
-                          ),
+                          value: 'SECTION',
+                          child: Text('🎯 Specific Year & Section', style: TextStyle(fontSize: 12)),
                         ),
                       ],
                       onChanged: (val) {
                         if (val != null) setModalState(() => audience = val);
+                      },
+                    ),
+                    if (audience == 'SECTION') ...[
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<int>(
+                        initialValue: sectionAudienceYear,
+                        items: [1, 2, 3, 4].map((year) => DropdownMenuItem(value: year, child: Text('Year $year'))).toList(),
+                        onChanged: (value) => setModalState(() => sectionAudienceYear = value ?? 2),
+                      ),
+                      Wrap(spacing: 6, children: ['A', 'B', if (sectionAudienceYear != 4) 'C', if (sectionAudienceYear != 4) 'D'].map((letter) => ChoiceChip(label: Text(letter), selected: sectionAudienceLetter == letter, onSelected: (_) => setModalState(() => sectionAudienceLetter = letter))).toList()),
+                    ],
+                    const SizedBox(height: 8),
+                    FutureBuilder<Map<String, dynamic>?>(
+                      future: SupabaseService().fetchBroadcastAudienceSummary(
+                        audienceType: audienceConfig(audience).type,
+                        targetYear: audienceConfig(audience).year,
+                        targetSection: audienceConfig(audience).section,
+                      ),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) {
+                          return const Text('Calculating recipients…', style: TextStyle(fontSize: 11, color: Color(0xFF64748B)));
+                        }
+                        final summary = snapshot.data!;
+                        return Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(color: const Color(0xFFEEF2FF), borderRadius: BorderRadius.circular(10)),
+                          child: Text(
+                            '${summary['label']} · ${summary['students']} students · ${summary['advisors']} advisors',
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF3730A3)),
+                          ),
+                        );
                       },
                     ),
                     const SizedBox(height: 12),
@@ -1816,6 +2109,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     const SizedBox(height: 4),
                     TextField(
                       controller: titleCtrl,
+                      maxLength: 200,
                       decoration: InputDecoration(
                         hintText: 'Enter notice headline / circular title...',
                         filled: true,
@@ -1851,6 +2145,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                     TextField(
                       controller: msgCtrl,
                       maxLines: 3,
+                      maxLength: 1500,
                       decoration: InputDecoration(
                         hintText: 'Type instructions, deadlines, or remarks for advisors and students...',
                         filled: true,
@@ -1874,16 +2169,59 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                         onPressed: () async {
                           final title = titleCtrl.text.trim();
                           final msg = msgCtrl.text.trim();
-                          if (title.isEmpty || msg.isEmpty) {
+                          if (title.length < 3 || msg.length < 10) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text(
-                                  'Please enter notice title and message body.',
+                                  'Enter a title (3+ characters) and message (10+ characters).',
                                 ),
                               ),
                             );
                             return;
                           }
+
+                          final audienceSummary = await SupabaseService()
+                              .fetchBroadcastAudienceSummary(
+                                audienceType: audienceConfig(audience).type,
+                                targetYear: audienceConfig(audience).year,
+                                targetSection: audienceConfig(audience).section,
+                              );
+                          if (!context.mounted) return;
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (dialogContext) => AlertDialog(
+                              title: const Text('Confirm broadcast'),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${audienceSummary?['label'] ?? audienceActionLabel(audience)} · ${audienceSummary?['total'] ?? 0} recipients',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text('Priority: $priority'),
+                                  const Divider(height: 20),
+                                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  const SizedBox(height: 4),
+                                  Text(msg, maxLines: 4, overflow: TextOverflow.ellipsis),
+                                ],
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(dialogContext, false),
+                                  child: const Text('Edit'),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () => Navigator.pop(dialogContext, true),
+                                  child: const Text('Send notice'),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirmed != true) return;
 
                           Navigator.pop(ctx);
 
@@ -1892,10 +2230,13 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                               await MockDataService.broadcastNotice(
                                 title: title,
                                 message: msg,
-                                targetAudience: audience,
+                                targetAudience: audienceActionLabel(audience),
                                 priority: priority,
                                 templateType: selectedTemplate,
                                 senderName: 'HOD ($_currentHodName)',
+                                audienceType: audienceConfig(audience).type,
+                                targetYear: audienceConfig(audience).year,
+                                targetSection: audienceConfig(audience).section,
                               );
 
                           if (context.mounted) {
@@ -1911,8 +2252,8 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                           ),
                         ),
                         icon: const Icon(Icons.send_rounded, size: 18),
-                        label: const Text(
-                          'Broadcast Notice to Department',
+                        label: Text(
+                          audienceActionLabel(audience),
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
@@ -2869,13 +3210,35 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  '${stats['pct']}%',
-                  style: const TextStyle(
-                    color: Color(0xFF6366F1),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 20,
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '${stats['pct']}%',
+                      style: const TextStyle(
+                        color: Color(0xFF6366F1),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                      ),
+                    ),
+                    Text(
+                      'Attendance date: ${_formatDate(_sectionAttendanceDate)}',
+                      style: const TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 11,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Icon(
+                      stats['attendanceMarked'] as bool
+                          ? Icons.check_circle_rounded
+                          : Icons.radio_button_unchecked_rounded,
+                      color: stats['attendanceMarked'] as bool
+                          ? const Color(0xFF059669)
+                          : const Color(0xFF94A3B8),
+                      size: 20,
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -3487,9 +3850,10 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
   }
 
   Widget _buildMonthlyProgressionSection() {
-    final monthlyData = MockDataService.getMonthlyTrend(
-      _selectedYear,
-      _selectedSection,
+    final monthlyData = MockDataService.getYearMonthlyTrend(
+      _termProgressionYear,
+      _academicTermStart,
+      _academicTermEnd,
     );
 
     return Padding(
@@ -3504,15 +3868,46 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '📅 2026 Academic Term Progression (Sep-Dec)',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '📅 Year $_termProgressionYear · $_academicTermName',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _isLoadingAcademicTerm ? null : _showAcademicTermEditor,
+                  child: const Text('Configure'),
+                ),
+              ],
             ),
-            const Text(
-              'Month-by-month attendance target vs actuals',
-              style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+            Text(
+              '${_monthLabel(_academicTermStart)} – ${_monthLabel(_academicTermEnd)} · Month-by-month attendance target vs actuals',
+              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
             ),
             const SizedBox(height: 14),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [1, 2, 3, 4].map((year) {
+                  final selected = _termProgressionYear == year;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text('Year $year'),
+                      selected: selected,
+                      onSelected: (_) {
+                        if (selected) return;
+                        setState(() => _termProgressionYear = year);
+                        _loadAcademicTermSettings(year);
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 12),
             ...monthlyData.map((m) {
               final pct = m['percentage'] as double;
               return Padding(
@@ -3571,7 +3966,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
 
   Widget _buildAbsenteesAndODSection() {
     final records = MockDataService.getAttendanceForDate(
-      DateTime.now(),
+      _sectionAttendanceDate,
       year: _selectedYear,
       section: _selectedSection,
     );
@@ -3598,7 +3993,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Today\'s Absentees & OD ($_selectedYear-$_selectedSection)',
+                  'Absentees & OD · ${_formatDate(_sectionAttendanceDate)}',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
@@ -3996,86 +4391,6 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () => _showIssuePinkSlipModal(),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFEC4899),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  icon: const Icon(Icons.add_circle_outline_rounded, size: 16),
-                  label: const Text(
-                    'Issue Pink Slip',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _showExportRegisterDialog(),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF0F172A),
-                    side: const BorderSide(color: Color(0xFFCBD5E1)),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  icon: const Icon(Icons.print_outlined, size: 16),
-                  label: const Text(
-                    'Export Register',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-              if (_awaitingCount > 0) ...[
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: () {
-                    setState(() {
-                      for (final l in MockDataService.leaveRequests) {
-                        if (l.letterStatus == LetterStatus.forwarded ||
-                            l.letterStatus == LetterStatus.submitted) {
-                          MockDataService.approveByHod(
-                            l.id,
-                            remarks:
-                                'Bulk authorized by HOD ($_currentHodName)',
-                          );
-                        }
-                      }
-                    });
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          '⚡ All pending Pink Slips & ODs signed and approved by HOD!',
-                        ),
-                        backgroundColor: Color(0xFF047857),
-                      ),
-                    );
-                  },
-                  icon: const Icon(
-                    Icons.done_all_rounded,
-                    color: Color(0xFF059669),
-                  ),
-                  tooltip: 'Batch Sign All',
-                  style: IconButton.styleFrom(
-                    backgroundColor: const Color(0xFFD1FAE5),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
         ],
       ),
     );
@@ -4104,6 +4419,16 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
     } else if (_pinkSlipFilter == 'Rejected') {
       leaves = leaves
           .where((l) => l.letterStatus == LetterStatus.rejected)
+          .toList();
+    }
+
+    // HOD academic filters: section is meaningful only after a year is chosen.
+    if (_approvalYearFilter != null) {
+      leaves = leaves.where((l) => l.year == _approvalYearFilter).toList();
+    }
+    if (_approvalSectionFilter != null) {
+      leaves = leaves
+          .where((l) => l.section?.toUpperCase() == _approvalSectionFilter)
           .toList();
     }
 
@@ -4421,7 +4746,7 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                       ),
                     ),
                     Text(
-                      'Roll: ${leave.studentRollNumber} • Class: Year ${leave.year ?? 2}-${leave.section ?? "B"}',
+                      'Roll: ${leave.studentRollNumber} • Year: ${leave.year ?? '—'} • Section: ${leave.section ?? '—'}',
                       style: const TextStyle(
                         color: Color(0xFF64748B),
                         fontSize: 11,
@@ -4581,68 +4906,6 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
             ),
           ],
 
-          // Attached Proof Document (if any)
-          if (leave.hasAttachment) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.picture_as_pdf_rounded,
-                    color: Colors.red,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '${leave.attachmentFileName}',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                  ),
-                  InkWell(
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (ctx) => LetterAttachmentViewerDialog(
-                          leave: leave,
-                          onApproveByHod: (remarks) => setState(
-                            () => MockDataService.approveByHod(
-                              leave.id,
-                              remarks: remarks,
-                            ),
-                          ),
-                          onRejectByHod: (remarks) => setState(
-                            () => MockDataService.rejectByHod(
-                              leave.id,
-                              remarks: remarks,
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                    child: const Text(
-                      'Inspect Proof',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF6366F1),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
 
           const SizedBox(height: 10),
           // Action Buttons
@@ -5516,96 +5779,14 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 14),
-
-              // Security QR Stamp Simulation
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: const Color(0xFF0F172A),
-                        width: 1.5,
-                      ),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Icon(
-                      Icons.qr_code_2_rounded,
-                      size: 36,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'SECURE QR VALIDATION',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10,
-                        ),
-                      ),
-                      Text(
-                        'Dept Authenticated Code: VSB-${leave.studentRollNumber}',
-                        style: const TextStyle(
-                          fontSize: 9,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                      const Text(
-                        'Status: Official Gate / OD Clearance',
-                        style: TextStyle(
-                          fontSize: 9,
-                          color: Color(0xFF059669),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
               const SizedBox(height: 16),
 
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      child: const Text('Close'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              '🖨️ Pink Slip sent to Department Network Printer!',
-                            ),
-                            backgroundColor: Color(0xFF0284C7),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0F172A),
-                        foregroundColor: Colors.white,
-                      ),
-                      icon: const Icon(Icons.print_rounded, size: 16),
-                      label: const Text(
-                        'Print Voucher',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Close'),
+                ),
               ),
             ],
           ),
@@ -5882,7 +6063,39 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
+              final slipId = int.tryParse(
+                leave.id.replaceAll(RegExp(r'[^0-9]'), ''),
+              );
+              if (slipId == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Refresh the approval list before deciding this Pink Slip.'),
+                    backgroundColor: Color(0xFFDC2626),
+                  ),
+                );
+                return;
+              }
+              final approved = await SupabaseService()
+                  .decidePinkSlipAndApplyAttendance(
+                    slipId: slipId,
+                    approved: true,
+                    hodRemarks: remarksCtrl.text.trim(),
+                  );
+              if (!approved) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      SupabaseService().lastPersistenceError ??
+                          'Pink Slip approval could not be saved.',
+                    ),
+                    backgroundColor: const Color(0xFFDC2626),
+                  ),
+                );
+                return;
+              }
+              if (!context.mounted) return;
               setState(() {
                 MockDataService.approveByHod(
                   leave.id,
@@ -5974,6 +6187,53 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
             child: const Text('Confirm Rejection'),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _handlePromotionDecision(
+    PromotionRequest promotion, {
+    required bool approve,
+    required String remarks,
+  }) async {
+    final promotionId = int.tryParse(
+      promotion.id.replaceAll(RegExp(r'[^0-9]'), ''),
+    );
+    if (promotionId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This promotion request has an invalid ID.')),
+      );
+      return;
+    }
+
+    final success = await SupabaseService().decidePromotionRequest(
+      promotionId: promotionId,
+      approve: approve,
+      hodRemarks: remarks,
+    );
+    if (!mounted) return;
+    if (!success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('The decision was not saved. Refresh and try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    await MockDataService.syncFromSupabase();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          approve
+              ? (promotion.isGraduation
+                    ? 'Graduation archived and approved.'
+                    : 'Batch promotion approved and applied.')
+              : 'Promotion request returned for review.',
+        ),
+        backgroundColor: approve ? const Color(0xFF059669) : Colors.orange,
       ),
     );
   }
@@ -6095,6 +6355,25 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
     );
   }
 
+  Widget _buildPromotionDetailChip(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(color: const Color(0xFFBFDBFE)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Color(0xFF1D4ED8),
+          fontSize: 10.5,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
   Widget _buildPromotionRequestItem(PromotionRequest prom) {
     final isGrad = prom.isGraduation;
     final isPending =
@@ -6142,6 +6421,18 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                   ),
                 ),
               ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              _buildPromotionDetailChip('From: ${prom.fromYearRoman}'),
+              _buildPromotionDetailChip(
+                isGrad ? 'To: Alumni Archive' : 'To: ${prom.toYearRoman}',
+              ),
+              _buildPromotionDetailChip('Section: ${prom.section}'),
             ],
           ),
           const SizedBox(height: 8),
@@ -6219,76 +6510,16 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
             ),
           ],
           const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => PromotionDossierViewerDialog.show(
-                context,
-                promotion: prom,
-                onHodApprove: (r) {
-                  setState(() {
-                    MockDataService.hodApprovePromotion(
-                      prom.id,
-                      hodName: _currentHodName,
-                      remarks: r,
-                    );
-                  });
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        '🎉 Approved! Batch successfully promoted to ${prom.toYearRoman}.',
-                      ),
-                      backgroundColor: const Color(0xFF059669),
-                    ),
-                  );
-                },
-                onHodReject: (r) {
-                  setState(() {
-                    MockDataService.hodRejectPromotion(prom.id, remarks: r);
-                  });
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Promotion request returned for review.'),
-                      backgroundColor: Colors.orange,
-                    ),
-                  );
-                },
-              ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF0284C7),
-                side: const BorderSide(color: Color(0xFFBAE6FD)),
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              icon: const Icon(Icons.folder_open_rounded, size: 16),
-              label: const Text(
-                'Inspect Batch Dossier & Credit Proofs',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
           if (isPending)
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () {
-                      setState(() {
-                        MockDataService.hodRejectPromotion(
-                          prom.id,
-                          remarks: 'Returned to Advisor for re-evaluation.',
-                        );
-                      });
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Promotion request returned for review.',
-                          ),
-                          backgroundColor: Colors.orange,
-                        ),
+                      _handlePromotionDecision(
+                        prom,
+                        approve: false,
+                        remarks: 'Returned to Advisor for re-evaluation.',
                       );
                     },
                     style: OutlinedButton.styleFrom(
@@ -6308,20 +6539,10 @@ class _HodDashboardScreenState extends State<HodDashboardScreen> {
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () {
-                      setState(() {
-                        MockDataService.hodApprovePromotion(
-                          prom.id,
-                          hodName: _currentHodName,
-                          remarks: 'Officially approved by HOD. Academic year upgraded.',
-                        );
-                      });
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            '🎉 Approved! Batch successfully promoted to ${prom.toYearRoman}.',
-                          ),
-                          backgroundColor: const Color(0xFF059669),
-                        ),
+                      _handlePromotionDecision(
+                        prom,
+                        approve: true,
+                        remarks: 'Officially approved by HOD. Academic year upgraded.',
                       );
                     },
                     style: ElevatedButton.styleFrom(

@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/user_model.dart';
+import '../utils/section_identity.dart';
 import 'supabase_service.dart';
 import 'mock_data_service.dart';
 
@@ -737,13 +738,16 @@ class AuthService extends ChangeNotifier {
                   .toString();
 
           if (name.isNotEmpty) {
-            int parsedYear = 2;
-            String parsedSection = 'A';
-            if (sectionId.length >= 2) {
-              final firstChar = int.tryParse(sectionId[0]);
-              if (firstChar != null) parsedYear = firstChar;
-              parsedSection = sectionId.substring(1).toUpperCase();
-            }
+            final sectionIdentity = SectionIdentity.parse(sectionId);
+            final sectionData = row['sections'] as Map<String, dynamic>?;
+            final advisorYear =
+                sectionData?['year'] as int? ?? sectionIdentity.year;
+            final advisorSection =
+                sectionData?['section_name'] as String? ?? sectionIdentity.section;
+            final advisorClassLabel = SectionIdentity(
+              year: advisorYear,
+              section: advisorSection,
+            ).displayLabel;
 
             loadedAdvisors.add(
               UserModel(
@@ -756,10 +760,10 @@ class AuthService extends ChangeNotifier {
                 role: UserRole.advisor,
                 department: dept,
                 classSection: sectionId.isNotEmpty
-                    ? '$sectionId AI&DS'
+                    ? advisorClassLabel
                     : 'Class Advisor',
-                year: parsedYear,
-                section: parsedSection,
+                year: advisorYear,
+                section: advisorSection,
               ),
             );
           }

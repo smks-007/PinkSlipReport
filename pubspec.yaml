@@ -39,6 +39,9 @@ dependencies:
   google_sign_in: ^6.2.2
   googleapis: ^13.2.0
   extension_google_sign_in_as_googleapis_auth: ^2.0.12
+  pdf: ^3.11.3
+  printing: ^5.13.4
+  file_saver: ^0.2.14
 
 dev_dependencies:
   flutter_test:

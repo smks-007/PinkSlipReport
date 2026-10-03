@@ -548,7 +548,7 @@ class SupabaseService {
         final res = await client!
             .from('students')
             .select(
-              'student_id, roll_number, register_number, section_id, student_name, leaves_taken_ytd, users(full_name, email, phone_number, is_active)',
+              'student_id, roll_number, register_number, section_id, student_name, leaves_taken_ytd, users(full_name, email, phone_number, is_active), sections(year, section_name, cohort_year)',
             )
             .order('roll_number');
         return List<Map<String, dynamic>>.from(res);
@@ -662,6 +662,27 @@ class SupabaseService {
         debugPrint('⚠️ Supabase fetchLeaveSlips error: $e');
       }
       return [];
+    }
+  }
+
+  /// Approved non-OD leave days calculated by Supabase from leave_slips.
+  Future<Map<int, int>> fetchVisibleStudentLeaveTotals() async {
+    if (!_isInitialized || client == null) return {};
+    try {
+      final result = await client!.rpc('get_visible_student_leave_totals');
+      final totals = <int, int>{};
+      for (final row in List<Map<String, dynamic>>.from(result as List)) {
+        final studentId = row['student_id'] as int?;
+        if (studentId != null) {
+          totals[studentId] = (row['approved_leave_days'] as num?)?.toInt() ?? 0;
+        }
+      }
+      return totals;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Supabase fetchVisibleStudentLeaveTotals error: $e');
+      }
+      return {};
     }
   }
 
@@ -837,6 +858,34 @@ class SupabaseService {
     }
   }
 
+  /// HOD-only final decision. On approval the database applies the Pink Slip's
+  /// stored leave/OD attendance outcome in the same transaction.
+  Future<bool> decidePinkSlipAndApplyAttendance({
+    required int slipId,
+    required bool approved,
+    String? hodRemarks,
+  }) async {
+    _lastPersistenceError = null;
+    if (!_isInitialized || client == null) return false;
+    try {
+      await client!.rpc(
+        'decide_pink_slip_and_apply_attendance',
+        params: {
+          'p_slip_id': slipId,
+          'p_approved': approved,
+          'p_hod_remarks': hodRemarks,
+        },
+      );
+      return true;
+    } catch (e) {
+      _lastPersistenceError = e.toString();
+      if (kDebugMode) {
+        debugPrint('⚠️ Supabase decidePinkSlipAndApplyAttendance error: $e');
+      }
+      return false;
+    }
+  }
+
   // ──────────────────── ATTENDANCE WITH STUDENT DETAILS ────────────────────
 
   /// Fetch attendance for a specific date joined with student details (roll, section, name)
@@ -959,7 +1008,7 @@ class SupabaseService {
         final res = await client!
             .from('leave_slips')
             .select(
-              'slip_id, student_id, reason, from_date, to_date, status, is_informed, letter_document_url, advisor_remarks, hod_remarks, created_at, students(roll_number, section_id, student_name)',
+              'slip_id, student_id, reason, from_date, to_date, status, is_on_duty, is_informed, letter_document_url, advisor_remarks, hod_remarks, created_at, students(roll_number, section_id, student_name)',
             )
             .order('created_at', ascending: false);
         return List<Map<String, dynamic>>.from(res);
@@ -973,7 +1022,7 @@ class SupabaseService {
         final fallback = await client!
             .from('leave_slips')
             .select(
-              'slip_id, student_id, reason, from_date, to_date, status, is_informed, letter_document_url, advisor_remarks, hod_remarks, created_at',
+              'slip_id, student_id, reason, from_date, to_date, status, is_on_duty, is_informed, letter_document_url, advisor_remarks, hod_remarks, created_at',
             )
             .order('created_at', ascending: false);
         return List<Map<String, dynamic>>.from(fallback);
@@ -1151,6 +1200,67 @@ class SupabaseService {
     }
   }
 
+  /// Advisor-only promotion request. The database validates ownership, the
+  /// grace window, student count, and duplicate requests.
+  Future<Map<String, dynamic>?> submitMyPromotionRequest({
+    required int fromYear,
+    required String batchYear,
+    required int semesterCompleted,
+    required DateTime semesterEndDate,
+    required int graceTransitionDays,
+    required String advisorRemarks,
+  }) async {
+    if (!_isInitialized || client == null) return null;
+    try {
+      final result = await client!.rpc(
+        'submit_my_promotion_request',
+        params: {
+          'p_from_year': fromYear,
+          'p_batch_year': batchYear,
+          'p_semester_completed': semesterCompleted,
+          'p_semester_end_date': semesterEndDate
+              .toIso8601String()
+              .split('T')
+              .first,
+          'p_grace_transition_days': graceTransitionDays,
+          'p_advisor_remarks': advisorRemarks,
+        },
+      );
+      return Map<String, dynamic>.from(result as Map);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Supabase submitMyPromotionRequest error: $e');
+      }
+      return null;
+    }
+  }
+
+  /// HOD-only decision for a forwarded promotion request. The database locks
+  /// the request and performs every academic-record change atomically.
+  Future<bool> decidePromotionRequest({
+    required int promotionId,
+    required bool approve,
+    required String hodRemarks,
+  }) async {
+    if (!_isInitialized || client == null) return false;
+    try {
+      await client!.rpc(
+        'decide_promotion_request',
+        params: {
+          'p_promotion_id': promotionId,
+          'p_approve': approve,
+          'p_hod_remarks': hodRemarks.trim(),
+        },
+      );
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Supabase decidePromotionRequest error: $e');
+      }
+      return false;
+    }
+  }
+
   // ──────────────────── ALUMNI ARCHIVE ────────────────────
 
   /// Fetch all alumni archive records from Supabase
@@ -1283,6 +1393,81 @@ class SupabaseService {
     }
   }
 
+  /// Loads the HOD-managed academic term range for one study year.
+  Future<Map<String, dynamic>?> fetchAcademicTermSettings(int studyYear) async {
+    if (!_isInitialized || client == null) return null;
+    try {
+      final row = await client!
+          .from('academic_term_settings')
+          .select('term_name, start_date, end_date, updated_at')
+          .eq('study_year', studyYear)
+          .maybeSingle();
+      return row == null ? null : Map<String, dynamic>.from(row);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Supabase fetchAcademicTermSettings error: $e');
+      }
+      return null;
+    }
+  }
+
+  /// HOD-only semester totals calculated by Supabase for one configured year.
+  Future<List<Map<String, dynamic>>> fetchHodSemesterTotalReport(
+    int studyYear,
+  ) async {
+    if (!_isInitialized || client == null) return [];
+    try {
+      final result = await client!.rpc(
+        'get_hod_semester_total_report',
+        params: {'p_study_year': studyYear},
+      );
+      return List<Map<String, dynamic>>.from(result as List).map((row) {
+        final report = row['report'];
+        return report is Map<String, dynamic>
+            ? report
+            : Map<String, dynamic>.from(report as Map);
+      }).toList();
+    } catch (e) {
+      _lastPersistenceError = e.toString();
+      if (kDebugMode) {
+        debugPrint('⚠️ Supabase fetchHodSemesterTotalReport error: $e');
+      }
+      return [];
+    }
+  }
+
+  /// Saves the academic term range. RLS restricts this table to the HOD.
+  Future<bool> saveAcademicTermSettings({
+    required int studyYear,
+    required String termName,
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    if (!_isInitialized || client == null || endDate.isBefore(startDate)) {
+      return false;
+    }
+    try {
+      final currentUserId = await getCurrentDbUserId();
+      if (currentUserId == null) return false;
+      String formatDate(DateTime date) =>
+          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      await client!.from('academic_term_settings').upsert({
+        'study_year': studyYear,
+        'term_name': termName.trim(),
+        'start_date': formatDate(startDate),
+        'end_date': formatDate(endDate),
+        'updated_by': currentUserId,
+        'updated_at': DateTime.now().toIso8601String(),
+      }, onConflict: 'study_year');
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Supabase saveAcademicTermSettings error: $e');
+      }
+      return false;
+    }
+  }
+
   // ──────────────────── BROADCAST NOTICES ────────────────────
 
   /// Fetch all broadcast notices from Supabase
@@ -1303,6 +1488,30 @@ class SupabaseService {
   }
 
   /// Submit a new department broadcast notice to Supabase
+  Future<Map<String, dynamic>?> fetchBroadcastAudienceSummary({
+    required String audienceType,
+    int? targetYear,
+    String? targetSection,
+  }) async {
+    if (!_isInitialized || client == null) return null;
+    try {
+      final result = await client!.rpc(
+        'get_broadcast_audience_summary',
+        params: {
+          'p_audience_type': audienceType,
+          'p_target_year': targetYear,
+          'p_target_section': targetSection,
+        },
+      );
+      return Map<String, dynamic>.from(result as Map);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Supabase fetchBroadcastAudienceSummary error: $e');
+      }
+      return null;
+    }
+  }
+
   Future<bool> submitBroadcastNotice({
     required String title,
     required String message,
@@ -1334,6 +1543,35 @@ class SupabaseService {
         debugPrint('⚠️ Supabase submitBroadcastNotice error: $e');
       }
       return false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> createBroadcastNotice({
+    required String title,
+    required String message,
+    required String priority,
+    required String templateType,
+    required String audienceType,
+    int? targetYear,
+    String? targetSection,
+    DateTime? expiresAt,
+  }) async {
+    if (!_isInitialized || client == null) return null;
+    try {
+      final result = await client!.rpc('create_broadcast_notice', params: {
+        'p_title': title,
+        'p_message': message,
+        'p_priority': priority,
+        'p_template_type': templateType,
+        'p_audience_type': audienceType,
+        'p_target_year': targetYear,
+        'p_target_section': targetSection,
+        'p_expires_at': expiresAt?.toIso8601String(),
+      });
+      return Map<String, dynamic>.from(result as Map);
+    } catch (e) {
+      if (kDebugMode) debugPrint('⚠️ Supabase createBroadcastNotice error: $e');
+      return null;
     }
   }
 
@@ -1400,7 +1638,7 @@ class SupabaseService {
       final staffList = await client!
           .from('staff_advisors')
           .select(
-            '*, users!staff_id(user_id, full_name, email, role, department)',
+            '*, users!staff_id(user_id, full_name, email, role, department), sections(year, section_name, cohort_year)',
           );
       if (staffList.isNotEmpty) {
         return List<Map<String, dynamic>>.from(staffList);
