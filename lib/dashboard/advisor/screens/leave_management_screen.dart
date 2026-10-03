@@ -306,47 +306,6 @@ class _LeaveCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
 
-          // File Attachment Box (if present)
-          if (leave.hasAttachment) ...[
-            Container(
-              margin: const EdgeInsets.only(top: 6, bottom: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFCBD5E1)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.picture_as_pdf_rounded, color: Colors.red, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '${leave.attachmentFileName} (${leave.attachmentFileSize ?? "Proof"})',
-                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  InkWell(
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (ctx) => LetterAttachmentViewerDialog(
-                          leave: leave,
-                          onForwardToHod: onForward,
-                        ),
-                      );
-                    },
-                    child: const Text(
-                      'Inspect Proof',
-                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppColors.primaryPurple),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-
           // Date info
           if (leave.dateSubmittedToAdvisor != null)
             _dateRow('Submitted to Advisor',

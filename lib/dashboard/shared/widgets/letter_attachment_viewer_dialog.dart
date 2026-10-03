@@ -225,43 +225,6 @@ class LetterAttachmentViewerDialog extends StatelessWidget {
                       ),
                     ),
 
-                    const SizedBox(height: 20),
-
-                    // Attached Document / File Section
-                    const Text(
-                      'Attached Document Proof',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-
-                    if (leave.hasAttachment)
-                      _buildAttachmentCard(context)
-                    else
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFFBEB),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFFDE68A)),
-                        ),
-                        child: const Row(
-                          children: [
-                            Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 20),
-                            SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                'No official document proof attached yet. Student/CR should attach proof.',
-                                style: TextStyle(fontSize: 12, color: Color(0xFF92400E)),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
                     const SizedBox(height: 22),
 
                     // Multi-Tier Workflow Review Timeline

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Modern, stylish Logo and Branding Header for SMART PRO.
+/// Modern, stylish Logo and Branding Header for Leave Desk.
 class SmartProLogo extends StatelessWidget {
   final double size;
   final bool showText;
@@ -99,31 +99,12 @@ class SmartProLogo extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                'SMART',
+                'Leave Desk',
                 style: TextStyle(
-                  fontSize: size * 0.36,
+                  fontSize: size * 0.34,
                   fontWeight: FontWeight.w900,
-                  letterSpacing: 1.5,
+                  letterSpacing: 0.8,
                   color: isDark ? Colors.white : const Color(0xFF0F172A),
-                ),
-              ),
-              const SizedBox(width: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF0284C7), Color(0xFF6366F1)],
-                  ),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  'PRO',
-                  style: TextStyle(
-                    fontSize: size * 0.32,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.2,
-                    color: Colors.white,
-                  ),
                 ),
               ),
             ],

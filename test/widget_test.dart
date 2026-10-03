@@ -442,9 +442,7 @@ void main() {
 
       expect(find.text('Reset Access Password'), findsOneWidget);
       expect(find.text('FACULTY CREDENTIAL RECOVERY'), findsOneWidget);
-      expect(find.text('🏛️ HOD Portal'), findsOneWidget);
-      expect(find.text('👨‍🏫 Class Advisor'), findsOneWidget);
-      expect(find.text('Institutional Email / Faculty ID'), findsOneWidget);
+      expect(find.text('Email'), findsOneWidget);
       expect(find.text('Send Recovery Instructions'), findsOneWidget);
       expect(find.text('Department IT Helpdesk'), findsOneWidget);
 

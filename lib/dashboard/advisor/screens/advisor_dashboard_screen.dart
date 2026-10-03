@@ -5,15 +5,15 @@ import '../../../core/constants/app_styles.dart';
 import '../../../core/models/user_model.dart';
 import '../../../core/models/student_model.dart';
 import '../../../core/models/leave_model.dart';
+import '../../../core/models/attendance_model.dart';
 import '../../../core/models/promotion_model.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/data_service.dart';
+import '../../../core/services/supabase_service.dart';
 import '../../../core/widgets/smart_pro_logo.dart';
 import '../../shared/widgets/create_pink_slip_dialog.dart';
-import '../../shared/widgets/storage_management_dialog.dart';
 import '../../shared/widgets/letter_attachment_viewer_dialog.dart';
 import '../../shared/widgets/promotion_dossier_viewer_dialog.dart';
-import '../../shared/widgets/attendance_report_viewer_dialog.dart';
 import '../../../core/utils/responsive_utils.dart';
 
 /// Advisor Dashboard — Dedicated Section Portals for all 10 Section Class Advisors.
@@ -28,10 +28,10 @@ class AdvisorDashboardScreen extends StatefulWidget {
 class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
   late UserModel _currentAdvisor;
   String _studentSearchQuery = '';
-  String _pinkSlipSectionFilter = 'My Class'; // 'My Class', 'All 10 Sections', 'II Year', 'III Year', 'IV Year'
   String _pinkSlipStatusFilter = 'All'; // 'All', 'Pending Review', 'Forwarded to HOD', 'Approved', 'Rejected'
   String _pinkSlipSearchQuery = '';
   final TextEditingController _pinkSlipSearchCtrl = TextEditingController();
+  bool _isMarkingAllPresent = false;
 
   @override
   void initState() {
@@ -97,6 +97,14 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
       return s.name.toLowerCase().contains(_studentSearchQuery.toLowerCase()) ||
           s.rollNumber.contains(_studentSearchQuery);
     }).toList();
+    filteredStudents.sort((first, second) {
+      final firstRoll = int.tryParse(first.rollNumber);
+      final secondRoll = int.tryParse(second.rollNumber);
+      if (firstRoll != null && secondRoll != null) {
+        return firstRoll.compareTo(secondRoll);
+      }
+      return first.rollNumber.compareTo(second.rollNumber);
+    });
 
     final defaulters = MockDataService.getDefaultersBySection(year, section);
     final pendingPromotions = MockDataService.getPendingPromotionsForAdvisor(
@@ -121,9 +129,13 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
         child: ValueListenableBuilder<int>(
           valueListenable: MockDataService.changeNotifier,
           builder: (context, _, child) {
-            return SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: Column(
+            return RefreshIndicator(
+              onRefresh: MockDataService.syncFromSupabase,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
+                ),
+                child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildAppBar(),
@@ -159,6 +171,10 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                   _buildSectionTitle("Today's Section Attendance Overview"),
                   const SizedBox(height: 12),
                   _buildStatsGrid(year, section),
+                  const SizedBox(height: 12),
+                  _buildMarkAllPresentButton(year, section),
+                  const SizedBox(height: 20),
+                  _buildPromotionRequestAction(year, section, students),
                   const SizedBox(height: 20),
 
                   // Full Class Student Roster
@@ -172,9 +188,10 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
 
                   _buildRecentPinkSlipsHeader(),
                   const SizedBox(height: 12),
-                  _buildRecentPinkSlips(year, section),
+                  _buildRecentPinkSlips(),
                   const SizedBox(height: 60),
                 ],
+                ),
               ),
             );
           },
@@ -279,18 +296,6 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
             ),
             tooltip: 'Department Broadcast Notices',
             onPressed: () => _showNoticesBottomSheet(),
-          ),
-          IconButton(
-            icon: const Icon(
-              Icons.dns_rounded,
-              size: 22,
-              color: Color(0xFF0284C7),
-            ),
-            tooltip: 'Storage Telemetry & Data Center',
-            onPressed: () => showDialog(
-              context: context,
-              builder: (ctx) => const StorageManagementDialog(),
-            ),
           ),
           IconButton(
             icon: const Icon(
@@ -811,6 +816,12 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
   }
 
   Widget _buildWelcomeCard() {
+    final now = DateTime.now();
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    final currentDate = '${now.day.toString().padLeft(2, '0')} ${months[now.month - 1]} ${now.year}';
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
@@ -879,6 +890,15 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '🗓 $currentDate',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.white.withValues(alpha: 0.82),
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 12),
             const Text(
@@ -1429,30 +1449,6 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                 ),
               );
             }),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () => AttendanceReportViewerDialog.show(
-                  context,
-                  year: _currentAdvisor.year ?? 2,
-                  section: _currentAdvisor.section ?? 'A',
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF991B1B),
-                  side: const BorderSide(color: Color(0xFFFCA5A5)),
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                icon: const Icon(Icons.mark_email_read_rounded, size: 14),
-                label: const Text(
-                  'View Parent Intimation Letters & Defaulter Register',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
           ],
         ),
       ),
@@ -1509,6 +1505,11 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                   subtitle: 'Students Today',
                   icon: Icons.person_off_outlined,
                   iconColor: AppColors.absentRed,
+                  onTap: () => _showSectionAttendanceStatus(
+                    year,
+                    section,
+                    AttendanceStatus.absent,
+                  ),
                 ),
               ),
             ],
@@ -1523,6 +1524,11 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                   subtitle: 'Symposium / Sports',
                   icon: Icons.badge_rounded,
                   iconColor: const Color(0xFF0284C7),
+                  onTap: () => _showSectionAttendanceStatus(
+                    year,
+                    section,
+                    AttendanceStatus.onDuty,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1533,11 +1539,280 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                   subtitle: 'Needs Forwarding',
                   icon: Icons.hourglass_bottom_rounded,
                   iconColor: AppColors.pendingOrange,
+                  onTap: () => Navigator.pushNamed(context, '/leave-management'),
                 ),
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMarkAllPresentButton(int year, String section) {
+    final alreadyMarked = MockDataService.isSectionAttendanceMarked(
+      year,
+      section,
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: alreadyMarked || _isMarkingAllPresent
+              ? null
+              : () => _markAllPresent(year, section),
+          icon: _isMarkingAllPresent
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : Icon(
+                  alreadyMarked
+                      ? Icons.check_circle_rounded
+                      : Icons.done_all_rounded,
+                ),
+          label: Text(
+            alreadyMarked
+                ? 'Attendance Marked for Today'
+                : 'Mark All Present',
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: alreadyMarked
+                ? const Color(0xFF059669)
+                : const Color(0xFF2563EB),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _markAllPresent(int year, String section) async {
+    final shouldMark = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Mark all students present?'),
+        content: Text(
+          'This will mark every student in Year $year, Section $section present for today. Use a pink slip afterward to mark an individual student absent or On-Duty.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Mark Present'),
+          ),
+        ],
+      ),
+    );
+    if (shouldMark != true || !mounted) return;
+
+    setState(() => _isMarkingAllPresent = true);
+    final saved = await MockDataService.markSectionPresentAndPersist(
+      DateTime.now(),
+      year: year,
+      section: section,
+      recordedBy: _currentAdvisor.name,
+    );
+    if (!mounted) return;
+    setState(() => _isMarkingAllPresent = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          saved
+              ? 'All students in Year $year-$section are marked present.'
+              : 'Could not save attendance. Check your connection and try again.',
+        ),
+        backgroundColor: saved ? const Color(0xFF047857) : AppColors.absentRed,
+      ),
+    );
+  }
+
+  Widget _buildPromotionRequestAction(
+    int year,
+    String section,
+    List<StudentModel> students,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: OutlinedButton.icon(
+        onPressed: students.isEmpty
+            ? null
+            : () => _showPromotionRequestForm(year, section, students),
+        icon: const Icon(Icons.school_outlined),
+        label: Text('Request Year $year-${year == 4 ? 'Alumni Archive' : 'Promotion'}'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFF4338CA),
+          side: const BorderSide(color: Color(0xFFC7D2FE)),
+          minimumSize: const Size(double.infinity, 44),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showPromotionRequestForm(
+    int year,
+    String section,
+    List<StudentModel> students,
+  ) async {
+    final remarksController = TextEditingController(
+      text: 'Section roster and academic requirements verified for HOD review.',
+    );
+    var semesterEndDate = DateTime.now().subtract(const Duration(days: 7));
+    var graceDays = 7;
+    var submitting = false;
+    final semesterCompleted = year * 2;
+    final batchYear = students.first.batchYear;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Request promotion · Year $year-$section'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('$batchYear · ${students.length} students'),
+                const SizedBox(height: 12),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Semester end date'),
+                  subtitle: Text('${semesterEndDate.day.toString().padLeft(2, '0')}/${semesterEndDate.month.toString().padLeft(2, '0')}/${semesterEndDate.year}'),
+                  trailing: const Icon(Icons.calendar_month_rounded),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: dialogContext,
+                      initialDate: semesterEndDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) setDialogState(() => semesterEndDate = picked);
+                  },
+                ),
+                DropdownButtonFormField<int>(
+                  initialValue: graceDays,
+                  decoration: const InputDecoration(labelText: 'Grace period'),
+                  items: const [
+                    DropdownMenuItem(value: 7, child: Text('7 days')),
+                    DropdownMenuItem(value: 8, child: Text('8 days')),
+                    DropdownMenuItem(value: 9, child: Text('9 days')),
+                    DropdownMenuItem(value: 10, child: Text('10 days')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) setDialogState(() => graceDays = value);
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: remarksController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(labelText: 'Advisor remarks'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: submitting ? null : () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+            FilledButton.icon(
+              onPressed: submitting
+                  ? null
+                  : () async {
+                      setDialogState(() => submitting = true);
+                      final created = await SupabaseService().submitMyPromotionRequest(
+                        fromYear: year,
+                        batchYear: batchYear,
+                        semesterCompleted: semesterCompleted,
+                        semesterEndDate: semesterEndDate,
+                        graceTransitionDays: graceDays,
+                        advisorRemarks: remarksController.text.trim(),
+                      );
+                      if (!mounted) return;
+                      if (created == null) {
+                        setDialogState(() => submitting = false);
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Request was not accepted. Check the grace period and whether a request already exists.')));
+                        return;
+                      }
+                      await MockDataService.syncFromSupabase();
+                      if (!mounted) return;
+                      Navigator.pop(dialogContext);
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Promotion request sent to HOD for approval.'), backgroundColor: Color(0xFF047857)));
+                    },
+              icon: submitting
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.send_rounded),
+              label: Text(submitting ? 'Submitting...' : 'Send to HOD'),
+            ),
+          ],
+        ),
+      ),
+    );
+    remarksController.dispose();
+  }
+
+  Future<void> _showSectionAttendanceStatus(
+    int year,
+    String section,
+    AttendanceStatus status,
+  ) async {
+    final isOnDuty = status == AttendanceStatus.onDuty;
+    final students = MockDataService.getStudentsBySection(year, section);
+    final records = MockDataService.getAttendanceForDate(
+      DateTime.now(),
+      year: year,
+      section: section,
+    ).where((record) => record.status == status).toList();
+
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isOnDuty ? 'Today\'s On-Duty students' : 'Today\'s absentees',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              Text('Year $year · Section $section', style: const TextStyle(color: Color(0xFF64748B))),
+              const SizedBox(height: 12),
+              if (records.isEmpty)
+                Text(isOnDuty ? 'No students are marked On-Duty today.' : 'No absences recorded today.')
+              else
+                ...records.map((record) {
+                  final student = students.cast<StudentModel?>().firstWhere(
+                    (item) => item?.id == record.studentId,
+                    orElse: () => null,
+                  );
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: CircleAvatar(
+                      backgroundColor: isOnDuty ? const Color(0xFFDBEAFE) : const Color(0xFFFEE2E2),
+                      child: Icon(
+                        isOnDuty ? Icons.badge_outlined : Icons.person_off_outlined,
+                        color: isOnDuty ? const Color(0xFF2563EB) : AppColors.absentRed,
+                      ),
+                    ),
+                    title: Text(student?.name ?? record.studentId),
+                    subtitle: Text(isOnDuty ? (record.onDutyReason ?? 'On-Duty') : 'Absent'),
+                    trailing: Text(student?.rollNumber ?? '', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                  );
+                }),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1753,16 +2028,6 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        tooltip: 'Issue / Forward Pink Slip',
-                        icon: const Icon(
-                          Icons.receipt_long_rounded,
-                          color: Color(0xFFEC4899),
-                          size: 18,
-                        ),
-                        onPressed: () => _showForwardAbsenteePinkSlipModal(st),
-                      ),
                     ],
                   ),
                 );
@@ -1817,11 +2082,6 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
     final remarksCtrl = TextEditingController(
       text: 'Verified hospital OPD certificate and confirmed with parent. Forwarded to HOD for approval.',
     );
-
-    // Proof attachment state
-    String? attachedFileName = 'hospital_medical_certificate.pdf';
-    String? attachedFileType = 'Medical Certificate (GH/Apollo)';
-    String? attachedFileSize = '1.8 MB';
 
     showModalBottomSheet(
       context: context,
@@ -2211,188 +2471,6 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // ── Document Proof Capture / Scanning Section ──
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF0FDF4),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFBBF7D0)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.document_scanner_rounded,
-                              size: 18,
-                              color: Color(0xFF16A34A),
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Proof Document (Hospital / OD Certificate)',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF166534),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        if (attachedFileName != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: const Color(0xFF86EFAC),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.picture_as_pdf_rounded,
-                                  color: Colors.red,
-                                  size: 16,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        attachedFileName!,
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFF0F172A),
-                                        ),
-                                      ),
-                                      Text(
-                                        '$attachedFileType • $attachedFileSize',
-                                        style: const TextStyle(
-                                          fontSize: 9.5,
-                                          color: Color(0xFF64748B),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFD1FAE5),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: const Text(
-                                    '✓ Attached',
-                                    style: TextStyle(
-                                      fontSize: 9.5,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF047857),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: () {
-                                  _showProofPicker(
-                                    onSelect: (name, type, size) {
-                                      setModalState(() {
-                                        attachedFileName = name;
-                                        attachedFileType = type;
-                                        attachedFileSize = size;
-                                      });
-                                    },
-                                  );
-                                },
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xFF166534),
-                                  side: const BorderSide(
-                                    color: Color(0xFF86EFAC),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 8,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                icon: const Icon(
-                                  Icons.camera_alt_outlined,
-                                  size: 14,
-                                ),
-                                label: const Text(
-                                  'Capture / Scan Proof',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: () {
-                                  _showProofPicker(
-                                    onSelect: (name, type, size) {
-                                      setModalState(() {
-                                        attachedFileName = name;
-                                        attachedFileType = type;
-                                        attachedFileSize = size;
-                                      });
-                                    },
-                                  );
-                                },
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xFF0284C7),
-                                  side: const BorderSide(
-                                    color: Color(0xFFBAE6FD),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 8,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                icon: const Icon(
-                                  Icons.attach_file_rounded,
-                                  size: 14,
-                                ),
-                                label: const Text(
-                                  'Attach Document',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
                   // Advisor Recommendation Remarks
                   const Text(
                     'Advisor Endorsement Remarks for HOD',
@@ -2446,11 +2524,8 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                           reason:
                               '${leaveCategory.toUpperCase()}: ${reasonCtrl.text.trim()}',
                           leaveDate: selectedDate,
-                          letterSubmitted: attachedFileName != null,
+                          letterSubmitted: true,
                           letterStatus: LetterStatus.forwarded,
-                          attachmentFileName: attachedFileName,
-                          attachmentFileType: attachedFileType,
-                          attachmentFileSize: attachedFileSize,
                           dateSubmittedToAdvisor: DateTime.now(),
                           dateReceivedByHod: DateTime.now(),
                           advisorId: _currentAdvisor.id,
@@ -2469,7 +2544,7 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                              '🎉 Pink Slip & Proof for ${currentStudent.name} successfully forwarded to HOD!',
+                              '🎉 Pink Slip for ${currentStudent.name} successfully forwarded to HOD!',
                             ),
                             backgroundColor: const Color(0xFF047857),
                           ),
@@ -2485,7 +2560,7 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                       ),
                       icon: const Icon(Icons.send_rounded, size: 16),
                       label: const Text(
-                        'Forward Pink Slip & Proof to HOD',
+                        'Forward Pink Slip to HOD',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
@@ -2526,118 +2601,10 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
     );
   }
 
-  void _showProofPicker({required Function(String, String, String) onSelect}) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text(
-          'Capture / Attach Document Proof',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(
-                Icons.local_hospital_rounded,
-                color: Colors.red,
-              ),
-              title: const Text(
-                'Apollo / GH Hospital Discharge Summary',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-              ),
-              subtitle: const Text(
-                'medical_discharge_apollo_hospital.pdf (1.8 MB)',
-                style: TextStyle(fontSize: 10.5),
-              ),
-              onTap: () {
-                onSelect(
-                  'medical_discharge_apollo_hospital.pdf',
-                  'Hospital Discharge Summary',
-                  '1.8 MB',
-                );
-                Navigator.pop(ctx);
-              },
-            ),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(
-                Icons.medical_services_rounded,
-                color: Colors.green,
-              ),
-              title: const Text(
-                'Government Hospital Fitness Certificate',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-              ),
-              subtitle: const Text(
-                'gh_medical_fitness_certificate.pdf (1.2 MB)',
-                style: TextStyle(fontSize: 10.5),
-              ),
-              onTap: () {
-                onSelect(
-                  'gh_medical_fitness_certificate.pdf',
-                  'Medical Fitness Certificate (GH)',
-                  '1.2 MB',
-                );
-                Navigator.pop(ctx);
-              },
-            ),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(
-                Icons.emoji_events_rounded,
-                color: Colors.amber,
-              ),
-              title: const Text(
-                'Smart India Hackathon Shortlist Letter',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-              ),
-              subtitle: const Text(
-                'sih_hackathon_finalist_invitation.pdf (2.4 MB)',
-                style: TextStyle(fontSize: 10.5),
-              ),
-              onTap: () {
-                onSelect(
-                  'sih_hackathon_finalist_invitation.pdf',
-                  'SIH Finalist Invitation',
-                  '2.4 MB',
-                );
-                Navigator.pop(ctx);
-              },
-            ),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(
-                Icons.sports_cricket_rounded,
-                color: Colors.blue,
-              ),
-              title: const Text(
-                'Anna University Zonal Sports OD Letter',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-              ),
-              subtitle: const Text(
-                'zonal_sports_board_od_letter.pdf (1.5 MB)',
-                style: TextStyle(fontSize: 10.5),
-              ),
-              onTap: () {
-                onSelect(
-                  'zonal_sports_board_od_letter.pdf',
-                  'Sports Board OD Proof',
-                  '1.5 MB',
-                );
-                Navigator.pop(ctx);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   // ──────────────────── Pink Slip Viewer for All Years and Sections ────────────────────
 
   Widget _buildRecentPinkSlipsHeader() {
-    final leaves = MockDataService.leaveRequests;
+    final leaves = _advisorClassLeaves();
     final pendingCount = leaves
         .where((l) => l.letterStatus == LetterStatus.submitted)
         .length;
@@ -2665,7 +2632,7 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                     ),
                   ),
                   Text(
-                    'Review all 10 sections • Inspect proofs • Accept or Reject',
+                    'Review your assigned class • Accept or Reject',
                     style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -2676,28 +2643,6 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
                 runSpacing: 6,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  ElevatedButton.icon(
-                    onPressed: () => _showForwardAbsenteePinkSlipModal(),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFEC4899),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    icon: const Icon(Icons.add_rounded, size: 15),
-                    label: const Text(
-                      'Forward Slip',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
                   TextButton(
                     onPressed: () =>
                         Navigator.pushNamed(context, '/leave-management'),
@@ -2714,31 +2659,6 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
             ],
           ),
           const SizedBox(height: 10),
-
-          // Section Selector Filter Tabs
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildSectionFilterChip(
-                  'My Class',
-                  'My Class (Yr ${_currentAdvisor.year ?? 2}-${_currentAdvisor.section ?? "A"})',
-                ),
-                const SizedBox(width: 8),
-                _buildSectionFilterChip(
-                  'All 10 Sections',
-                  'All 10 Sections (622)',
-                ),
-                const SizedBox(width: 8),
-                _buildSectionFilterChip('II Year', 'II Year (A-D)'),
-                const SizedBox(width: 8),
-                _buildSectionFilterChip('III Year', 'III Year (A-D)'),
-                const SizedBox(width: 8),
-                _buildSectionFilterChip('IV Year', 'IV Year (A-B)'),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
 
           // Status Filter Tabs
           SingleChildScrollView(
@@ -2816,33 +2736,6 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
     );
   }
 
-  Widget _buildSectionFilterChip(String key, String label) {
-    final isSelected = _pinkSlipSectionFilter == key;
-    return GestureDetector(
-      onTap: () => setState(() => _pinkSlipSectionFilter = key),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF0F172A) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected
-                ? const Color(0xFF0F172A)
-                : const Color(0xFFCBD5E1),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            color: isSelected ? Colors.white : const Color(0xFF475569),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildStatusFilterChip(String label, int count) {
     final isSelected = _pinkSlipStatusFilter == label;
     return GestureDetector(
@@ -2891,21 +2784,21 @@ class _AdvisorDashboardScreenState extends State<AdvisorDashboardScreen> {
     );
   }
 
-  Widget _buildRecentPinkSlips(int year, String section) {
-    var slips = MockDataService.leaveRequests;
+  List<LeaveModel> _advisorClassLeaves() {
+    final year = _currentAdvisor.year;
+    final section = _currentAdvisor.section;
+    if (year == null || section == null) return const [];
+    return MockDataService.leaveRequests
+        .where(
+          (leave) =>
+              leave.year == year &&
+              leave.section?.toUpperCase() == section.toUpperCase(),
+        )
+        .toList();
+  }
 
-    // Filter by Section Scope
-    if (_pinkSlipSectionFilter == 'My Class') {
-      slips = slips
-          .where((l) => l.year == year && l.section == section)
-          .toList();
-    } else if (_pinkSlipSectionFilter == 'II Year') {
-      slips = slips.where((l) => l.year == 2).toList();
-    } else if (_pinkSlipSectionFilter == 'III Year') {
-      slips = slips.where((l) => l.year == 3).toList();
-    } else if (_pinkSlipSectionFilter == 'IV Year') {
-      slips = slips.where((l) => l.year == 4).toList();
-    }
+  Widget _buildRecentPinkSlips() {
+    var slips = _advisorClassLeaves();
 
     // Filter by Status
     if (_pinkSlipStatusFilter == 'Pending Review') {
@@ -3280,6 +3173,7 @@ class _StatCard extends StatelessWidget {
   final String subtitle;
   final IconData icon;
   final Color iconColor;
+  final VoidCallback? onTap;
 
   const _StatCard({
     required this.label,
@@ -3287,11 +3181,15 @@ class _StatCard extends StatelessWidget {
     required this.subtitle,
     required this.icon,
     required this.iconColor,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -3332,6 +3230,7 @@ class _StatCard extends StatelessWidget {
             style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8)),
           ),
         ],
+      ),
       ),
     );
   }
@@ -3469,56 +3368,6 @@ class _PinkSlipTile extends StatelessWidget {
               ),
             ),
           ),
-          if (leave.hasAttachment) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0FDF4),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFBBF7D0)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.picture_as_pdf_rounded,
-                    size: 16,
-                    color: Colors.red,
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      '${leave.attachmentFileName}',
-                      style: const TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                  ),
-                  InkWell(
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (ctx) => LetterAttachmentViewerDialog(
-                          leave: leave,
-                          onForwardToHod: onAcceptAndForward,
-                        ),
-                      );
-                    },
-                    child: const Text(
-                      'Inspect Proof',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF6366F1),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
           if (leave.advisorRemarks != null) ...[
             const SizedBox(height: 6),
             Text(

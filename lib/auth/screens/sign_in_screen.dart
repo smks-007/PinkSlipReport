@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/services/auth_service.dart';
-import '../../core/services/supabase_service.dart';
 import '../../core/utils/responsive_utils.dart';
 
 class SignInScreen extends StatefulWidget {
@@ -120,8 +119,6 @@ class _SignInScreenState extends State<SignInScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isSupabaseConnected = SupabaseService().isInitialized;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: SingleChildScrollView(
@@ -137,60 +134,6 @@ class _SignInScreenState extends State<SignInScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 16),
-
-                    // Supabase Cloud Gateway Badge (REACTIVE — reflects real connection status)
-                    Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isSupabaseConnected
-                              ? const Color(0xFFF0FDF4)
-                              : const Color(0xFFFEF2F2),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: isSupabaseConnected
-                                ? const Color(0xFFBBF7D0)
-                                : const Color(0xFFFECACA),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: isSupabaseConnected
-                                    ? const Color(0xFF16A34A)
-                                    : const Color(0xFFDC2626),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Text(
-                                isSupabaseConnected
-                                    ? '⚡ Supabase Cloud Database & JWT Active'
-                                    : '⚠ Database Offline — Check Connection',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: isSupabaseConnected
-                                      ? const Color(0xFF15803D)
-                                      : const Color(0xFFDC2626),
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
                     const SizedBox(height: 16),
 
                     // Error message banner
@@ -246,7 +189,7 @@ class _SignInScreenState extends State<SignInScreen>
                       controller: _usernameCtrl,
                       decoration: InputDecoration(
                         hintText:
-                            'e.g., hod.manivannan, advisor.anandhan, 25243100',
+                            'Enter your Email',
                         prefixIcon: const Icon(
                           Icons.person_outline_rounded,
                           color: Color(0xFF0284C7),
@@ -431,34 +374,6 @@ class _SignInScreenState extends State<SignInScreen>
                       ),
                     ),
 
-                    const SizedBox(height: 24),
-
-                    // Security footer
-                    Center(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.shield_outlined,
-                            size: 14,
-                            color: Colors.grey.shade500,
-                          ),
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
-                              'Secured by Supabase Auth • AES-256 Encrypted',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey.shade500,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
                     const SizedBox(height: 36),
                   ],
                 ),
@@ -544,7 +459,7 @@ class _SignInScreenState extends State<SignInScreen>
                     ),
                     SizedBox(height: isCompact ? 6 : 12),
                     Text(
-                      'PinkSlipReport',
+                      'Leave Desk',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: isCompact ? 18 : 22,
